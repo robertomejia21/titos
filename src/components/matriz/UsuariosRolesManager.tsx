@@ -203,7 +203,9 @@ function UsuarioModal({
           <p className="mt-1 text-xs text-black/40">
             {usuario?.propio
               ? "No puedes cambiar tu propio rol."
-              : "Sin rol asignado, el usuario conserva exactamente los accesos que tenía antes."}
+              : rolElegido
+                ? rolElegido.descripcion || `Tendrá los permisos definidos en el rol ${rolElegido.nombre}.`
+                : "Sin rol asignado, el usuario conserva exactamente los accesos que tenía antes."}
           </p>
         </FormField>
 
@@ -251,8 +253,8 @@ function UsuarioModal({
               placeholder="••••••"
             />
             <p className="mt-1 text-xs text-amber-700">
-              <strong>{rolElegido?.nombre}</strong> es un rol de encargado de turno. Captura el NIP de 6 dígitos que
-              matriz configuró en Configuración → NIP para crear supervisores.
+              <strong>{rolElegido?.nombre}</strong> es un rol de mando: autoriza cancelaciones y retiros. Captura el
+              NIP de 6 dígitos que matriz configuró en Configuración → NIP para crear supervisores.
             </p>
           </FormField>
         ) : null}

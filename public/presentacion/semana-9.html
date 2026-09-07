@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>DaVinci · Semana 8 · Avances Mercados Titos</title>
+    <title>DaVinci · Semana 9 · Avances Mercados Titos</title>
     <link rel="icon" href="img/logo-davinci.png" />
     <style>
       /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
@@ -562,35 +562,36 @@
         <a href="semana-5.html">Semana 5</a>
         <a href="semana-6.html">Semana 6</a>
         <a href="semana-7.html">Semana 7</a>
-        <a class="actual" href="semana-8.html">Semana 8</a>
-        <a href="semana-9.html">Semana 9</a>
+        <a href="semana-8.html">Semana 8</a>
+        <a class="actual" href="semana-9.html">Semana 9</a>
       </div>
       <div class="nav-links">
         <a href="#resumen">Resumen</a>
-        <a href="#cobros">Cobros dobles</a>
-        <a href="#cobro">Flujo de cobro</a>
-        <a href="#dolares">Dólares</a>
-        <a href="#vales">Vales</a>
+        <a href="#venta">Sin bloqueos</a>
+        <a href="#tarjetas">Tarjetas</a>
         <a href="#tickets">Tickets</a>
-        <a href="#roles">Roles</a>
-        <a href="#bitacora">Bitácora</a>
+        <a href="#encargado">Encargado</a>
+        <a href="#dolares">Dólares</a>
+        <a href="#velocidad">Atajos</a>
+        <a href="#auditoria">Auditoría</a>
       </div>
     </nav>
 
     <header class="portada">
       <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
-      <div><span class="etiqueta">Semana 8 · Entrega de avances</span></div>
-      <h1>Se acabaron los cobros dobles, y el mostrador <em>cobra más rápido</em></h1>
+      <div><span class="etiqueta">Semana 9 · Entrega de avances</span></div>
+      <h1>El mostrador dejó de decir que no</h1>
       <p class="bajada">
-        Nueve de los diez puntos que nos pidieron. El más importante no se ve en pantalla:
-        encontramos por qué la intermitencia de red generaba cobros dobles y lo cerramos de raíz.
+        Diez ajustes, todos aplicados. El de fondo: el punto de venta ya no bloquea una venta
+        porque el sistema traiga el inventario desfasado. Cobra, avisa a compras y deja el rastro
+        para ajustar.
       </p>
 
       <div class="metricas">
-        <div class="metrica"><strong>9</strong><span>Puntos atendidos</span></div>
-        <div class="metrica"><strong>4</strong><span>Pantallas nuevas</span></div>
-        <div class="metrica"><strong>24</strong><span>Pruebas automáticas</span></div>
-        <div class="metrica"><strong>3</strong><span>Fallas detectadas antes de salir</span></div>
+        <div class="metrica"><strong>10</strong><span>Puntos atendidos</span></div>
+        <div class="metrica"><strong>20</strong><span>Pruebas automáticas</span></div>
+        <div class="metrica"><strong>15</strong><span>Capturas del sistema real</span></div>
+        <div class="metrica"><strong>0</strong><span>Puntos en pausa</span></div>
       </div>
     </header>
 
@@ -598,106 +599,105 @@
     <section class="seccion" id="resumen">
       <div class="encabezado revelar">
         <span class="numero">01 · Resumen</span>
-        <h2>Qué se atendió de la lista</h2>
+        <h2>Los diez puntos de esta lista</h2>
         <p>
-          De los diez puntos que nos entregaron, nueve quedaron listos esta semana. El único que
-          falta es el que ustedes pusieron en pausa. Abajo el estado de cada uno, sin adornos.
+          Todos quedaron aplicados y probados sobre el sistema en operación. Abajo el estado de
+          cada uno; más adelante los detallamos con capturas reales.
         </p>
       </div>
 
       <div class="tarjetas">
         <article class="tarjeta revelar">
           <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.9 2.9M16.2 16.2l2.9 2.9M2 12h4M18 12h4M4.9 19.1l2.9-2.9M16.2 7.8l2.9-2.9"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="19" cy="6" r="2.5" fill="currentColor" stroke="none"/></svg>
           </span>
-          <h3>Cobros dobles por la red</h3>
-          <p>Encontramos la causa exacta y la cerramos: ahora una venta reintentada nunca se cobra dos veces, aunque se caiga el internet a media operación.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18"/><path d="m12 5 7 7-7 7"/></svg>
-          </span>
-          <h3>Cobro sin pasos de más</h3>
-          <p>El cajero ya no teclea el monto dos veces. Un botón por forma de pago y, en efectivo, un solo campo que además puede quedar vacío.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
-          </span>
-          <h3>Cobro en dólares</h3>
-          <p>Ya se pueden recibir dólares en billete. El cambio se da en pesos y los dos cajones cuadran por separado en el corte.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 11h20"/></svg>
-          </span>
-          <h3>Vales que se identifican solos</h3>
-          <p>Se pasa la tarjeta y el sistema sabe de qué emisor es. Solo pregunta la primera vez que ve un emisor nuevo.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6"/></svg>
-          </span>
-          <h3>Tickets de venta</h3>
-          <p>Impresión en rollo de 80 mm, con el asterisco junto al nombre de la sucursal cuando la venta entró como nota de venta.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V7z"/><path d="m9 12 2 2 4-4"/></svg>
-          </span>
-          <h3>Usuarios y roles</h3>
-          <p>Una sola pantalla para los usuarios de matriz y de todas las sucursales, y un editor donde se define qué puede hacer cada rol.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="18" cy="19" r="2.5"/></svg>
-          </span>
-          <h3>Bitácora de acciones críticas</h3>
-          <p>Quién canceló, quién devolvió, quién retiró efectivo, quién surtió y quién recibió, todo en una línea de tiempo filtrable.</p>
+          <h3>Vender sin existencia</h3>
+          <p>El producto está en el mostrador y el cliente lo tiene en la mano. Ahora se cobra, y compras recibe el aviso de que ese artículo quedó en cero.</p>
         </article>
 
         <article class="tarjeta revelar">
           <span class="icono">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
           </span>
-          <h3>Alertas de pedidos atorados</h3>
-          <p>El sistema revisa solo qué pedidos pasaron su plazo sin surtirse o sin confirmarse, y avisa por WhatsApp a quien corresponde.</p>
+          <h3>Alerta al área de compras</h3>
+          <p>WhatsApp al momento, el producto entra a las necesidades por ordenar y el faltante queda visible en el tablero de matriz.</p>
         </article>
 
         <article class="tarjeta revelar">
           <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h4M6 14h8"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           </span>
-          <h3>Control de terminales</h3>
-          <p>Cada tienda registra sus terminales bancarias y el corte desglosa lo cobrado por cada una, para cuadrar contra el banco.</p>
+          <h3>Crédito, débito y American Express</h3>
+          <p>Cada cobro con tarjeta dice de qué tipo fue, y el corte los desglosa por separado para cuadrar contra lo que deposita el banco.</p>
         </article>
-      </div>
 
-      <div class="pendientes revelar">
-        <h4>Dos aclaraciones sobre el alcance</h4>
-        <ul>
-          <li><strong>Bloqueo por transferencias pendientes (24 h): en pausa.</strong> Es el único punto que no entró, porque ustedes lo detuvieron mientras se define la regla. Cuando la tengan, la base ya está lista: los pedidos ahora registran la hora exacta en que se surtieron, que era el dato que faltaba.</li>
-          <li><strong>Terminales: control administrativo, no integración bancaria.</strong> Así se acordó. El sistema registra con cuál terminal se cobró y desglosa el corte por terminal; no le habla a la terminal. Una integración real depende del banco y de que el equipo tenga API.</li>
-        </ul>
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+          </span>
+          <h3>Tickets legibles</h3>
+          <p>Se corrigió el 5 y el 6 que salían rotos en la térmica, y los cobros con tarjeta imprimen dos recibos: cliente y comercio.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V7z"/><path d="M12 11v3"/><circle cx="12" cy="8.6" r=".8" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <h3>NIP del encargado de turno</h3>
+          <p>Cada encargado tiene su propio NIP de 6 dígitos. Con él autoriza cancelaciones y retiros, y su nombre queda en la bitácora.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h5M9.5 14.5h5"/></svg>
+          </span>
+          <h3>Tope de dólares</h3>
+          <p>Matriz define hasta qué porcentaje de la venta y hasta cuántos dólares se aceptan. El punto de venta avisa antes de cobrar.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h6v6H4zM14 6h6v6h-6zM4 16h6v4H4zM14 16h6v4h-6z"/></svg>
+          </span>
+          <h3>Atajos de teclado</h3>
+          <p>F2 consulta precio, F4 cobra, F6 retira, F7 corta caja. Un icono de información muestra la lista completa sin salir del punto de venta.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </span>
+          <h3>Buscador en el menú</h3>
+          <p>Se escribe "punto" y el menú se reduce a Punto de venta. Enter entra directo, sin recorrer categorías.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-7h6v7"/></svg>
+          </span>
+          <h3>Alta de sucursales</h3>
+          <p>El usuario de acceso pasó a ser opcional: la tienda se da de alta ahora y su cuenta se crea después.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>
+          </span>
+          <h3>Devoluciones por número</h3>
+          <p>Basta teclear el número del folio, sin el "VTA-" ni los ceros, y la devolución imprime su ticket para el turno.</p>
+        </article>
       </div>
     </section>
 
-    <!-- ── Cobros dobles ────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="cobros">
+    <!-- ── Vender sin existencia ────────────────────────────────────── -->
+    <section class="seccion alterna" id="venta">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">02 · El punto más importante</span>
-          <h2>Por qué se cobraba dos veces (y por qué ya no)</h2>
+          <span class="numero">02 · El cambio de fondo</span>
+          <h2>El sistema ya no le dice "no" a una venta real</h2>
           <p>
-            Este es el único punto de la lista que costaba dinero real, así que lo perseguimos hasta
-            encontrar la causa exacta. No era la señal: era lo que el sistema hacía cuando la señal
-            se caía en el peor momento posible.
+            Este es el punto que más dinero movía de los diez, y el que cambia una regla de
+            criterio, no solo una pantalla.
           </p>
         </div>
 
@@ -705,89 +705,220 @@
           <div class="caso antes">
             <p class="rotulo">Lo que pasaba</p>
             <p class="detalle">
-              El cajero cobra. La venta viaja al servidor y <strong>se registra bien</strong>. Pero
-              justo en ese instante se cae el internet y la confirmación nunca regresa a la caja.
+              El cliente llega a caja con el producto en la mano. El cajero lo escanea y el sistema
+              contesta <strong>"Stock insuficiente"</strong> porque su inventario dice cero.
             </p>
             <p class="detalle">
-              El punto de venta, que no tiene forma de saber que sí llegó, la guarda como
-              "pendiente" y la vuelve a mandar cuando regresa la señal. Resultado:
-              <strong>dos ventas, dos descuentos de inventario y el cliente cobrado dos veces</strong>.
+              El producto existe: está ahí. Lo que estaba mal era el número. Resultado:
+              <strong>se pierde la venta, el cliente se va molesto y el inventario sigue igual de
+              descuadrado</strong>. Negarse no arreglaba nada.
             </p>
           </div>
 
           <div class="caso despues">
             <p class="rotulo">Lo que pasa ahora</p>
             <p class="detalle">
-              Cada cobro nace con un <strong>folio interno de operación</strong> que la caja genera
-              antes de mandar nada y que no cambia entre reintentos.
+              <strong>Se cobra.</strong> El punto de venta avisa en rojo que ese artículo está en
+              cero, pero deja cerrar la venta.
             </p>
             <p class="detalle">
-              Cuando la venta llega por segunda vez, el servidor reconoce ese folio y responde
-              <strong>"esta venta ya la registré"</strong> en lugar de crear otra. El cajero ve su
-              venta normal y nunca se entera de que hubo un problema.
+              La existencia queda en negativo —que es justo la señal de que hay que ajustar— y el
+              área de compras recibe un WhatsApp con el producto, además de que entra solo a las
+              necesidades por ordenar.
+            </p>
+          </div>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="sin-stock" aria-selected="true">Venta con existencia en cero</button>
+            <button role="tab" data-tab="aviso-compras">Aviso a compras</button>
+            <button role="tab" data-tab="tablero">Tablero de matriz</button>
+          </div>
+
+          <div class="lamina visible" data-panel="sin-stock">
+            <figure>
+              <img src="img/s9-pos-sin-stock.png" alt="Punto de venta con un producto sin existencia en el carrito" />
+              <figcaption>
+                <strong>El aviso está, el bloqueo no.</strong> Debajo del artículo se lee
+                "Stock disponible: 0" en rojo, y el botón de cobrar sigue activo. El cajero decide,
+                no el sistema.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="aviso-compras">
+            <figure>
+              <img src="img/s9-config-compras.png" alt="Configuración del aviso a compras por producto agotado" />
+              <figcaption>
+                <strong>Compras tiene su propia lista de WhatsApp.</strong> Quien surte pedidos no
+                es quien compra, así que el aviso no se mezcla con el de pedidos atrasados. Mientras
+                el producto siga agotado no se repite el mensaje: se manda una sola vez por producto
+                y tienda, y se rehabilita cuando entra mercancía.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="tablero">
+            <figure>
+              <img src="img/s9-dashboard-agotados.png" alt="Tablero de matriz con la tarjeta de agotados en piso" />
+              <figcaption>
+                <strong>La red de seguridad.</strong> Si el WhatsApp no sale —servicio caído, número
+                sin capturar— el faltante no se pierde: aparece igual en el tablero de matriz, y los
+                que se vendieron en negativo salen marcados en rojo porque además necesitan ajuste
+                de inventario.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tarjetas ─────────────────────────────────────────────────── -->
+    <section class="seccion" id="tarjetas">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Formas de pago</span>
+        <h2>Crédito, débito y American Express, cada uno por su lado</h2>
+        <p>
+          El banco no deposita igual las tres: el débito cae casi en el acto, el crédito a las
+          24 o 48 horas y American Express va por su propio contrato y con su propia comisión.
+          Con el total junto, el corte cuadra contra la terminal pero no contra la cuenta.
+        </p>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="lamina visible" data-panel="tipo-tarjeta">
+          <figure>
+            <img src="img/s9-pos-tipo-tarjeta.png" alt="Cobro con tarjeta mostrando el selector de crédito, débito y American Express" />
+            <figcaption>
+              <strong>Un toque, sin mirar.</strong> Al elegir tarjeta aparece la botonera con los
+              tres tipos. Es obligatorio marcarlo: sin ese dato el corte no se puede cuadrar contra
+              el depósito. El desglose aparece después en el corte de caja, en el corte global de
+              matriz y en el historial de ventas.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>¿Por qué no se detecta solo?</h4>
+          <p>El número de la tarjeta dice la marca (Visa, Mastercard, Amex), pero <strong>no</strong> dice si es de crédito o de débito. Adivinarlo mandaría el depósito al renglón equivocado, que es peor que preguntarlo.</p>
+        </div>
+        <div class="regla">
+          <h4>Las ventas anteriores no se inventan</h4>
+          <p>Los cobros con tarjeta de antes de este cambio aparecen como "Sin tipo identificado" en el desglose, en vez de asignarles uno a la fuerza.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tickets ──────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="tickets">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · Tickets</span>
+          <h2>El 5 y el 6 ya se leen</h2>
+          <p>
+            Nos reportaron que en el ticket impreso había dígitos que no se distinguían. Fuimos a
+            ver por qué.
+          </p>
+        </div>
+
+        <div class="comparativa revelar">
+          <div class="caso antes">
+            <p class="rotulo">La causa</p>
+            <p class="detalle">
+              El ticket se imprimía en <strong>Courier New a 11 puntos</strong>. Esa tipografía
+              tiene el trazo muy delgado, y a ese tamaño el cabezal térmico se salta puntos: el
+              <strong>5 terminaba pareciendo un 3</strong> y el <strong>6 un 8</strong>.
+            </p>
+            <p class="detalle">
+              Encima, las líneas de detalle estaban en un gris más claro para "verse ligeras". En
+              papel térmico, lo ligero no se ve: se pierde.
+            </p>
+          </div>
+
+          <div class="caso despues">
+            <p class="rotulo">Lo que se cambió</p>
+            <p class="detalle">
+              Tipografía con numerales de trazo grueso y el <strong>6 cerrado</strong>, cuerpo más
+              grande y todo el documento en seminegrita. Los importes se alinean en columna para que
+              no bailen de renglón a renglón.
+            </p>
+            <p class="detalle">
+              Las líneas de detalle ahora <strong>bajan de tamaño pero nunca de peso</strong>:
+              adelgazarlas era justo lo que rompía los dígitos.
             </p>
           </div>
         </div>
 
         <div class="reglas revelar">
           <div class="regla">
-            <h4>Se reintenta antes de rendirse</h4>
-            <p>Ante un corte de red la caja reintenta tres veces por su cuenta. La mayoría de las intermitencias duran segundos y ahora se resuelven solas, sin que el cajero note nada.</p>
+            <h4>Dos recibos cuando se paga con tarjeta</h4>
+            <p>Sale la <strong>copia del cliente</strong> y la <strong>copia del comercio</strong>, esta última con línea de firma. El banco pide el pagaré firmado para defender un contracargo, y ese papel no puede depender de que alguien se acuerde de reimprimir.</p>
           </div>
           <div class="regla">
-            <h4>La protección también cubre la caja</h4>
-            <p>La apertura de caja y los retiros de efectivo llevan la misma protección: un retiro reintentado no saca el dinero dos veces del cajón.</p>
+            <h4>Solo con tarjeta</h4>
+            <p>La venta de contado sigue imprimiendo un solo ticket. Duplicar todas sería tirar el doble de papel en la mayoría de las ventas.</p>
           </div>
           <div class="regla">
-            <h4>Vale también sin internet</h4>
-            <p>Si la venta se queda en la cola para sincronizarse después, viaja con el mismo folio de operación. Al sincronizar tampoco se duplica.</p>
+            <h4>La devolución también imprime</h4>
+            <p>Dos copias: la del cliente y la del turno, con firma y con el día de corte impreso. La del turno se guarda en el cajón y respalda la salida de efectivo.</p>
           </div>
         </div>
-
-        <p class="nota-pie">
-          Durante el desarrollo detectamos que nuestra primera versión de esta protección tenía una
-          falla que habría tirado el punto de venta al segundo cobro del día. La corregimos antes de
-          salir y dejamos una prueba automática para que no vuelva a aparecer.
-        </p>
       </div>
     </section>
 
-    <!-- ── Flujo de cobro ───────────────────────────────────────────── -->
-    <section class="seccion" id="cobro">
+    <!-- ── Encargado de turno ───────────────────────────────────────── -->
+    <section class="seccion" id="encargado">
       <div class="encabezado revelar">
-        <span class="numero">03 · Flujo de cobro</span>
-        <h2>Menos tecleo en la venta de todos los días</h2>
+        <span class="numero">05 · Autorizaciones</span>
+        <h2>Ahora se sabe quién autorizó, no solo que alguien lo hizo</h2>
         <p>
-          Antes, el modal de cobro pedía siempre los cinco montos y luego, aparte, el efectivo
-          recibido. Para la venta más común —todo en efectivo— el cajero terminaba escribiendo el
-          mismo número dos veces. Ahora esa venta se cierra con un botón.
+          Hasta ahora había un solo NIP de supervisor para toda la cadena. Servía para exigir
+          autorización, pero no para saber de quién fue. Cuando un corte no cuadra, eso es
+          exactamente lo que se pregunta.
         </p>
       </div>
 
       <div class="visor revelar" data-visor>
         <div class="pestanas" role="tablist">
-          <button role="tab" data-tab="rapido" aria-selected="true">Cobro rápido</button>
-          <button role="tab" data-tab="mixto">Pago mixto</button>
+          <button role="tab" data-tab="alta-encargado" aria-selected="true">Alta del encargado</button>
+          <button role="tab" data-tab="retiro-nip">Retiro autorizado</button>
+          <button role="tab" data-tab="nip-matriz">Candado de matriz</button>
         </div>
 
-        <div class="lamina visible" data-panel="rapido">
+        <div class="lamina visible" data-panel="alta-encargado">
           <figure>
-            <img src="img/s8-pos-cobro-rapido.png" alt="Modal de cobro en modo rápido, con un botón por forma de pago" />
+            <img src="img/s9-usuarios-encargado.png" alt="Alta de usuario con rol de encargado de turno y sus dos NIP" />
             <figcaption>
-              <strong>Un botón por forma de pago.</strong> El modal abre en efectivo. Si el cliente
-              paga justo, el campo se deja vacío y se cobra con Enter; si paga con un billete grande,
-              se escribe lo recibido y el cambio sale solo.
+              <strong>Dos NIP distintos, a propósito.</strong> El <em>NIP de operaciones</em> es
+              personal del encargado: con él autoriza cancelaciones y retiros. El <em>NIP para crear
+              supervisores</em> lo guarda matriz y es el permiso para nombrarlo. Son distintos
+              porque el primero lo conocen los encargados, y con él no debe poder nombrarse a otro.
             </figcaption>
           </figure>
         </div>
 
-        <div class="lamina" data-panel="mixto">
+        <div class="lamina" data-panel="retiro-nip">
           <figure>
-            <img src="img/s8-pos-cobro-mixto.png" alt="Panel de pago mixto repartiendo el total entre formas de pago" />
+            <img src="img/s9-pos-retiro-nip.png" alt="Retiro de efectivo con la opción de autorizar con el NIP del encargado" />
             <figcaption>
-              <strong>El pago mixto sigue ahí, pero como excepción.</strong> Se abre con un botón y
-              reparte el total entre las formas de pago, con "Completar" para asignar lo que falte.
-              Dejó de ser lo primero que ve el cajero en cada venta.
+              <strong>Sin prestar contraseñas.</strong> El retiro se autoriza con la clave del propio
+              cajero o con el NIP del encargado. La segunda opción es para cuando el encargado
+              autoriza en la caja de alguien más: antes tenía que darle su contraseña al cajero. El
+              retiro queda a nombre de quien lo captura, y la bitácora dice quién lo autorizó.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="nip-matriz">
+          <figure>
+            <img src="img/s9-config-nip-supervisores.png" alt="Configuración del NIP para crear supervisores" />
+            <figcaption>
+              <strong>Nombrar encargados no depende de tener abierta la pantalla.</strong> Sin este
+              NIP configurado, el sistema no deja crear ningún usuario con rol de encargado de turno.
+              Es deliberado: es justo el candado que este punto venía a poner.
             </figcaption>
           </figure>
         </div>
@@ -798,39 +929,42 @@
     <section class="seccion alterna" id="dolares">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">04 · Pagos en dólares</span>
-          <h2>El cajón de dólares ya se puede llenar</h2>
+          <span class="numero">06 · Dólares</span>
+          <h2>Hasta cuántos dólares se aceptan, y a qué tipo de cambio</h2>
           <p>
-            El sistema ya llevaba el fondo en dólares, los retiros en dólares y la diferencia al
-            cerrar. Faltaba lo principal: <strong>no se podía cobrar en dólares</strong>. Era un
-            cajón que solo se podía vaciar.
+            Dos ajustes que se revisan juntos: quien mueve el tipo de cambio es quien decide cuántos
+            billetes verdes aguanta la caja ese día. Por eso quedaron en la misma pantalla, uno
+            debajo del otro.
           </p>
         </div>
 
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
-            <button role="tab" data-tab="cobro-usd" aria-selected="true">Cobrar en dólares</button>
-            <button role="tab" data-tab="reglas-usd">Reglas configurables</button>
+            <button role="tab" data-tab="topes" aria-selected="true">Topes de aceptación</button>
+            <button role="tab" data-tab="tipo-cambio">Tipo de cambio</button>
           </div>
 
-          <div class="lamina visible" data-panel="cobro-usd">
+          <div class="lamina visible" data-panel="topes">
             <figure>
-              <img src="img/s8-pos-dolares.png" alt="Cobro en dólares con el equivalente en pesos y el cambio calculado" />
+              <img src="img/s9-config-topes-dolares.png" alt="Configuración de los topes de aceptación de dólares" />
               <figcaption>
-                <strong>Se capturan los billetes, no el equivalente.</strong> El cajero escribe
-                cuántos dólares recibió y el sistema calcula el resto: cuánto cubre de la venta y
-                cuánto cambio hay que devolver <em>en pesos</em>.
+                <strong>Dos topes independientes, los dos se aplican.</strong> El
+                <em>porcentaje</em> protege el ticket grande: con 40%, una venta de $1,000 admite
+                como máximo $400 en dólares. El <em>monto en USD</em> protege el cajón: limita
+                cuántos billetes se acumulan en un solo cobro. Gana el que se alcance primero, y la
+                línea gris de abajo dice en español cómo queda la política.
               </figcaption>
             </figure>
           </div>
 
-          <div class="lamina" data-panel="reglas-usd">
+          <div class="lamina" data-panel="tipo-cambio">
             <figure>
-              <img src="img/s8-configuracion-dolares.png" alt="Configuración de las reglas de pago en dólares" />
+              <img src="img/s9-config-tipo-cambio.png" alt="Tipo de cambio con el sello de última actualización" />
               <figcaption>
-                <strong>Hoy se aceptan todos los billetes</strong>, como nos indicaron. La regla
-                quedó configurable: el día que decidan no recibir cierta denominación, se pone el
-                tope aquí y el punto de venta le avisa al cajero, sin tocar el sistema.
+                <strong>Con fecha de última actualización.</strong> Un tipo de cambio de hace tres
+                semanas regala mercancía y nadie se entera hasta el corte. Ahora se ve quién lo movió
+                y cuándo. Cada venta se queda con el tipo de cambio que tenía al cobrarse, así que
+                cambiarlo hoy no descuadra el corte de ayer.
               </figcaption>
             </figure>
           </div>
@@ -838,308 +972,173 @@
 
         <div class="reglas revelar">
           <div class="regla">
-            <h4>El tipo de cambio lo pone el servidor</h4>
-            <p>Nunca la caja. Así nadie puede alterar la conversión desde el navegador para llevarse mercancía con unos cuantos dólares.</p>
+            <h4>No se puede saltar desde el navegador</h4>
+            <p>El punto de venta avisa al cajero antes de cobrar, pero el servidor vuelve a aplicar los dos topes. Quien manda es el servidor.</p>
           </div>
           <div class="regla">
-            <h4>Se congela al momento del cobro</h4>
-            <p>Cada venta guarda el tipo de cambio con el que se cobró. Si mañana cambia, el corte de hoy sigue cuadrando exactamente igual.</p>
-          </div>
-          <div class="regla">
-            <h4>Los dos cajones cuadran aparte</h4>
-            <p>Los billetes de dólar entran al cajón de dólares y el cambio sale del de pesos. El corte descuenta ese cambio, que si no se restaba aparecía como faltante.</p>
+            <h4>Probado con 12 casos</h4>
+            <p>Incluidos los bordes: 100 USD justos pasan, 101 no; y medio centavo de redondeo no rebota una venta legítima.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── Vales ────────────────────────────────────────────────────── -->
-    <section class="seccion" id="vales">
+    <!-- ── Velocidad ────────────────────────────────────────────────── -->
+    <section class="seccion" id="velocidad">
       <div class="encabezado revelar">
-        <span class="numero">05 · Vales de despensa</span>
-        <h2>La tarjeta dice sola de quién es</h2>
+        <span class="numero">07 · Velocidad de operación</span>
+        <h2>Menos vueltas para llegar a lo mismo</h2>
         <p>
-          Nos pidieron que el sistema identificara las tarjetas de vales sin intervención manual.
-          Lo logramos, pero con una vuelta que vale la pena explicar, porque cambia lo que van a
-          ver el primer día.
+          Tres cambios chicos que se notan todo el día: atajos en el punto de venta, consulta de
+          precio que puede terminar en venta, y un buscador para el menú.
         </p>
       </div>
 
       <div class="visor revelar" data-visor>
         <div class="pestanas" role="tablist">
-          <button role="tab" data-tab="reconocida" aria-selected="true">Tarjeta reconocida</button>
-          <button role="tab" data-tab="nueva">Emisor nuevo</button>
-          <button role="tab" data-tab="catalogo">Catálogo de emisores</button>
+          <button role="tab" data-tab="atajos" aria-selected="true">Atajos de teclado</button>
+          <button role="tab" data-tab="precio">Consulta de precio (F2)</button>
+          <button role="tab" data-tab="buscador">Buscador del menú</button>
         </div>
 
-        <div class="lamina visible" data-panel="reconocida">
+        <div class="lamina visible" data-panel="atajos">
           <figure>
-            <img src="img/s8-pos-vales-reconocida.png" alt="Tarjeta de vales identificada automáticamente por su BIN" />
+            <img src="img/s9-pos-atajos.png" alt="Modal con la lista de atajos de teclado del punto de venta" />
             <figcaption>
-              <strong>Se pasa la tarjeta y listo.</strong> El sistema la lee, la identifica por su
-              BIN y muestra el emisor y la terminación. El cajero no elige nada.
+              <strong>La lista está a un clic, en el icono de información.</strong> En el mostrador
+              nadie se aprende seis teclas de memoria, pero sí se acuerda de dónde verlas. Se
+              eligieron teclas de función porque se opera con una mano en el lector y la otra en el
+              teclado; se evitaron F1, F3, F5 y F12 porque el navegador se las queda antes.
             </figcaption>
           </figure>
         </div>
 
-        <div class="lamina" data-panel="nueva">
+        <div class="lamina" data-panel="precio">
           <figure>
-            <img src="img/s8-pos-vales-nueva.png" alt="Tarjeta de un emisor todavía no registrado, preguntando de quién es" />
+            <img src="img/s9-pos-precio-f2.png" alt="Consulta de precio con la opción de agregar el producto al carrito" />
             <figcaption>
-              <strong>Solo la primera vez.</strong> Cuando aparece un emisor que el sistema nunca ha
-              visto, pregunta una vez de quién es. A partir de ahí, todas las tarjetas de ese emisor
-              se reconocen solas.
+              <strong>Consulta rápida, o venta.</strong> F2 abre la consulta; si el cliente dice
+              "sí, dame dos", se captura la cantidad y se agrega sin cerrar y volver a escanear. Si
+              solo preguntaba, "Solo consulta" cierra sin tocar el carrito. El precio se muestra
+              también en dólares.
             </figcaption>
           </figure>
         </div>
 
-        <div class="lamina" data-panel="catalogo">
+        <div class="lamina" data-panel="buscador">
           <figure>
-            <img src="img/s8-matriz-vales.png" alt="Pantalla de emisores de vales con los BIN aprendidos" />
+            <img src="img/s9-menu-buscador.png" alt="Buscador del menú lateral filtrando por la palabra punto" />
             <figcaption>
-              <strong>Matriz ve lo que el sistema ya aprendió.</strong> Los cinco emisores grandes
-              vienen dados de alta y cada BIN se va sumando conforme se usan. También se pueden
-              agregar emisores nuevos.
+              <strong>Escribir "punto" y Enter.</strong> El menú se reduce a lo que coincide y Enter
+              entra al primer resultado. Busca sin acentos y por palabras sueltas, así que
+              "actualizacion" encuentra "Actualización de precios", y también busca por categoría:
+              "catalogos" lista todo lo que cuelga de ahí.
             </figcaption>
           </figure>
         </div>
-      </div>
-
-      <div class="pendientes revelar">
-        <h4>Por qué el sistema aprende en vez de venir precargado</h4>
-        <ul>
-          <li>No existe un catálogo público y confiable de qué BIN pertenece a cada emisor mexicano. Pudimos haber cargado una lista aproximada, pero <strong>una tarjeta mal clasificada se le cobra al emisor equivocado</strong>, y eso es peor que no clasificarla.</li>
-          <li>Por eso el sistema pregunta una sola vez por emisor. En la práctica son cinco preguntas en toda la operación, y de ahí en adelante es automático.</li>
-          <li>Del plástico se guardan <strong>solo el BIN y los últimos 4 dígitos</strong>. El número completo nunca se almacena.</li>
-          <li>El corte de caja ya desglosa los vales <strong>por emisor</strong>, que es lo que se necesita para cobrarle a cada uno por separado.</li>
-        </ul>
       </div>
     </section>
 
-    <!-- ── Tickets ──────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="tickets">
+    <!-- ── Auditoría ────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="auditoria">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">06 · Tickets de venta</span>
-          <h2>El ticket, y el asterisco que pidieron</h2>
+          <span class="numero">08 · Auditoría y catálogos</span>
+          <h2>La bitácora dice qué producto, cuánto y a qué hora</h2>
           <p>
-            El sistema ya imprimía pedidos y órdenes de compra en tamaño carta, pero no había ticket
-            de venta. Ahora sale en rollo de 80 mm, en monoespaciada y sin color, que es lo que
-            entiende una impresora térmica.
-          </p>
-        </div>
-
-        <div class="ticket-demo revelar">
-          <div class="ticket">
-            <p class="t-centro t-titulo">MERCADOS TITOS</p>
-            <p class="t-centro t-suc">Sucursal JR</p>
-            <p class="t-sep"></p>
-            <p class="t-fila"><span>Folio</span><span>VTA-000148</span></p>
-            <p class="t-fila"><span>Atendió</span><span>Encargado JR</span></p>
-            <p class="t-sep"></p>
-            <p>Aderezo Wish-Bone Italian</p>
-            <p class="t-fila t-tenue"><span>1 pieza x $85.00</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-fila t-fuerte"><span>TOTAL</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-fila"><span>Efectivo</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-centro t-tenue">¡Gracias por su compra!</p>
-          </div>
-
-          <div class="ticket">
-            <p class="t-centro t-titulo">MERCADOS TITOS</p>
-            <p class="t-centro t-suc">Sucursal JR <span class="t-ast">*</span></p>
-            <p class="t-sep"></p>
-            <p class="t-fila"><span>Folio</span><span>V2-000012</span></p>
-            <p class="t-fila"><span>Atendió</span><span>Encargado JR</span></p>
-            <p class="t-sep"></p>
-            <p>Aderezo Wish-Bone Italian</p>
-            <p class="t-fila t-tenue"><span>1 pieza x $85.00</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-fila t-fuerte"><span>TOTAL</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-fila"><span>Efectivo</span><span>$85.00</span></p>
-            <p class="t-sep"></p>
-            <p class="t-centro t-tenue">¡Gracias por su compra!</p>
-          </div>
-        </div>
-
-        <p class="ticket-pie revelar">
-          A la izquierda una venta normal. A la derecha, una que entró por el protocolo de
-          <strong>Notas de venta</strong>: lleva el asterisco junto al nombre de la sucursal, tal
-          como lo pidieron, y su propia serie de folio.
-        </p>
-
-        <div class="reglas revelar">
-          <div class="regla">
-            <h4>Se reimprime cuando haga falta</h4>
-            <p>Desde el historial de ventas se vuelve a imprimir el mismo ticket, sin tener que rehacer nada.</p>
-          </div>
-          <div class="regla">
-            <h4>Detalla la forma de pago</h4>
-            <p>Si pagó en dólares, el ticket dice cuántos entregó y a qué tipo de cambio. Si pagó con tarjeta, con cuál terminal. Si pagó con vales, de qué emisor.</p>
-          </div>
-          <div class="regla">
-            <h4>Una salvedad honesta</h4>
-            <p>Un ticket impreso sin internet no lleva asterisco: esa regla solo la puede decidir el servidor. Al reimprimirlo ya sincronizado, aparece.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Roles ────────────────────────────────────────────────────── -->
-    <section class="seccion" id="roles">
-      <div class="encabezado revelar">
-        <span class="numero">07 · Usuarios y roles</span>
-        <h2>Un solo lugar para decidir quién puede qué</h2>
-        <p>
-          Hasta ahora los usuarios estaban repartidos: los de matriz solo se podían crear por
-          programa, cada sucursal administraba los suyos por separado, y los permisos eran dos
-          perfiles fijos que no se podían cambiar. Todo eso quedó en una pantalla.
-        </p>
-      </div>
-
-      <div class="visor revelar" data-visor>
-        <div class="pestanas" role="tablist">
-          <button role="tab" data-tab="usuarios" aria-selected="true">Todos los usuarios</button>
-          <button role="tab" data-tab="alta">Alta de usuario</button>
-          <button role="tab" data-tab="roles-lista">Roles</button>
-          <button role="tab" data-tab="permisos">Editor de permisos</button>
-        </div>
-
-        <div class="lamina visible" data-panel="usuarios">
-          <figure>
-            <img src="img/s8-matriz-usuarios.png" alt="Pantalla unificada de usuarios de matriz y sucursales" />
-            <figcaption>
-              <strong>Matriz y todas las sucursales en una lista.</strong> Se ve dónde trabaja cada
-              quien y con qué rol. Los usuarios que ya existían aparecen con su perfil heredado y
-              conservan exactamente los accesos que tenían.
-            </figcaption>
-          </figure>
-        </div>
-
-        <div class="lamina" data-panel="alta">
-          <figure>
-            <img src="img/s8-matriz-usuario-alta.png" alt="Alta de un usuario nuevo con sucursal y rol" />
-            <figcaption>
-              <strong>Alta desde matriz, para cualquier sucursal.</strong> Se elige si el usuario es
-              de matriz o de sucursal, en cuál, y con qué rol entra.
-            </figcaption>
-          </figure>
-        </div>
-
-        <div class="lamina" data-panel="roles-lista">
-          <figure>
-            <img src="img/s8-matriz-roles.png" alt="Listado de roles con su cantidad de permisos" />
-            <figcaption>
-              <strong>Tres roles vienen listos</strong> y reproducen los perfiles con los que ya
-              venían operando. A partir de ahí se pueden crear los que necesiten.
-            </figcaption>
-          </figure>
-        </div>
-
-        <div class="lamina" data-panel="permisos">
-          <figure>
-            <img src="img/s8-matriz-rol-permisos.png" alt="Editor de permisos de un rol con casillas por acción" />
-            <figcaption>
-              <strong>Permiso por permiso, en español.</strong> Este "Encargado de turno" puede
-              cobrar y atender clientes, pero no cancelar ventas ni retirar efectivo. Lo que el rol
-              no incluye desaparece del menú <em>y</em> lo rechaza el servidor.
-            </figcaption>
-          </figure>
-        </div>
-      </div>
-
-      <p class="nota-pie">
-        Ocultar una opción no es protegerla: aunque alguien escriba la dirección a mano, el sistema
-        lo regresa a su inicio y la operación se rechaza con el nombre del permiso que le falta.
-      </p>
-    </section>
-
-    <!-- ── Bitácora y alertas ───────────────────────────────────────── -->
-    <section class="seccion alterna" id="bitacora">
-      <div class="interior">
-        <div class="encabezado revelar">
-          <span class="numero">08 · Control y seguimiento</span>
-          <h2>Quién hizo qué, y qué se está atorando</h2>
-          <p>
-            El sistema ya guardaba quién hacía cada acción crítica, pero repartido en cinco lugares
-            distintos: no había forma de responder "¿qué hizo esta persona el martes?" sin abrir
-            cinco pantallas.
+            Antes una cancelación parcial se leía "Quitó un producto del carrito" y un importe. Con
+            eso no se distingue un error de captura de alguien vaciando el carrito a propósito.
           </p>
         </div>
 
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
             <button role="tab" data-tab="bitacora-vista" aria-selected="true">Bitácora</button>
-            <button role="tab" data-tab="alertas">Alertas de pedidos</button>
-            <button role="tab" data-tab="terminales">Terminales de pago</button>
+            <button role="tab" data-tab="devolucion">Devolución por número</button>
+            <button role="tab" data-tab="sucursal">Alta de sucursal</button>
           </div>
 
           <div class="lamina visible" data-panel="bitacora-vista">
             <figure>
-              <img src="img/s8-matriz-bitacora.png" alt="Bitácora unificada de acciones críticas" />
+              <img src="img/s9-bitacora.png" alt="Bitácora mostrando el nombre del producto, la cantidad y la hora" />
               <figcaption>
-                <strong>Seis tipos de acción en una línea de tiempo:</strong> cancelaciones,
-                devoluciones, retiros de efectivo, surtidos, recepciones y préstamos. Filtrable por
-                fecha, sucursal, usuario y tipo.
+                <strong>"Quitó ACEITE CRISTAL MAIZ 1LT x 1 pieza".</strong> El renglón dice el
+                producto y la cantidad, la hora va en grande sobre la fecha —al auditar, lo primero
+                que se cruza es contra el turno— y abajo se desglosan los artículos. También se lee
+                quién autorizó: con NIP personal aparece el nombre; sin NIP, queda marcado como tal.
               </figcaption>
             </figure>
           </div>
 
-          <div class="lamina" data-panel="alertas">
+          <div class="lamina" data-panel="devolucion">
             <figure>
-              <img src="img/s8-configuracion-alertas.png" alt="Configuración de las alertas de pedidos atrasados" />
+              <img src="img/s9-devolucion-folio.png" alt="Búsqueda de una venta para devolución tecleando solo el número de folio" />
               <figcaption>
-                <strong>El sistema revisa solo qué se atoró.</strong> Los pedidos que matriz no surtió
-                en el plazo avisan a los números que ustedes definan; los que la sucursal no ha
-                confirmado avisan a esa sucursal. De cada pedido se avisa una sola vez.
+                <strong>Se teclea "3" y encuentra la VTA-000003.</strong> Sin el prefijo ni los
+                ceros, que es como se dictan los folios en el mostrador. Se buscan folios exactos y
+                no por coincidencia parcial, para que el 123 no traiga también el 1234. (En la
+                captura la venta es de hace días, por eso avisa que está fuera de las 48 horas: esa
+                regla no cambió.)
               </figcaption>
             </figure>
           </div>
 
-          <div class="lamina" data-panel="terminales">
+          <div class="lamina" data-panel="sucursal">
             <figure>
-              <img src="img/s8-matriz-terminales.png" alt="Registro de terminales bancarias por sucursal" />
+              <img src="img/s9-sucursal-alta.png" alt="Alta de sucursal con el usuario de acceso ahora opcional" />
               <figcaption>
-                <strong>Cada tienda registra sus terminales.</strong> Al cobrar con tarjeta el cajero
-                elige con cuál pasó la venta, y el corte desglosa lo cobrado por terminal: es lo que
-                permite cuadrar cada depósito contra el estado de cuenta del banco.
+                <strong>El usuario de acceso pasó a ser opcional.</strong> Antes el botón de crear
+                se quedaba apagado si no se capturaban correo y contraseña, sin decir por qué. Dar de
+                alta la tienda y decidir quién la va a operar son dos momentos distintos. También se
+                hizo más visible el inactivar, que es la salida para una tienda que ya tiene ventas
+                y por eso no se puede borrar.
               </figcaption>
             </figure>
           </div>
         </div>
+      </div>
+    </section>
 
-        <div class="reglas revelar">
-          <div class="regla">
-            <h4>Ya se registra quién surtió</h4>
-            <p>Los pedidos ahora guardan quién los surtió y quién confirmó la recepción, con la hora exacta. Antes solo se podía deducir cruzando movimientos de inventario.</p>
-          </div>
-          <div class="regla">
-            <h4>Si el aviso falla, se reintenta</h4>
-            <p>Un pedido solo se da por avisado cuando el mensaje realmente salió. Si WhatsApp está caído, se vuelve a intentar en la siguiente revisión.</p>
-          </div>
-          <div class="regla">
-            <h4>Base lista para el bloqueo de 24 h</h4>
-            <p>La hora de surtido que ahora se registra es justo el dato que faltaba para el punto que dejaron en pausa. Cuando definan la regla, se implementa sobre esto.</p>
-          </div>
+    <!-- ── Nota de alcance ──────────────────────────────────────────── -->
+    <section class="seccion" id="alcance">
+      <div class="encabezado revelar">
+        <span class="numero">09 · Una aclaración</span>
+        <h2>Sobre el punto de configurar sucursales</h2>
+      </div>
+
+      <div class="pendientes revelar">
+        <h4>Revisamos su base antes de tocar nada</h4>
+        <ul>
+          <li><strong>No era un problema de permisos.</strong> Corrimos un diagnóstico de solo lectura contra su base: el usuario administrador de matriz tiene acceso completo, incluido el de administrar catálogos. Descartado.</li>
+          <li><strong>Lo que sí encontramos.</strong> El botón "Crear sucursal" se quedaba apagado mientras no se capturaran correo y contraseña del usuario de acceso, y no decía por qué. Eso se corrigió: el usuario ahora es opcional.</li>
+          <li><strong>Si el problema era otro.</strong> Quedamos atentos: si al intentarlo ven un mensaje distinto, o la pantalla no aparece en el menú, díganos exactamente qué pasa y lo atacamos directo. También dejamos la validación de permisos explícita, para que el día que sí falte uno, el error diga cuál en vez de fallar en silencio.</li>
+        </ul>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Dos pasos al desplegar</h4>
+          <p>Entrar una vez a <strong>Usuarios y roles</strong> para que se cree el rol "Encargado de turno", y capturar en <strong>Configuración</strong> el WhatsApp del área de compras y el NIP para crear supervisores.</p>
+        </div>
+        <div class="regla">
+          <h4>El rol "Supervisor" que ya existía</h4>
+          <p>Está en su sistema pero no marcado como rol de mando. Si quieren que sus usuarios lleven NIP personal, basta marcarlo en el editor de roles.</p>
         </div>
       </div>
     </section>
 
     <section class="cierre">
       <img src="img/logo-davinci.png" alt="DaVinci" />
-      <h2>Nueve de diez, funcionando</h2>
+      <h2>Diez de diez</h2>
       <p>
-        Todo lo de esta semana está sobre el sistema en operación y probado contra su base real.<br />
-        El único punto pendiente es el bloqueo de 24 horas, que ustedes pusieron en pausa.
+        Todo lo de esta semana está sobre el sistema en operación.<br />
+        Las capturas de esta presentación son de su instalación real, no de un demo.
       </p>
-      <p><a class="boton-semana" href="semana-7.html">← Repasar la semana 7</a></p>
+      <p><a class="boton-semana" href="semana-8.html">← Repasar la semana 8</a></p>
     </section>
 
     <footer class="pie">
-      DaVinci · Presentación de avances para Mercados Titos · Semana 8
+      DaVinci · Presentación de avances para Mercados Titos · Semana 9
       <span id="fecha"></span>
     </footer>
 

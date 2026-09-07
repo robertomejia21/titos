@@ -108,7 +108,7 @@ const ACCIONES = {
       await page.waitForTimeout(700);
     }
 
-    await page.locator('button[title="Cobrar"]').click();
+    await page.locator('button[title^="Cobrar"]').click();
     await page.getByText(/Total a pagar/).first().waitFor({ timeout: 8000 });
 
     // Si la sucursal ya tiene clientes dados de alta, se elige uno para que la
@@ -215,7 +215,7 @@ const ACCIONES = {
   /** Modal de cobro sin capturar nada: se ven las cinco formas de pago. */
   async formasDePago(page) {
     if (!(await ACCIONES.cargarCarrito(page))) return;
-    await page.locator('button[title="Cobrar"]').click();
+    await page.locator('button[title^="Cobrar"]').click();
     await page.getByText(/Total a pagar/).first().waitFor({ timeout: 8000 });
     await page.waitForTimeout(700);
   },
@@ -224,7 +224,7 @@ const ACCIONES = {
   async cobroConVales(page) {
     if (!(await ACCIONES.cargarCarrito(page))) return;
 
-    await page.locator('button[title="Cobrar"]').click();
+    await page.locator('button[title^="Cobrar"]').click();
     await page.getByText(/Total a pagar/).first().waitFor({ timeout: 8000 });
 
     // Se reparte el cobro para que se vea el pago mixto con vales.
@@ -274,7 +274,7 @@ const ACCIONES = {
   /** Cobro rápido: el modal abre en efectivo con un solo campo. */
   async cobroRapido(page) {
     if (!(await ACCIONES.cargarCarrito(page))) return;
-    await page.locator('button[title="Cobrar"]').click();
+    await page.locator('button[title^="Cobrar"]').click();
     await page.getByText(/Total a pagar/).first().waitFor({ timeout: 8000 });
     await page.waitForTimeout(800);
   },
@@ -359,6 +359,181 @@ const ACCIONES = {
     await page.waitForTimeout(800);
   },
 
+  // ── Semana 9 ────────────────────────────────────────────────────────
+
+  /** Producto SIN existencia en el carrito: el POS avisa pero deja cobrar. */
+  async carritoSinExistencia(page) {
+    // Se busca en el catálogo un producto activo cuya existencia sea cero, que
+    // es justo el caso que antes bloqueaba la venta.
+    const agotado = await page.evaluate(async () => {
+      const res = await fetch("/api/productos");
+      if (!res.ok) return null;
+      const productos = await res.json();
+      const sinStock = productos.find((p) => (p.existenciaMatriz ?? 0) <= 0 && !p.requierePesaje);
+      return sinStock ? sinStock.nombre : null;
+    });
+    if (!agotado) return;
+
+    const termino = agotado.split(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+/).find((t) => t.length >= 4) ?? agotado;
+    await page.getByPlaceholder(/Buscar por nombre o SKU/i).fill(termino);
+    const opcion = page.locator("div.absolute.z-10 button").first();
+    await opcion.waitFor({ timeout: 8000 });
+    await opcion.click();
+    await page.waitForTimeout(900);
+  },
+
+  /** Cobro con tarjeta: se ve el selector de crédito / débito / American Express. */
+  async cobroTarjetaTipo(page) {
+    if (!(await ACCIONES.cargarCarrito(page))) return;
+    await page.locator('button[title^="Cobrar"]').click();
+    await page.getByText(/Total a pagar/).first().waitFor({ timeout: 8000 });
+    await page.getByRole("button", { name: "Tarjeta", exact: true }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole("button", { name: "Débito", exact: true }).click();
+    await page.waitForTimeout(700);
+  },
+
+  /** Lista de atajos de teclado del punto de venta. */
+  async verAtajos(page) {
+    await page.getByRole("button", { name: /Ver los atajos de teclado/i }).click();
+    await page.getByText(/Atajos del punto de venta/i).first().waitFor({ timeout: 8000 });
+    await page.waitForTimeout(700);
+  },
+
+  /** F2: consulta de precio con la opción de pasar el producto al carrito. */
+  async consultaPrecioF2(page) {
+    await page.keyboard.press("F2");
+    await page.getByText(/Consultar precio/i).first().waitFor({ timeout: 8000 });
+
+    // Se consulta un SKU real del catálogo para que la ficha traiga datos.
+    const sku = await page.evaluate(async () => {
+      const res = await fetch("/api/productos");
+      if (!res.ok) return "";
+      const productos = await res.json();
+      return productos[0]?.sku ?? "";
+    });
+    if (!sku) return;
+
+    // El POS tiene su propio lector con un placeholder parecido; se acota al
+    // campo que vive dentro del modal de consulta.
+    await page.getByPlaceholder("Escanea o escribe el código del producto").fill(sku);
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
+    await page.waitForTimeout(900);
+  },
+
+  /** Retiro de efectivo con la opción de autorizar con el NIP del encargado. */
+  async retiroConNip(page) {
+    await page.keyboard.press("F6");
+    await page.getByText(/Retirar efectivo/i).first().waitFor({ timeout: 8000 });
+    await page.getByRole("button", { name: /Con NIP del encargado/i }).click();
+    await page.waitForTimeout(700);
+  },
+
+  /**
+   * Campo de un formulario a partir del texto de su etiqueta.
+   *
+   * `FormField` pinta la etiqueta como hermana del control, no envolviéndolo,
+   * así que `getByLabel` no los relaciona: se sube al contenedor y de ahí se
+   * baja al input.
+   */
+  campoPorEtiqueta(page, etiqueta) {
+    return page
+      .locator("label", { hasText: etiqueta })
+      .first()
+      .locator("xpath=..")
+      .locator("input")
+      .first();
+  },
+
+  /** Deja el bloque pegado a la parte de arriba de la ventana. */
+  async llevarArriba(page, texto) {
+    await page
+      .getByText(texto)
+      .first()
+      .evaluate((el) => el.scrollIntoView({ block: "start", behavior: "instant" }));
+    await page.waitForTimeout(500);
+  },
+
+  /**
+   * Topes de dólares con valores de ejemplo escritos en el formulario.
+   * NO se guarda: solo se llenan los campos para que la captura muestre cómo
+   * queda la política, sin tocar la configuración real de la tienda.
+   */
+  async topesDolares(page) {
+    await ACCIONES.llevarArriba(page, /Límite de aceptación de dólares/i);
+    await ACCIONES.campoPorEtiqueta(page, /Porcentaje máximo del total de la venta/i)
+      .fill("40")
+      .catch(() => {});
+    await ACCIONES.campoPorEtiqueta(page, /Monto máximo en dólares por venta/i)
+      .fill("200")
+      .catch(() => {});
+    await page.waitForTimeout(800);
+  },
+
+  /** Bloque del aviso a compras por producto agotado. */
+  async avisoCompras(page) {
+    await ACCIONES.llevarArriba(page, /Aviso a compras por producto agotado/i);
+    await page.waitForTimeout(400);
+  },
+
+  /** Tarjeta del NIP con el que se autoriza crear encargados de turno. */
+  async nipCrearSupervisores(page) {
+    await ACCIONES.llevarArriba(page, /NIP para crear supervisores/i);
+    await page.waitForTimeout(400);
+  },
+
+  /** Tipo de cambio con el sello de quién lo actualizó y cuándo. */
+  async tipoCambioSellado(page) {
+    await ACCIONES.llevarArriba(page, /Días y horario laborales/i);
+    await page.waitForTimeout(400);
+  },
+
+  /** Alta de usuario con rol de encargado de turno: se piden los dos NIP. */
+  async altaEncargado(page) {
+    await page.getByRole("button", { name: /Nuevo usuario/i }).click();
+    await page.getByText(/Tipo de usuario/i).first().waitFor({ timeout: 8000 });
+
+    const selectRol = page.locator("select").filter({ hasText: /Perfil heredado/ }).first();
+    await selectRol.selectOption({ label: "Encargado de turno" }).catch(() => {});
+    await page.waitForTimeout(900);
+  },
+
+  /** Buscador del menú: se teclea "punto" y el menú se reduce a esa entrada. */
+  async buscadorMenu(page) {
+    const buscador = page.getByPlaceholder(/Buscar en el menú/i);
+    await buscador.fill("punto");
+    await page.waitForTimeout(700);
+  },
+
+  /** Alta de sucursal: el usuario de acceso quedó como opcional. */
+  async altaSucursal(page) {
+    await page.getByRole("button", { name: /Nueva sucursal/i }).click();
+    await page.getByText(/Usuario de acceso de la sucursal/i).first().waitFor({ timeout: 8000 });
+    await page.getByLabel(/Nombre de la sucursal/i).fill("Sucursal Otay").catch(() => {});
+    await page.waitForTimeout(700);
+  },
+
+  /** Devolución buscada con el número pelón, sin el prefijo VTA-. */
+  async devolucionPorNumero(page) {
+    // Se toma el folio de una venta REAL DEL MOSTRADOR (las de otras sucursales
+    // no se pueden devolver aquí) y se teclea solo su número, sin el "VTA-".
+    const numero = await page.evaluate(async () => {
+      const res = await fetch("/api/ventas");
+      if (!res.ok) return "";
+      const ventas = await res.json();
+      const propia = ventas.find(
+        (v) => /matriz/i.test(v?.sucursalId?.nombre ?? "") && v.estado === "completada"
+      );
+      const digitos = String(propia?.folio ?? "").match(/(\d+)$/);
+      return digitos ? String(Number(digitos[1])) : "";
+    });
+    if (!numero) return;
+
+    await page.getByPlaceholder(/Número de folio/i).fill(numero);
+    await page.getByRole("button", { name: /Buscar venta/i }).click();
+    await page.waitForTimeout(1500);
+  },
+
   /** Marca la casilla que deja el protocolo de notas de venta sin fecha de fin. */
   async activacionIndefinida(page) {
     const casilla = page.locator("label", { hasText: /Indefinido/ }).locator('input[type="checkbox"]');
@@ -421,6 +596,25 @@ const PANTALLAS = [
   ["s8-pos-dolares", "/sucursal", "sucursal", "cobroDolares", 8],
   ["s8-pos-vales-reconocida", "/sucursal", "sucursal", "valesReconocida", 8],
   ["s8-pos-vales-nueva", "/sucursal", "sucursal", "valesNueva", 8],
+
+  // Semana 9. Todas se toman con la cuenta de matriz: el mostrador de matriz es
+  // el mismo punto de venta que el de una sucursal, así que no hace falta una
+  // segunda cuenta para ilustrarlo.
+  ["s9-pos-tipo-tarjeta", "/matriz/mostrador", "matriz", "cobroTarjetaTipo", 9],
+  ["s9-pos-sin-stock", "/matriz/mostrador", "matriz", "carritoSinExistencia", 9],
+  ["s9-pos-atajos", "/matriz/mostrador", "matriz", "verAtajos", 9],
+  ["s9-pos-precio-f2", "/matriz/mostrador", "matriz", "consultaPrecioF2", 9],
+  ["s9-pos-retiro-nip", "/matriz/mostrador", "matriz", "retiroConNip", 9],
+  ["s9-config-tipo-cambio", "/matriz/configuracion", "matriz", "tipoCambioSellado", 9],
+  ["s9-config-topes-dolares", "/matriz/configuracion", "matriz", "topesDolares", 9],
+  ["s9-config-compras", "/matriz/configuracion", "matriz", "avisoCompras", 9],
+  ["s9-config-nip-supervisores", "/matriz/configuracion", "matriz", "nipCrearSupervisores", 9],
+  ["s9-usuarios-encargado", "/matriz/usuarios", "matriz", "altaEncargado", 9],
+  ["s9-menu-buscador", "/matriz/productos", "matriz", "buscadorMenu", 9],
+  ["s9-bitacora", "/matriz/bitacora", "matriz", null, 9],
+  ["s9-dashboard-agotados", "/matriz", "matriz", null, 9],
+  ["s9-sucursal-alta", "/matriz/sucursales", "matriz", "altaSucursal", 9],
+  ["s9-devolucion-folio", "/matriz/mostrador/devoluciones", "matriz", "devolucionPorNumero", 9],
 ];
 
 /** --semana=6 limita la corrida a esa entrega y deja intacto el histórico. */
