@@ -10,6 +10,7 @@ import "@/models/Sucursal"; // necesario para que populate("sucursalId") funcion
 import { Card, PageHeader, Button, EmptyState } from "@/components/ui";
 import { VentasChart } from "@/components/matriz/VentasChart";
 import { StockBajoCard } from "@/components/matriz/StockBajoCard";
+import { AgotadosEnPisoCard } from "@/components/matriz/AgotadosEnPisoCard";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,8 @@ export default async function MatrizDashboard() {
         </Card>
 
         <StockBajoCard productos={stockBajo} />
+
+        <AgotadosEnPisoCard />
       </div>
     </div>
   );

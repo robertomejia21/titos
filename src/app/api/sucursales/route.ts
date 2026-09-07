@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Sucursal from "@/models/Sucursal";
 import UserModel from "@/models/User";
-import { requireSession, unauthorized, forbidden, badRequest } from "@/lib/apiAuth";
+import { requireSession, unauthorized, forbidden, badRequest, conflict, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
 import { normalizarWhatsAppMX } from "@/lib/whatsapp";
 import { ZONA_HORARIA_DEFAULT, esZonaHorariaValida } from "@/lib/zonasHorarias";
+
+const PERMISO = "catalogos.administrar";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
   if (session.role !== "matriz") return forbidden();
+  if (!puede(session, PERMISO)) return sinPermiso(PERMISO);
 
   await connectDB();
   const sucursales = await Sucursal.find({}).sort({ nombre: 1 }).lean();
@@ -35,30 +38,52 @@ export async function POST(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
   if (session.role !== "matriz") return forbidden();
+  // El permiso se valida explícitamente para que, cuando falte, el error diga
+  // cuál es en vez de dejar la pantalla sin explicación.
+  if (!puede(session, PERMISO)) return sinPermiso(PERMISO);
 
   const body = await req.json().catch(() => null);
-  if (!body?.nombre || !body?.email || !body?.password) {
-    return badRequest("Faltan campos requeridos (nombre, email, password para el usuario de la sucursal)");
-  }
+  const nombre = String(body?.nombre ?? "").trim();
+  if (!nombre) return badRequest("Ponle nombre a la sucursal");
 
   if ("zonaHoraria" in body && !esZonaHorariaValida(body.zonaHoraria)) {
     return badRequest("Zona horaria inválida");
   }
 
+  // El usuario de acceso es OPCIONAL: dar de alta la tienda y decidir después
+  // quién la va a operar son dos momentos distintos, y exigir los dos juntos
+  // dejaba el botón de "Crear sucursal" apagado sin decir por qué. Si se
+  // capturan, se piden completos: media credencial no sirve para entrar.
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+  const creaUsuario = !!email || !!password;
+
+  if (creaUsuario) {
+    if (!email) return badRequest("Captura el correo de acceso o deja vacía también la contraseña");
+    if (password.length < 6) return badRequest("La contraseña de acceso debe tener al menos 6 caracteres");
+  }
+
   await connectDB();
 
+  if (creaUsuario && (await UserModel.findOne({ email }))) {
+    return conflict("Ese correo ya está en uso por otro usuario");
+  }
+
   const sucursal = await Sucursal.create({
-    nombre: body.nombre,
+    nombre,
     direccion: body.direccion || "",
     whatsapp: body.whatsapp ? normalizarWhatsAppMX(body.whatsapp) : "",
     zonaHoraria: body.zonaHoraria || ZONA_HORARIA_DEFAULT,
   });
 
-  const passwordHash = await hashPassword(body.password);
+  if (!creaUsuario) {
+    return NextResponse.json({ sucursal, usuario: null }, { status: 201 });
+  }
+
   const user = await UserModel.create({
-    email: body.email.toLowerCase().trim(),
-    passwordHash,
-    nombre: body.usuarioNombre || body.nombre,
+    email,
+    passwordHash: await hashPassword(password),
+    nombre: body.usuarioNombre || nombre,
     role: "sucursal",
     sucursalId: sucursal._id,
   });

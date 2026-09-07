@@ -12,7 +12,7 @@ type Necesidad = {
   productoId: string;
   nombreProducto: string;
   cantidadRequerida: number;
-  motivo: "faltante_pedido" | "producto_nuevo" | "manual";
+  motivo: "faltante_pedido" | "producto_nuevo" | "manual" | "agotado_venta";
 };
 
 type Proveedor = { _id: string; nombre: string; whatsapp?: string };
@@ -80,6 +80,7 @@ type Solicitud = {
 const MOTIVO_LABEL: Record<string, string> = {
   faltante_pedido: "Faltante de pedido",
   producto_nuevo: "Producto nuevo",
+  agotado_venta: "Agotado en piso",
   manual: "Agregado manual",
 };
 

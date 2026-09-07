@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { X, type LucideIcon } from "lucide-react";
 
 const MODAL_SIZES = {
@@ -27,6 +27,20 @@ export function Modal({
   footer?: ReactNode;
 }) {
   const mouseDownOnBackdrop = useRef(false);
+
+  // Esc cierra: en el mostrador se opera con teclado y buscar la X con el mouse
+  // cuesta más que la operación misma.
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
 
   if (!open) return null;
 

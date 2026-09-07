@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, FormField, Pagination, Select, formatMoney } 
 import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/components/matriz/FiltrosSucursalFecha";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { ETIQUETA_TIPO_TARJETA, esTipoTarjeta } from "@/lib/tarjetas";
 
 type VentaHistorial = {
   _id: string;
@@ -15,7 +16,7 @@ type VentaHistorial = {
   sucursalNombre: string;
   clienteNombre: string;
   total: number;
-  pagos: { metodoPago: string; monto: number }[];
+  pagos: { metodoPago: string; monto: number; tarjetaTipo?: string | null }[];
   estado: string;
   esVentas2: boolean;
   articulos: number;
@@ -28,6 +29,7 @@ type Resumen = {
   canceladas: number;
   totalCancelado: number;
   porMetodo: Record<string, number>;
+  porTipoTarjeta: { tipo: string | null; etiqueta: string; monto: number }[];
   porSucursal: { sucursalId: string; nombre: string; cantidad: number; total: number }[];
   porDia: { corte: string; cantidad: number; total: number }[];
 };
@@ -48,6 +50,7 @@ const RESUMEN_VACIO: Resumen = {
   canceladas: 0,
   totalCancelado: 0,
   porMetodo: {},
+  porTipoTarjeta: [],
   porSucursal: [],
   porDia: [],
 };
@@ -169,6 +172,22 @@ export function HistorialVentasManager() {
               );
             })}
           </ul>
+          {/* La tarjeta se abre en crédito, débito y American Express: el banco
+              deposita cada uno por separado y con su propia comisión. */}
+          {(resumen.porTipoTarjeta ?? []).length > 0 ? (
+            <div className="mt-4 border-t border-black/5 pt-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-black/40">Tarjeta por tipo</p>
+              <ul className="space-y-1 text-sm">
+                {(resumen.porTipoTarjeta ?? []).map((t) => (
+                  <li key={t.tipo ?? t.etiqueta} className="flex items-center justify-between">
+                    <span className="text-black/60">{t.etiqueta}</span>
+                    <span className="font-medium text-titos-green-900">{formatMoney(t.monto)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {mejorDia ? (
             <p className="mt-4 border-t border-black/5 pt-3 text-xs text-black/45">
               Mejor día del periodo: {mejorDia.corte} con {formatMoney(mejorDia.total)}
@@ -278,7 +297,16 @@ export function HistorialVentasManager() {
                       <td className="py-2 pr-3 text-black/55">{v.clienteNombre || "Público en general"}</td>
                       <td className="py-2 pr-3 text-right text-black/55">{v.articulos}</td>
                       <td className="py-2 pr-3 text-black/55">
-                        {(v.pagos ?? []).map((p) => ETIQUETA_METODO[p.metodoPago] ?? p.metodoPago).join(" + ")}
+                        {(v.pagos ?? [])
+                          .map((p) => {
+                            const etiqueta = ETIQUETA_METODO[p.metodoPago] ?? p.metodoPago;
+                            // La tarjeta se lee con su tipo: es lo que distingue
+                            // el depósito que va a llegar del banco.
+                            return esTipoTarjeta(p.tarjetaTipo)
+                              ? `${etiqueta} (${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]})`
+                              : etiqueta;
+                          })
+                          .join(" + ")}
                       </td>
                       <td className="py-2 text-right font-semibold text-titos-green-900">{formatMoney(v.total)}</td>
                     </tr>

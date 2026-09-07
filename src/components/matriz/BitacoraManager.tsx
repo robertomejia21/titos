@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Store, User } from "lucide-react";
 import { Card, Input, Select, EmptyState, FormField, formatMoney } from "@/components/ui";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
-import { formatFechaHora } from "@/lib/zonasHorarias";
+import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
 
 const TIPOS = [
   { valor: "cancelacion", etiqueta: "Cancelaciones" },
@@ -33,6 +33,13 @@ const ETIQUETA_TIPO: Record<string, string> = {
   prestamo: "Préstamo",
 };
 
+type ItemEvento = {
+  nombreProducto: string;
+  cantidad: number;
+  unidad: string;
+  importe: number;
+};
+
 type Evento = {
   id: string;
   tipo: string;
@@ -43,7 +50,14 @@ type Evento = {
   descripcion: string;
   detalle: string;
   importe: number | null;
+  items?: ItemEvento[];
 };
+
+/** Los kilos llevan decimales; las piezas, no. */
+function cantidadTexto(item: ItemEvento) {
+  const cantidad = item.unidad === "kg" ? item.cantidad.toFixed(3) : String(item.cantidad);
+  return `${cantidad}${item.unidad ? ` ${item.unidad}` : ""}`;
+}
 
 type Catalogo = { _id: string; nombre: string };
 
@@ -178,7 +192,7 @@ export function BitacoraManager() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-3">Fecha</th>
+                  <th className="py-2 pr-3">Hora</th>
                   <th className="py-2 pr-3">Tipo</th>
                   <th className="py-2 pr-3">Quién</th>
                   <th className="py-2 pr-3">Sucursal</th>
@@ -189,8 +203,11 @@ export function BitacoraManager() {
               <tbody>
                 {eventos.map((e) => (
                   <tr key={e.id} className="border-b border-black/5 align-top">
-                    <td className="whitespace-nowrap py-2 pr-3 text-xs text-black/50">
-                      {formatFechaHora(e.fecha, zonaHoraria)}
+                    {/* La hora va en grande y aparte de la fecha: al auditar una
+                        cancelación lo primero que se cruza es contra el turno. */}
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      <span className="block font-semibold text-black/70">{formatHora(e.fecha, zonaHoraria)}</span>
+                      <span className="block text-xs text-black/40">{formatFechaLarga(e.fecha, zonaHoraria)}</span>
                     </td>
                     <td className="py-2 pr-3">
                       <span
@@ -209,6 +226,19 @@ export function BitacoraManager() {
                         {e.folio}
                         {e.detalle ? ` · ${e.detalle}` : ""}
                       </span>
+                      {/* Desglose de los productos: en una cancelación parcial es
+                          lo único que dice qué se quitó y cuánto. */}
+                      {(e.items ?? []).length > 0 ? (
+                        <ul className="mt-1 space-y-0.5 border-l-2 border-black/10 pl-2">
+                          {(e.items ?? []).map((i, idx) => (
+                            <li key={idx} className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
+                              <span className="font-medium text-black/70">{i.nombreProducto || "Producto"}</span>
+                              <span className="text-black/50">× {cantidadTexto(i)}</span>
+                              <span className="text-black/40">{formatMoney(i.importe)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </td>
                     <td className="whitespace-nowrap py-2 pr-3 text-right font-medium">
                       {e.importe == null ? "—" : formatMoney(e.importe)}

@@ -22,6 +22,7 @@ export async function asegurarRolesSemilla() {
             descripcion: rol.descripcion,
             ambito: rol.ambito,
             permisos: rol.permisos,
+            esSupervisor: rol.esSupervisor,
             esSistema: true,
             activo: true,
           },

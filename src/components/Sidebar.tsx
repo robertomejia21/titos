@@ -41,6 +41,7 @@ import {
   ArrowLeftRight,
   ClipboardCheck,
   Presentation,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import { permisoDeRuta } from "@/lib/permisos";
@@ -147,6 +148,29 @@ const SUCURSAL_NAV: NavItem[] = [
 
 const STORAGE_KEY = "titos-sidebar-collapsed";
 
+/**
+ * Sin acentos y en minúsculas: en el mostrador se teclea rápido y nadie va a
+ * poner la tilde de "Actualización" para llegar a esa pantalla.
+ */
+function normalizar(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** ¿El texto del menú contiene lo que se escribió? Se exigen todas las palabras. */
+function coincide(item: NavItem, categoria: string, consulta: string) {
+  if (!consulta) return true;
+  // Se busca contra la etiqueta y contra su categoría, para que "catalogos"
+  // liste todo lo que cuelga de Catálogos aunque ninguna entrada se llame así.
+  const heno = normalizar(`${item.label} ${categoria}`);
+  return normalizar(consulta)
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((palabra) => heno.includes(palabra));
+}
+
 function isNavItemActive(pathname: string, role: string, item: NavItem) {
   if (pathname === item.href) return true;
   if (item.exact || item.href === `/${role}`) return false;
@@ -189,19 +213,35 @@ export function Sidebar({
     [permisos]
   );
 
+  const [busqueda, setBusqueda] = useState("");
+
   const categoriasVisibles = useMemo(
     () =>
       MATRIZ_NAV.map((categoria) => ({
         ...categoria,
-        items: categoria.items.filter((item) => visible(item.href)),
+        items: categoria.items.filter(
+          (item) => visible(item.href) && coincide(item, categoria.label, busqueda)
+        ),
       })).filter((categoria) => categoria.items.length > 0),
-    [visible]
+    [visible, busqueda]
   );
 
   const itemsSucursalVisibles = useMemo(
-    () => SUCURSAL_NAV.filter((item) => visible(item.href)),
-    [visible]
+    () => SUCURSAL_NAV.filter((item) => visible(item.href) && coincide(item, "", busqueda)),
+    [visible, busqueda]
   );
+
+  const buscando = busqueda.trim().length > 0;
+  const sinResultados =
+    buscando && (role === "matriz" ? categoriasVisibles.length === 0 : itemsSucursalVisibles.length === 0);
+
+  /** Primera entrada de la lista filtrada: es a la que lleva Enter. */
+  const primerResultado = useMemo(() => {
+    if (!buscando) return null;
+    const lista =
+      role === "matriz" ? categoriasVisibles.flatMap((c) => c.items) : itemsSucursalVisibles;
+    return lista[0] ?? null;
+  }, [buscando, role, categoriasVisibles, itemsSucursalVisibles]);
   // El rol de ventas arranca con el menú compacto para maximizar el punto de venta
   const [collapsed, setCollapsed] = useState(soloVentas);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -227,6 +267,9 @@ export function Sidebar({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- cierra el drawer móvil al navegar
     setMobileOpen(false);
+    // La búsqueda es para llegar, no para quedarse: ya que se llegó, el menú
+    // vuelve completo para poder moverse a otra parte.
+    setBusqueda("");
   }, [pathname]);
 
   useEffect(() => {
@@ -323,7 +366,42 @@ export function Sidebar({
           </div>
         ) : null}
 
+        {/* Buscador del menú: arriba de las entradas, para llegar tecleando en
+            vez de recorrer categorías. Colapsado no cabe, así que no se pinta. */}
+        {!collapsed ? (
+          <div className="px-3 pt-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" />
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setBusqueda("");
+                    return;
+                  }
+                  // Enter va directo al primer resultado: escribir "punto" y
+                  // Enter debe bastar para abrir el punto de venta.
+                  if (e.key === "Enter" && primerResultado) {
+                    e.preventDefault();
+                    router.push(primerResultado.href);
+                  }
+                }}
+                placeholder="Buscar en el menú..."
+                aria-label="Buscar en el menú"
+                className="w-full rounded-lg border border-black/10 bg-black/2 py-2 pl-8 pr-2.5 text-sm text-titos-green-900 outline-none placeholder:text-black/30 focus:border-titos-green-500 focus:bg-white"
+              />
+            </div>
+          </div>
+        ) : null}
+
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+          {sinResultados ? (
+            <p className="px-3 py-6 text-center text-sm text-black/40">
+              Nada coincide con &quot;{busqueda.trim()}&quot;.
+            </p>
+          ) : null}
           {role === "matriz" && collapsed
             ? // Colapsado en escritorio: los encabezados de categoría no caben, así
               // que se muestra una sola columna de iconos con el nombre en el tooltip.
@@ -350,7 +428,9 @@ export function Sidebar({
             ? categoriasVisibles.map((category) => {
                 const CategoryIcon = category.icon;
                 const hasItems = category.items.length > 0;
-                const isOpen = !!openCategories[category.label];
+                // Buscando no tiene sentido esconder resultados detrás de una
+                // categoría cerrada: si algo coincidió, se ve.
+                const isOpen = buscando || !!openCategories[category.label];
                 return (
                   <div key={category.label} className="space-y-1">
                     <button

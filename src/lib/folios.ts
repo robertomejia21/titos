@@ -42,3 +42,44 @@ export async function siguienteFolio(prefijo: string): Promise<string> {
 
   throw new Error(`No se pudo apartar el folio de ${clave}`);
 }
+
+/** Prefijos con los que se emiten folios de venta (ventas normales y notas de venta). */
+export const PREFIJOS_FOLIO_VENTA = ["VTA", "V2"] as const;
+
+/**
+ * Folios candidatos a partir de lo que se teclea al buscar una venta.
+ *
+ * En el mostrador nadie escribe "VTA-000123": dictan "el ciento veintitrés". Se
+ * aceptan las tres formas —el folio completo, el número pelón y el número con
+ * ceros— y se arman los candidatos con los dos prefijos de venta.
+ *
+ * Devuelve una lista de folios exactos, no un patrón: buscar por "contiene"
+ * haría que el 123 trajera también el 1234 y el 5123.
+ */
+export function candidatosFolioVenta(entrada: string): string[] {
+  const limpio = (entrada ?? "").trim().toUpperCase();
+  if (!limpio) return [];
+
+  // Ya viene con prefijo, en cualquiera de sus formas ("VTA-123", "VTA 123",
+  // "vta123"): se separa el prefijo de los dígitos y se reconstruye.
+  const conPrefijo = limpio.match(/^([A-Z]+)[\s-]*(\d+)$/);
+  if (conPrefijo) {
+    const [, prefijo, digitos] = conPrefijo;
+    return [formatearFolio(prefijo, Number(digitos)), `${prefijo}-${digitos}`];
+  }
+
+  // Solo dígitos: se prueban los dos prefijos de venta, con y sin relleno de
+  // ceros (los folios viejos pudieron guardarse con otro ancho).
+  if (/^\d+$/.test(limpio)) {
+    const numero = Number(limpio);
+    return [
+      ...PREFIJOS_FOLIO_VENTA.map((p) => formatearFolio(p, numero)),
+      ...PREFIJOS_FOLIO_VENTA.map((p) => `${p}-${limpio}`),
+      limpio,
+    ];
+  }
+
+  // Cualquier otra cosa (un folio local "VTA-LOCAL-ABC123", por ejemplo) se
+  // busca tal cual.
+  return [limpio];
+}

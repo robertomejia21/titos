@@ -1,9 +1,15 @@
 import { escaparHTML, imprimirTicket } from "@/lib/print";
 import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
+import { ETIQUETA_TIPO_TARJETA_CORTA, esTipoTarjeta } from "@/lib/tarjetas";
 
 // Ticket de venta para la impresora térmica del mostrador. Vive aparte del
 // punto de venta para que el historial de ventas pueda reimprimir exactamente
 // el mismo documento sin duplicar el armado.
+//
+// Las ventas con tarjeta salen en DOS copias del mismo tiro: la del cliente y
+// la del comercio, que es la que se firma y se guarda en el cajón. El banco pide
+// el pagaré firmado para defender un contracargo, así que esa copia no puede
+// depender de que alguien se acuerde de reimprimir el ticket.
 
 const ETIQUETA_METODO: Record<string, string> = {
   efectivo: "Efectivo",
@@ -20,6 +26,7 @@ export type PagoTicket = {
   montoUsd?: number | null;
   tipoCambio?: number | null;
   terminalAlias?: string;
+  tarjetaTipo?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
 };
@@ -79,7 +86,13 @@ function encabezado(venta: VentaTicket, sucursalNombre: string) {
 }
 
 function detallePago(pago: PagoTicket) {
-  const etiqueta = ETIQUETA_METODO[pago.metodoPago] ?? pago.metodoPago;
+  const base = ETIQUETA_METODO[pago.metodoPago] ?? pago.metodoPago;
+  // El tipo va pegado al renglón y no en una línea aparte: el ticket térmico
+  // mide 32 caracteres y una línea de más es papel de más en cada venta.
+  const etiqueta =
+    pago.metodoPago === "tarjeta" && esTipoTarjeta(pago.tarjetaTipo)
+      ? `${base} ${ETIQUETA_TIPO_TARJETA_CORTA[pago.tarjetaTipo]}`
+      : base;
   const lineas = [fila(escaparHTML(etiqueta), pesos(pago.monto))];
 
   if (pago.metodoPago === "efectivo_usd" && pago.montoUsd) {
@@ -111,13 +124,17 @@ function detallePago(pago: PagoTicket) {
   return lineas.join("");
 }
 
-export function ticketVentaHTML(
+/** Cada copia se identifica en el papel; sin marca, las dos se ven iguales. */
+type CopiaTicket = "CLIENTE" | "COMERCIO";
+
+function cuerpoTicket(
   venta: VentaTicket,
   {
     sucursalNombre = "",
     zonaHoraria,
     cajero = "",
-  }: { sucursalNombre?: string; zonaHoraria: string; cajero?: string }
+    copia = null,
+  }: { sucursalNombre?: string; zonaHoraria: string; cajero?: string; copia?: CopiaTicket | null }
 ) {
   const fecha = venta.fecha ? new Date(venta.fecha) : new Date();
   const hayEfectivo = venta.pagos.some((p) => p.metodoPago === "efectivo");
@@ -152,24 +169,58 @@ export function ticketVentaHTML(
     ? `<div class="sep"></div><div class="centro">Venta a crédito por ${pesos(venta.creditoMonto)}</div>`
     : "";
 
+  // La copia del comercio lleva la firma del tarjetahabiente: es el pagaré con
+  // el que el banco resuelve una aclaración o un contracargo.
+  const firma =
+    copia === "COMERCIO"
+      ? `
+        <div class="firma">
+          <div class="linea"></div>
+          <div class="centro tenue">Firma del tarjetahabiente</div>
+        </div>
+      `
+      : "";
+
+  const pie =
+    copia === "COMERCIO"
+      ? "Copia del comercio. Guardar firmada en el cajon."
+      : "¡Gracias por su compra!<br />Presenta este ticket para cualquier aclaración.";
+
   return `
-    ${encabezado(venta, sucursalNombre)}
-    <div class="sep"></div>
-    ${datos}
-    <div class="sep"></div>
-    ${items}
-    <div class="sep"></div>
-    ${fila("TOTAL", pesos(venta.total), "fuerte")}
-    <div class="sep"></div>
-    ${venta.pagos.map(detallePago).join("")}
-    ${efectivo}
-    ${credito}
-    <div class="sep"></div>
-    <div class="centro pie">
-      ¡Gracias por su compra!<br />
-      Presenta este ticket para cualquier aclaración.
+    <div class="corte">
+      ${encabezado(venta, sucursalNombre)}
+      ${copia ? `<div class="copia">COPIA ${copia}</div>` : ""}
+      <div class="sep"></div>
+      ${datos}
+      <div class="sep"></div>
+      ${items}
+      <div class="sep"></div>
+      ${fila("TOTAL", pesos(venta.total), "fuerte")}
+      <div class="sep"></div>
+      ${venta.pagos.map(detallePago).join("")}
+      ${efectivo}
+      ${credito}
+      ${firma}
+      <div class="sep"></div>
+      <div class="centro pie">${pie}</div>
     </div>
   `;
+}
+
+export function ticketVentaHTML(
+  venta: VentaTicket,
+  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string }
+) {
+  // Solo el cobro con tarjeta necesita las dos copias. Duplicar todos los
+  // tickets sería tirar el doble de papel en la venta de contado, que es la
+  // mayoría.
+  const conTarjeta = venta.pagos.some((p) => p.metodoPago === "tarjeta");
+  if (!conTarjeta) return cuerpoTicket(venta, opciones);
+
+  return [
+    cuerpoTicket(venta, { ...opciones, copia: "CLIENTE" }),
+    cuerpoTicket(venta, { ...opciones, copia: "COMERCIO" }),
+  ].join("");
 }
 
 export function imprimirTicketVenta(

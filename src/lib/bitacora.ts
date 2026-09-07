@@ -32,6 +32,14 @@ export const ETIQUETA_TIPO: Record<TipoBitacora, string> = {
   prestamo: "Préstamo entre sucursales",
 };
 
+/** Renglón de producto de un evento que los tenga (hoy, las cancelaciones). */
+export type ItemBitacora = {
+  nombreProducto: string;
+  cantidad: number;
+  unidad: string;
+  importe: number;
+};
+
 export type EventoBitacora = {
   id: string;
   tipo: TipoBitacora;
@@ -46,6 +54,13 @@ export type EventoBitacora = {
   /** Motivo capturado, cuando el módulo lo pide. */
   detalle: string;
   importe: number | null;
+  /**
+   * Productos del evento. En una cancelación parcial (quitar un renglón del
+   * carrito) es el dato que de verdad se audita: qué producto se quitó y
+   * cuánto. Antes solo se veía el importe, y con eso no se puede distinguir
+   * entre un error de captura y alguien vaciando el carrito a propósito.
+   */
+  items: ItemBitacora[];
 };
 
 export type FiltrosBitacora = {
@@ -71,6 +86,26 @@ function quiere(filtros: FiltrosBitacora, tipo: TipoBitacora) {
   return !filtros.tipos || filtros.tipos.length === 0 || filtros.tipos.includes(tipo);
 }
 
+/** Cantidad legible: los kilos llevan decimales y las piezas no. */
+function cantidadTexto(item: ItemBitacora) {
+  const cantidad = item.unidad === "kg" ? item.cantidad.toFixed(3) : String(item.cantidad);
+  return `${cantidad}${item.unidad ? ` ${item.unidad}` : ""}`;
+}
+
+/**
+ * "Leche Lala x 2 pieza" para una cancelación de un renglón; para varias, el
+ * primero y cuántos más, que la lista completa ya va en `items`.
+ *
+ * El renglón de la bitácora se lee de corrido y en voz alta al auditar, así que
+ * dice el producto y no la mecánica ("del carrito"): quien revisa ya sabe de
+ * dónde se quitó, lo que necesita saber es qué.
+ */
+export function resumenItems(items: ItemBitacora[]) {
+  if (items.length === 0) return "sin productos capturados";
+  const primero = `${items[0].nombreProducto} x ${cantidadTexto(items[0])}`;
+  return items.length === 1 ? primero : `${primero} y ${items.length - 1} producto(s) más`;
+}
+
 function money(valor: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(valor);
 }
@@ -87,6 +122,13 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
       .lean();
 
     for (const c of filas) {
+      const items: ItemBitacora[] = (c.items ?? []).map((i: Partial<ItemBitacora>) => ({
+        nombreProducto: i.nombreProducto ?? "",
+        cantidad: i.cantidad ?? 0,
+        unidad: i.unidad ?? "",
+        importe: i.importe ?? 0,
+      }));
+
       eventos.push({
         id: String(c._id),
         tipo: "cancelacion",
@@ -100,11 +142,22 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
           c.tipo === "venta"
             ? `Canceló la venta cobrada ${c.ventaFolio || ""}`.trim()
             : c.tipo === "carrito"
-              ? "Canceló una venta en curso"
-              : "Quitó un producto del carrito",
-        // Que no lleve NIP es justo lo que matriz necesita ver de un vistazo.
-        detalle: `${c.motivo}${c.autorizadoConNip ? "" : " · sin NIP de supervisor"}`,
+              ? `Canceló una venta en curso (${resumenItems(items)})`
+              : `Quitó ${resumenItems(items)}`,
+        // Quién autorizó (o que nadie lo hizo) es justo lo que matriz necesita
+        // ver de un vistazo al revisar una cancelación.
+        detalle: [
+          c.motivo,
+          c.autorizadoPorNombre
+            ? `autorizó ${c.autorizadoPorNombre}`
+            : c.autorizadoConNip
+              ? "autorizado con el NIP general"
+              : "sin NIP de supervisor",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         importe: c.importe ?? null,
+        items,
       });
     }
   }
@@ -129,6 +182,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
         descripcion: `Devolución de la venta ${d.ventaFolio} (${d.estado})`,
         detalle: d.motivo || "",
         importe: d.total,
+        items: [],
       });
 
       // Pagar el reembolso es un movimiento de dinero aparte, y puede haberlo
@@ -146,6 +200,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
           descripcion: `Pagó el reembolso de la devolución ${d.folio}`,
           detalle: "",
           importe: d.montoEfectivo ?? 0,
+          items: [],
         });
       }
     }
@@ -169,8 +224,11 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
         usuarioId: m.usuarioId ? String(m.usuarioId) : null,
         usuarioNombre: m.usuarioNombre ?? "",
         descripcion: `Retiró efectivo de la caja (${m.moneda})`,
-        detalle: m.motivo,
+        detalle: [m.motivo, m.autorizadoPorNombre ? `autorizó ${m.autorizadoPorNombre}` : ""]
+          .filter(Boolean)
+          .join(" · "),
         importe: m.monto,
+        items: [],
       });
     }
   }
@@ -205,6 +263,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
           descripcion: `Surtió el pedido ${p.folio} (${piezas} productos)`,
           detalle: "",
           importe: null,
+          items: [],
         });
       }
 
@@ -221,6 +280,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
           descripcion: `Registró la recepción del pedido ${p.folio}`,
           detalle: "",
           importe: null,
+          items: [],
         });
       }
     }
@@ -255,6 +315,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
         descripcion: `Pidió prestado a ${pr.sucursalPrestamistaNombre || "otra sucursal"} (${pr.estado})`,
         detalle: pr.motivoRechazo || pr.notas || "",
         importe: null,
+        items: [],
       });
 
       if (pr.resueltoEn && pr.resueltoPorId) {
@@ -270,6 +331,7 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
           descripcion: `Resolvió el préstamo ${pr.folio} (${pr.estado})`,
           detalle: pr.motivoRechazo || "",
           importe: null,
+          items: [],
         });
       }
     }

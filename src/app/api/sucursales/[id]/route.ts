@@ -6,7 +6,7 @@ import InventarioSucursal from "@/models/InventarioSucursal";
 import Pedido from "@/models/Pedido";
 import Venta from "@/models/Venta";
 import CajaSesion from "@/models/CajaSesion";
-import { requireSession, unauthorized, forbidden, notFound, badRequest, conflict } from "@/lib/apiAuth";
+import { requireSession, unauthorized, forbidden, notFound, badRequest, conflict, puede, sinPermiso } from "@/lib/apiAuth";
 import { normalizarWhatsAppMX } from "@/lib/whatsapp";
 import { verifyPassword } from "@/lib/auth";
 import { esZonaHorariaValida } from "@/lib/zonasHorarias";
@@ -18,6 +18,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   if (session.role === "sucursal" && session.sucursalId !== id) return forbidden();
   if (session.role !== "matriz" && session.role !== "sucursal") return forbidden();
+  // Matriz administra el catálogo de tiendas; una sucursal solo edita sus
+  // propios datos de contacto y para eso le basta con poder abrir sus ajustes.
+  const permiso = session.role === "matriz" ? "catalogos.administrar" : "sucursal.ajustes";
+  if (!puede(session, permiso)) return sinPermiso(permiso);
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
@@ -46,6 +50,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await requireSession(req);
   if (!session) return unauthorized();
   if (session.role !== "matriz") return forbidden();
+  if (!puede(session, "catalogos.administrar")) return sinPermiso("catalogos.administrar");
 
   const { id } = await params;
   const body = await req.json().catch(() => null);

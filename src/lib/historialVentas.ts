@@ -1,6 +1,7 @@
 import Venta from "@/models/Venta";
 import Sucursal from "@/models/Sucursal";
 import { METODOS_PAGO } from "@/models/Venta";
+import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, esTipoTarjeta, type TipoTarjeta } from "@/lib/tarjetas";
 
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 
@@ -23,7 +24,7 @@ export type VentaHistorial = {
   sucursalNombre: string;
   clienteNombre: string;
   total: number;
-  pagos: { metodoPago: string; monto: number }[];
+  pagos: { metodoPago: string; monto: number; tarjetaTipo?: string | null }[];
   estado: string;
   esVentas2: boolean;
   articulos: number;
@@ -36,6 +37,8 @@ export type ResumenHistorialVentas = {
   canceladas: number;
   totalCancelado: number;
   porMetodo: Record<MetodoPago, number>;
+  /** Lo cobrado con tarjeta partido por crédito, débito y American Express. */
+  porTipoTarjeta: { tipo: TipoTarjeta | null; etiqueta: string; monto: number }[];
   porSucursal: { sucursalId: string; nombre: string; cantidad: number; total: number }[];
   porDia: { corte: string; cantidad: number; total: number }[];
 };
@@ -96,9 +99,10 @@ export async function consultarHistorialVentas(filtro: FiltroHistorialVentas) {
     sucursalNombre: nombrePorSucursal.get(String(v.sucursalId)) ?? "Sucursal",
     clienteNombre: v.clienteNombre ?? "",
     total: v.total,
-    pagos: ((v.pagos ?? []) as { metodoPago: string; monto: number }[]).map((p) => ({
+    pagos: ((v.pagos ?? []) as { metodoPago: string; monto: number; tarjetaTipo?: string | null }[]).map((p) => ({
       metodoPago: p.metodoPago,
       monto: p.monto,
+      tarjetaTipo: p.tarjetaTipo ?? null,
     })),
     estado: v.estado,
     esVentas2: !!v.esVentas2,
@@ -110,6 +114,7 @@ export async function consultarHistorialVentas(filtro: FiltroHistorialVentas) {
 
 export function resumirVentas(filas: VentaHistorial[]): ResumenHistorialVentas {
   const porMetodo = Object.fromEntries(METODOS_PAGO.map((m) => [m, 0])) as Record<MetodoPago, number>;
+  const porTipoTarjeta = new Map<string, { tipo: TipoTarjeta | null; etiqueta: string; monto: number }>();
   const porSucursal = new Map<string, { sucursalId: string; nombre: string; cantidad: number; total: number }>();
   const porDia = new Map<string, { corte: string; cantidad: number; total: number }>();
 
@@ -131,6 +136,19 @@ export function resumirVentas(filas: VentaHistorial[]): ResumenHistorialVentas {
 
     for (const pago of fila.pagos) {
       if (pago.metodoPago in porMetodo) porMetodo[pago.metodoPago as MetodoPago] += pago.monto;
+
+      if (pago.metodoPago === "tarjeta") {
+        // Las ventas anteriores al tipo de tarjeta se agrupan aparte.
+        const tipo = esTipoTarjeta(pago.tarjetaTipo) ? pago.tarjetaTipo : null;
+        const clave = tipo ?? "";
+        const acumulado = porTipoTarjeta.get(clave) ?? {
+          tipo,
+          etiqueta: tipo ? ETIQUETA_TIPO_TARJETA[tipo] : "Sin tipo identificado",
+          monto: 0,
+        };
+        acumulado.monto += pago.monto;
+        porTipoTarjeta.set(clave, acumulado);
+      }
     }
 
     const sucursal = porSucursal.get(fila.sucursalId) ?? {
@@ -160,6 +178,14 @@ export function resumirVentas(filas: VentaHistorial[]): ResumenHistorialVentas {
     porMetodo: Object.fromEntries(
       Object.entries(porMetodo).map(([k, v]) => [k, redondear(v)])
     ) as Record<MetodoPago, number>,
+    porTipoTarjeta: [...porTipoTarjeta.values()]
+      .map((t) => ({ ...t, monto: redondear(t.monto) }))
+      // Orden fijo del catálogo, con los no identificados al final.
+      .sort(
+        (a, b) =>
+          (a.tipo ? TIPOS_TARJETA.indexOf(a.tipo) : TIPOS_TARJETA.length) -
+          (b.tipo ? TIPOS_TARJETA.indexOf(b.tipo) : TIPOS_TARJETA.length)
+      ),
     porSucursal: [...porSucursal.values()]
       .map((s) => ({ ...s, total: redondear(s.total) }))
       .sort((a, b) => b.total - a.total),

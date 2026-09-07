@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ctx = await contextoPuntoVenta(session);
   if (!ctx) return forbidden();
 
-  const autorizacion = await verificarNipSupervisor(nip);
+  const autorizacion = await verificarNipSupervisor(nip, ctx.sucursalId);
   if (!autorizacion.ok) return badRequest(autorizacion.error);
 
   const venta = await Venta.findById(id);

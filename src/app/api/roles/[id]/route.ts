@@ -13,6 +13,7 @@ import {
   sinPermiso,
 } from "@/lib/apiAuth";
 import { esPermisoValido } from "@/lib/permisos";
+import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 
 const PERMISO = "usuarios.administrar";
 
@@ -41,6 +42,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     rol.permisos = Array.isArray(body.permisos)
       ? body.permisos.map((p: unknown) => String(p)).filter(esPermisoValido)
       : [];
+  }
+
+  // Convertir un rol existente en rol de supervisor pide el NIP por la misma
+  // razón que crearlo así: es el marcado, no el nombre, lo que abre el candado.
+  if ("esSupervisor" in body) {
+    const esSupervisor = body.esSupervisor === true;
+    if (esSupervisor && !rol.esSupervisor) {
+      const autorizacion = await verificarNipCreacionSupervisor(
+        String(body.nipCreacionSupervisor ?? "").trim()
+      );
+      if (!autorizacion.ok) return badRequest(autorizacion.error);
+    }
+    rol.esSupervisor = esSupervisor;
   }
 
   // El ámbito no se puede cambiar: los usuarios ya asignados quedarían con

@@ -14,6 +14,11 @@ const UserSchema = new Schema(
     // `sucursalRol`; cuando no, se usa el comportamiento anterior.
     rolId: { type: Schema.Types.ObjectId, ref: "Rol", default: null },
     sucursalId: { type: Schema.Types.ObjectId, ref: "Sucursal", default: null },
+    // NIP de 6 dígitos del encargado de turno, con el que autoriza cancelaciones
+    // y retiros en el punto de venta. Se guarda hasheado y nunca sale por la
+    // API: solo se informa si el usuario ya tiene uno. Es lo que permite que la
+    // bitácora diga QUIÉN autorizó, y no solo que alguien lo hizo.
+    nipOperacionHash: { type: String, default: "" },
     activo: { type: Boolean, default: true },
   },
   { timestamps: true }

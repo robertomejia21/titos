@@ -6,6 +6,7 @@ import UserModel from "@/models/User";
 import { requireSession, unauthorized, forbidden, badRequest, generateFolio, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { verifyPassword } from "@/lib/auth";
+import { buscarSupervisorPorNip } from "@/lib/supervisores";
 import { calcularResumenSesion, calcularEfectivoEsperado, calcularEfectivoEsperadoUsd } from "@/lib/caja";
 import { contextoPuntoVenta, sucursalConsultada } from "@/lib/puntoVenta";
 
@@ -45,11 +46,18 @@ export async function POST(req: NextRequest) {
   const motivo = String(body?.motivo ?? "").trim();
   const moneda = String(body?.moneda ?? "MXN");
   const password = String(body?.password ?? "");
+  // El retiro se puede autorizar de dos formas: con la clave del propio cajero
+  // (como siempre) o con el NIP de 6 dígitos del encargado de turno. La segunda
+  // es la que se usa cuando el encargado autoriza en la caja de alguien más, y
+  // deja su nombre en el movimiento.
+  const nipSupervisor = String(body?.nipSupervisor ?? "").trim();
 
   if (!Number.isFinite(monto) || monto <= 0) return badRequest("Captura un monto válido a retirar");
   if (!motivo) return badRequest("Captura el motivo del retiro");
   if (!MONEDAS_CAJA.includes(moneda as (typeof MONEDAS_CAJA)[number])) return badRequest("Moneda inválida");
-  if (!password) return badRequest("Confirma tu clave de acceso para autorizar el retiro");
+  if (!password && !nipSupervisor) {
+    return badRequest("Confirma tu clave de acceso o captura el NIP del encargado de turno");
+  }
 
   const clienteOperacionId = body?.clienteOperacionId ? String(body.clienteOperacionId) : null;
 
@@ -65,12 +73,20 @@ export async function POST(req: NextRequest) {
   const ctx = await contextoPuntoVenta(session);
   if (!ctx) return forbidden();
 
-  // La clave que autoriza es la del usuario que está capturando el retiro, así
-  // el folio queda ligado a quién lo sacó.
+  // El folio siempre queda ligado a quién sacó el dinero (el usuario de la
+  // sesión); lo que cambia es quién lo autorizó.
   const usuario = await UserModel.findById(session.userId);
   if (!usuario) return unauthorized();
-  const claveValida = await verifyPassword(password, usuario.passwordHash);
-  if (!claveValida) return badRequest("Clave incorrecta");
+
+  let autorizadoPor: { id: string; nombre: string } | null = null;
+
+  if (nipSupervisor) {
+    autorizadoPor = await buscarSupervisorPorNip(nipSupervisor, ctx.sucursalId);
+    if (!autorizadoPor) return badRequest("NIP de encargado de turno incorrecto");
+  } else {
+    const claveValida = await verifyPassword(password, usuario.passwordHash);
+    if (!claveValida) return badRequest("Clave incorrecta");
+  }
 
   const sesion = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
   if (!sesion) return badRequest("Debes abrir la caja antes de retirar efectivo");
@@ -100,6 +116,8 @@ export async function POST(req: NextRequest) {
       motivo,
       usuarioId: session.userId,
       usuarioNombre: usuario.nombre,
+      autorizadoPorId: autorizadoPor?.id ?? null,
+      autorizadoPorNombre: autorizadoPor?.nombre ?? "",
       fecha: new Date(),
       corte: todayCorte(await zonaHorariaDeSucursal(ctx.sucursalId)),
     });

@@ -2,12 +2,19 @@ import Venta from "@/models/Venta";
 import MovimientoCaja from "@/models/MovimientoCaja";
 import AbonoCliente from "@/models/AbonoCliente";
 import Devolucion from "@/models/Devolucion";
+import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, esTipoTarjeta, type TipoTarjeta } from "@/lib/tarjetas";
 
 function redondear(valor: number) {
   return Number(valor.toFixed(2));
 }
 
 export type TarjetaPorTerminal = { terminalId: string | null; alias: string; monto: number };
+/**
+ * Lo cobrado con tarjeta partido en crédito, débito y American Express. Cada uno
+ * lo liquida el banco por separado y con su propia comisión, así que el depósito
+ * no se puede cuadrar con el total junto.
+ */
+export type TarjetaPorTipo = { tipo: TipoTarjeta | null; etiqueta: string; monto: number };
 export type ValesPorEmisor = { emisorId: string | null; nombre: string; monto: number };
 
 export async function calcularResumenSesion(cajaSesionId: string) {
@@ -28,6 +35,7 @@ export async function calcularResumenSesion(cajaSesionId: string) {
   let totalCambioDolaresMxn = 0;
 
   const porTerminal = new Map<string, TarjetaPorTerminal>();
+  const porTipoTarjeta = new Map<string, TarjetaPorTipo>();
   const porEmisorVale = new Map<string, ValesPorEmisor>();
 
   for (const v of ventas) {
@@ -50,6 +58,18 @@ export async function calcularResumenSesion(cajaSesionId: string) {
       else if (pago.metodoPago === "credito") totalVentasCredito += pago.monto;
       else if (pago.metodoPago === "tarjeta") {
         totalVentasTarjeta += pago.monto;
+        // Las ventas anteriores a que existiera el tipo de tarjeta se agrupan
+        // aparte en vez de inventarles uno.
+        const tipoCrudo: unknown = pago.tarjetaTipo;
+        const tipo: TipoTarjeta | null = esTipoTarjeta(tipoCrudo) ? tipoCrudo : null;
+        const claveTipo = tipo ?? "";
+        const acumuladoTipo = porTipoTarjeta.get(claveTipo) ?? {
+          tipo,
+          etiqueta: tipo ? ETIQUETA_TIPO_TARJETA[tipo] : "Sin tipo identificado",
+          monto: 0,
+        };
+        acumuladoTipo.monto += pago.monto;
+        porTipoTarjeta.set(claveTipo, acumuladoTipo);
         // Las ventas anteriores a que existieran las terminales no traen cuál se
         // usó; se agrupan bajo una entrada sin identificar en vez de perderse.
         const clave = pago.terminalId ? String(pago.terminalId) : "";
@@ -74,6 +94,13 @@ export async function calcularResumenSesion(cajaSesionId: string) {
   const tarjetaPorTerminal = [...porTerminal.values()]
     .map((t) => ({ ...t, monto: redondear(t.monto) }))
     .sort((a, b) => b.monto - a.monto);
+
+  // Se ordena por el catálogo (crédito, débito, amex) y no por monto: el corte
+  // se lee en el mismo orden todos los días, y los renglones sin tipo al final.
+  const ordenTipo = (t: TipoTarjeta | null) => (t ? TIPOS_TARJETA.indexOf(t) : TIPOS_TARJETA.length);
+  const tarjetaPorTipo = [...porTipoTarjeta.values()]
+    .map((t) => ({ ...t, monto: redondear(t.monto) }))
+    .sort((a, b) => ordenTipo(a.tipo) - ordenTipo(b.tipo));
 
   const valesPorEmisor = [...porEmisorVale.values()]
     .map((v) => ({ ...v, monto: redondear(v.monto) }))
@@ -115,6 +142,7 @@ export async function calcularResumenSesion(cajaSesionId: string) {
     totalVentasDolaresMxn: redondear(totalVentasDolaresMxn),
     totalCambioDolaresMxn: redondear(totalCambioDolaresMxn),
     tarjetaPorTerminal,
+    tarjetaPorTipo,
     valesPorEmisor,
     totalAbonosEfectivo,
     totalAbonosOtros,

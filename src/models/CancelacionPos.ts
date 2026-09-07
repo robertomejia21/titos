@@ -38,9 +38,13 @@ const CancelacionPosSchema = new Schema(
     items: { type: [CancelacionItemSchema], default: [] },
     importe: { type: Number, default: 0 },
     motivo: { type: String, required: true, trim: true },
-    // false cuando todavía no se configura un NIP de supervisor: la cancelación
-    // se permite igual, pero queda marcada como no autorizada.
+    // false cuando todavía no se configura ningún NIP: la cancelación se permite
+    // igual, pero queda marcada como no autorizada.
     autorizadoConNip: { type: Boolean, default: false },
+    // Encargado de turno que puso su NIP personal. Vacío cuando se autorizó con
+    // el NIP general de la configuración, que no identifica a nadie.
+    autorizadoPorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    autorizadoPorNombre: { type: String, default: "" },
     fecha: { type: Date, default: Date.now },
     corte: { type: String, required: true }, // YYYY-MM-DD en la zona de la sucursal
   },

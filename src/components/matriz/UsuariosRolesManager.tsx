@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UserCog, ShieldCheck, Store, Mail, KeyRound } from "lucide-react";
+import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 
@@ -11,6 +11,8 @@ type Rol = {
   descripcion: string;
   ambito: AmbitoRolPermiso;
   permisos: string[];
+  /** Rol de mando: asignarlo exige el NIP de 6 dígitos de matriz. */
+  esSupervisor: boolean;
   esSistema: boolean;
   activo: boolean;
 };
@@ -23,6 +25,8 @@ type Usuario = {
   sucursalRol: "admin" | "ventas";
   sucursal: { _id: string; nombre: string } | null;
   rol: { _id: string; nombre: string; ambito: string } | null;
+  /** Ya tiene NIP personal para autorizar cancelaciones y retiros. */
+  tieneNipOperacion?: boolean;
   activo: boolean;
   propio: boolean;
 };
@@ -63,6 +67,9 @@ function UsuarioModal({
   const [role, setRole] = useState<"matriz" | "sucursal">(usuario?.role ?? "sucursal");
   const [sucursalId, setSucursalId] = useState(usuario?.sucursal?._id ?? "");
   const [rolId, setRolId] = useState(usuario?.rol?._id ?? "");
+  const [nipSupervisor, setNipSupervisor] = useState("");
+  // NIP personal del encargado de turno, con el que autoriza en el mostrador.
+  const [nipOperacion, setNipOperacion] = useState("");
   const [activo, setActivo] = useState(usuario?.activo ?? true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,12 +78,25 @@ function UsuarioModal({
   // sentido en un usuario de matriz.
   const rolesDisponibles = roles.filter((r) => r.ambito === role && r.activo);
 
+  // El NIP solo se pide cuando el rol elegido es de supervisor, y al editar solo
+  // si además el rol está cambiando: guardar el teléfono de un supervisor que ya
+  // lo era no tiene por qué pedirlo (es la misma regla que aplica el servidor).
+  const rolElegido = roles.find((r) => r._id === rolId) ?? null;
+  const esEncargado = !!rolElegido?.esSupervisor;
+  const pideNipSupervisor = esEncargado && (!esEdicion || usuario!.rol?._id !== rolId);
+  // Al crear (o al ascender a alguien) hay que asignarle su NIP; a un encargado
+  // que ya lo tiene solo se le ofrece cambiarlo.
+  const yaTieneNip = esEdicion && !!usuario!.tieneNipOperacion;
+  const nipOperacionObligatorio = esEncargado && !yaTieneNip;
+
   async function guardar() {
     setError(null);
     setGuardando(true);
 
     const cuerpo: Record<string, unknown> = { nombre, email, rolId: rolId || null };
     if (password) cuerpo.password = password;
+    if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
+    if (esEncargado && nipOperacion) cuerpo.nipOperacion = nipOperacion;
     if (esEdicion) {
       cuerpo.activo = activo;
       if (usuario!.role === "sucursal") cuerpo.sucursalId = sucursalId || null;
@@ -101,7 +121,12 @@ function UsuarioModal({
     onGuardado();
   }
 
-  const faltaCampo = !nombre || !email || (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId)));
+  const faltaCampo =
+    !nombre ||
+    !email ||
+    (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId))) ||
+    (pideNipSupervisor && nipSupervisor.length !== 6) ||
+    (nipOperacionObligatorio && nipOperacion.length !== 6);
 
   return (
     <Modal
@@ -182,6 +207,56 @@ function UsuarioModal({
           </p>
         </FormField>
 
+        {/* El NIP personal es lo que deja el NOMBRE de quien autorizó en la
+            bitácora; el NIP general de Configuración solo dice que alguien lo
+            hizo. Por eso un encargado nuevo no se crea sin el suyo. */}
+        {esEncargado ? (
+          <FormField
+            label={
+              yaTieneNip
+                ? "Nuevo NIP de operaciones (6 dígitos, opcional)"
+                : "NIP de operaciones del encargado (6 dígitos)"
+            }
+          >
+            <Input
+              icon={KeyRound}
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={6}
+              value={nipOperacion}
+              onChange={(e) => setNipOperacion(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder={yaTieneNip ? "Déjalo vacío para conservar el actual" : "••••••"}
+            />
+            <p className="mt-1 text-xs text-black/40">
+              Con este NIP autoriza cancelaciones y retiros en el punto de venta, y su nombre queda en la bitácora.
+              Es personal: no lo comparte con los cajeros.
+              {yaTieneNip ? " Ya tiene uno asignado." : ""}
+            </p>
+          </FormField>
+        ) : null}
+
+        {/* Nombrar encargado a alguien pide además el NIP que matriz guarda en
+            Configuración. El servidor lo valida igual. */}
+        {pideNipSupervisor ? (
+          <FormField label="NIP para crear supervisores (6 dígitos)">
+            <Input
+              icon={ShieldAlert}
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={nipSupervisor}
+              onChange={(e) => setNipSupervisor(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••••"
+            />
+            <p className="mt-1 text-xs text-amber-700">
+              <strong>{rolElegido?.nombre}</strong> es un rol de encargado de turno. Captura el NIP de 6 dígitos que
+              matriz configuró en Configuración → NIP para crear supervisores.
+            </p>
+          </FormField>
+        ) : null}
+
         <FormField label={esEdicion ? "Nueva contraseña (opcional)" : "Contraseña"}>
           <Input
             icon={KeyRound}
@@ -214,6 +289,8 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
   const [descripcion, setDescripcion] = useState(rol?.descripcion ?? "");
   const [ambito, setAmbito] = useState<AmbitoRolPermiso>(rol?.ambito ?? "sucursal");
   const [permisos, setPermisos] = useState<string[]>(rol?.permisos ?? []);
+  const [esSupervisor, setEsSupervisor] = useState(rol?.esSupervisor ?? false);
+  const [nipSupervisor, setNipSupervisor] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -232,13 +309,19 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
     setPermisos((prev) => (prev.includes(clave) ? prev.filter((p) => p !== clave) : [...prev, clave]));
   }
 
+  const pideNipSupervisor = esSupervisor && !rol?.esSupervisor;
+
   async function guardar() {
     setError(null);
     setGuardando(true);
 
-    const cuerpo = esEdicion
-      ? { nombre, descripcion, permisos }
-      : { nombre, descripcion, ambito, permisos };
+    // Marcar un rol como de supervisor es lo que abre el candado, así que el
+    // propio marcado va detrás del mismo NIP. Quitarlo no lo pide: deja de dar
+    // acceso, no lo otorga.
+    const cuerpo: Record<string, unknown> = esEdicion
+      ? { nombre, descripcion, permisos, esSupervisor }
+      : { nombre, descripcion, ambito, permisos, esSupervisor };
+    if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
 
     const res = await fetch(esEdicion ? `/api/roles/${rol!._id}` : "/api/roles", {
       method: esEdicion ? "PATCH" : "POST",
@@ -295,7 +378,10 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
                 Eliminar
               </Button>
             ) : null}
-            <Button onClick={guardar} disabled={guardando || !nombre}>
+            <Button
+              onClick={guardar}
+              disabled={guardando || !nombre || (pideNipSupervisor && nipSupervisor.length !== 6)}
+            >
               {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear rol"}
             </Button>
           </>
@@ -330,6 +416,39 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
         <FormField label="Descripción">
           <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
         </FormField>
+
+        <div className="rounded-lg border border-black/10 p-3">
+          <label className="flex items-start gap-2 text-sm text-black/70">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={esSupervisor}
+              onChange={(e) => setEsSupervisor(e.target.checked)}
+            />
+            <span>
+              Es un rol de supervisor
+              <span className="block text-xs text-black/40">
+                Asignárselo a un usuario exigirá el NIP de 6 dígitos que matriz configura en Configuración.
+              </span>
+            </span>
+          </label>
+
+          {pideNipSupervisor ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs text-black/50">NIP para crear supervisores (6 dígitos)</label>
+              <Input
+                icon={ShieldAlert}
+                type="password"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={nipSupervisor}
+                onChange={(e) => setNipSupervisor(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="••••••"
+              />
+            </div>
+          ) : null}
+        </div>
 
         <div>
           <p className="mb-2 text-sm font-medium text-black/70">
@@ -501,6 +620,11 @@ export function UsuariosRolesManager() {
                     <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/50">
                       {ETIQUETA_AMBITO[r.ambito]}
                     </span>
+                    {r.esSupervisor ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                        supervisor
+                      </span>
+                    ) : null}
                     {r.esSistema ? (
                       <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                         del sistema

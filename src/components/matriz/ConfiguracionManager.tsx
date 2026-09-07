@@ -16,8 +16,12 @@ import {
   KeyRound,
   ShieldCheck,
   BellRing,
+  PackageX,
+  UserCog,
 } from "lucide-react";
 import { DIAS_SEMANA, DIA_LABEL } from "@/lib/dias";
+import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
+import { formatFechaHora } from "@/lib/zonasHorarias";
 import { MotivosPosManager } from "@/components/matriz/MotivosPosManager";
 
 type EstadoConexion = "open" | "connecting" | "close" | "desconocido";
@@ -112,6 +116,7 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
 }
 
 export function ConfiguracionManager() {
+  const zonaHoraria = useZonaHoraria();
   const [estado, setEstado] = useState<EstadoConexion>("desconocido");
   const [cargandoEstado, setCargandoEstado] = useState(true);
   const [mostrarQR, setMostrarQR] = useState(false);
@@ -121,12 +126,18 @@ export function ConfiguracionManager() {
   const [diasLaborales, setDiasLaborales] = useState<string[]>([]);
   const [horaCorte, setHoraCorte] = useState("16:00");
   const [tipoCambio, setTipoCambio] = useState("17");
+  // Sello de la última vez que se movió: un tipo de cambio viejo regala
+  // mercancía y no se nota hasta el corte.
+  const [tipoCambioActualizadoEn, setTipoCambioActualizadoEn] = useState<string | null>(null);
+  const [tipoCambioActualizadoPor, setTipoCambioActualizadoPor] = useState("");
   const [tasaIvaFactura, setTasaIvaFactura] = useState("0");
   const [alertasActivas, setAlertasActivas] = useState(true);
   const [horasLimiteSurtido, setHorasLimiteSurtido] = useState("24");
   const [horasLimiteRecepcion, setHorasLimiteRecepcion] = useState("24");
   /** Se captura como texto separado por comas; se manda como arreglo. */
   const [destinatariosAlertas, setDestinatariosAlertas] = useState("");
+  const [alertaInventarioCero, setAlertaInventarioCero] = useState(true);
+  const [destinatariosCompras, setDestinatariosCompras] = useState("");
   const [guardandoAlertas, setGuardandoAlertas] = useState(false);
   const [revisando, setRevisando] = useState(false);
   const [mensajeAlertas, setMensajeAlertas] = useState<string | null>(null);
@@ -134,6 +145,10 @@ export function ConfiguracionManager() {
   const [aceptaDolares, setAceptaDolares] = useState(true);
   // 0 = se aceptan todas las denominaciones (la política de hoy).
   const [denominacionMaximaUsd, setDenominacionMaximaUsd] = useState("0");
+  // Topes de cuánto de una venta se puede liquidar en billete verde.
+  // 0 en cualquiera de los dos = ese tope no aplica.
+  const [porcentajeMaximoUsd, setPorcentajeMaximoUsd] = useState("0");
+  const [montoMaximoUsd, setMontoMaximoUsd] = useState("0");
   const [cargandoConfig, setCargandoConfig] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -144,6 +159,14 @@ export function ConfiguracionManager() {
   const [guardandoNip, setGuardandoNip] = useState(false);
   const [mensajeNip, setMensajeNip] = useState<string | null>(null);
   const [errorNip, setErrorNip] = useState<string | null>(null);
+
+  // NIP de 6 dígitos que se exige para dar de alta (o ascender a) un supervisor.
+  const [nipSupConfigurado, setNipSupConfigurado] = useState(false);
+  const [nipSup, setNipSup] = useState("");
+  const [nipSupConfirmacion, setNipSupConfirmacion] = useState("");
+  const [guardandoNipSup, setGuardandoNipSup] = useState(false);
+  const [mensajeNipSup, setMensajeNipSup] = useState<string | null>(null);
+  const [errorNipSup, setErrorNipSup] = useState<string | null>(null);
 
   const cargado = useRef(false);
 
@@ -168,14 +191,21 @@ export function ConfiguracionManager() {
     setDiasLaborales(data.diasLaborales ?? []);
     setHoraCorte(data.horaCorte ?? "16:00");
     setTipoCambio(String(data.tipoCambio ?? 17));
+    setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
+    setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
     setTasaIvaFactura(String(data.tasaIvaFactura ?? 0));
     setAlertasActivas(data.alertas?.activas !== false);
     setHorasLimiteSurtido(String(data.alertas?.horasLimiteSurtido ?? 24));
     setHorasLimiteRecepcion(String(data.alertas?.horasLimiteRecepcion ?? 24));
     setDestinatariosAlertas((data.alertas?.destinatarios ?? []).join(", "));
+    setAlertaInventarioCero(data.alertas?.inventarioCeroActiva !== false);
+    setDestinatariosCompras((data.alertas?.destinatariosCompras ?? []).join(", "));
     setAceptaDolares(data.dolares?.aceptaPagos !== false);
     setDenominacionMaximaUsd(String(data.dolares?.denominacionMaxima ?? 0));
+    setPorcentajeMaximoUsd(String(data.dolares?.porcentajeMaximo ?? 0));
+    setMontoMaximoUsd(String(data.dolares?.montoMaximoUsd ?? 0));
     setNipConfigurado(!!data.nipSupervisorConfigurado);
+    setNipSupConfigurado(!!data.nipCreacionSupervisorConfigurado);
   }, []);
 
   useEffect(() => {
@@ -203,6 +233,8 @@ export function ConfiguracionManager() {
         dolares: {
           aceptaPagos: aceptaDolares,
           denominacionMaxima: Number(denominacionMaximaUsd) || 0,
+          porcentajeMaximo: Number(porcentajeMaximoUsd) || 0,
+          montoMaximoUsd: Number(montoMaximoUsd) || 0,
         },
       }),
     });
@@ -214,6 +246,12 @@ export function ConfiguracionManager() {
       return;
     }
 
+    // La respuesta trae el sello recién puesto al tipo de cambio.
+    const data = await res.json().catch(() => null);
+    if (data) {
+      setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
+      setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
+    }
     setMensaje("Ajustes guardados.");
   }
 
@@ -229,6 +267,11 @@ export function ConfiguracionManager() {
           horasLimiteSurtido: Number(horasLimiteSurtido),
           horasLimiteRecepcion: Number(horasLimiteRecepcion),
           destinatarios: destinatariosAlertas
+            .split(",")
+            .map((d) => d.trim())
+            .filter(Boolean),
+          inventarioCeroActiva: alertaInventarioCero,
+          destinatariosCompras: destinatariosCompras
             .split(",")
             .map((d) => d.trim())
             .filter(Boolean),
@@ -323,6 +366,60 @@ export function ConfiguracionManager() {
     setMensajeNip("Se quitó el NIP. Las cancelaciones se seguirán registrando, pero ya no piden autorización.");
   }
 
+  async function guardarNipSupervisores() {
+    setErrorNipSup(null);
+    setMensajeNipSup(null);
+
+    if (!/^\d{6}$/.test(nipSup)) {
+      setErrorNipSup("El NIP debe ser de exactamente 6 dígitos");
+      return;
+    }
+    if (nipSup !== nipSupConfirmacion) {
+      setErrorNipSup("Los dos NIP no coinciden");
+      return;
+    }
+
+    setGuardandoNipSup(true);
+    const res = await fetch("/api/configuracion", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nipCreacionSupervisor: nipSup }),
+    });
+    setGuardandoNipSup(false);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorNipSup(data.error || "No se pudo guardar el NIP");
+      return;
+    }
+
+    setNipSup("");
+    setNipSupConfirmacion("");
+    setNipSupConfigurado(true);
+    setMensajeNipSup("NIP para crear supervisores actualizado.");
+  }
+
+  async function quitarNipSupervisores() {
+    setErrorNipSup(null);
+    setMensajeNipSup(null);
+    setGuardandoNipSup(true);
+    const res = await fetch("/api/configuracion", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nipCreacionSupervisor: null }),
+    });
+    setGuardandoNipSup(false);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorNipSup(data.error || "No se pudo quitar el NIP");
+      return;
+    }
+
+    setNipSupConfigurado(false);
+    setMensajeNipSup("Se quitó el NIP. Mientras no haya uno, no se pueden dar de alta usuarios supervisores.");
+  }
+
   async function desconectar() {
     setDesconectando(true);
     const res = await fetch("/api/whatsapp/desconectar", { method: "POST" });
@@ -332,6 +429,19 @@ export function ConfiguracionManager() {
   }
 
   const info = ESTADO_INFO[estado];
+
+  /** Cómo queda la política de dólares con lo que hay capturado ahora mismo. */
+  const resumenTopesDolares = (() => {
+    if (!aceptaDolares) return "Los pagos en dólares están desactivados, así que estos topes no se aplican.";
+    const porcentaje = Number(porcentajeMaximoUsd) || 0;
+    const monto = Number(montoMaximoUsd) || 0;
+    if (porcentaje <= 0 && monto <= 0) return "Sin topes: una venta completa se puede pagar en dólares.";
+    const partes = [
+      porcentaje > 0 ? `hasta el ${porcentaje}% de cada venta` : "cualquier porcentaje de la venta",
+      monto > 0 ? `un máximo de ${monto.toFixed(2)} USD por venta` : "",
+    ].filter(Boolean);
+    return `Hoy se acepta ${partes.join(", con ")}.`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -413,6 +523,17 @@ export function ConfiguracionManager() {
                 onChange={(e) => setTipoCambio(e.target.value)}
                 placeholder="17.00"
               />
+              {/* Sin esta línea nadie se entera de que el tipo de cambio lleva
+                  tres semanas sin moverse hasta que el corte no cuadra. */}
+              <p className="mt-1 text-xs text-black/40">
+                {tipoCambioActualizadoEn
+                  ? `Última actualización: ${formatFechaHora(tipoCambioActualizadoEn, zonaHoraria)}${
+                      tipoCambioActualizadoPor ? ` por ${tipoCambioActualizadoPor}` : ""
+                    }.`
+                  : "Todavía no se ha ajustado a mano: se está usando el valor con el que arrancó el sistema."}{" "}
+                Se aplica a los cobros en dólares desde el momento en que se guarda; cada venta se queda con el tipo de
+                cambio que tenía al cobrarse.
+              </p>
             </FormField>
             <FormField label="Pagos en dólares">
               <div className="space-y-2 rounded-lg border border-black/10 p-3">
@@ -459,6 +580,59 @@ export function ConfiguracionManager() {
             </FormField>
           </FormGrid>
         )}
+
+        {/* Cuánto de una venta se puede liquidar en billete verde. Va aquí,
+            pegado al tipo de cambio, porque los dos se revisan juntos: quien
+            ajusta el tipo de cambio es quien decide cuántos dólares aguanta la
+            caja ese día. */}
+        {!cargandoConfig ? (
+          <div className="mt-5 border-t border-black/10 pt-4">
+            <h3 className="mb-1 font-semibold text-titos-green-900">Límite de aceptación de dólares</h3>
+            <p className="mb-3 text-sm text-black/50">
+              Hasta cuánto de una venta se acepta en dólares. Son dos topes independientes y se aplican los dos: gana
+              el que se alcance primero. El punto de venta avisa al cajero antes de cobrar y el servidor lo vuelve a
+              validar, así que no se puede saltar desde el navegador.
+            </p>
+
+            <FormGrid>
+              <FormField label="Porcentaje máximo del total de la venta (%)">
+                <Input
+                  icon={Percent}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  disabled={!aceptaDolares}
+                  value={porcentajeMaximoUsd}
+                  onChange={(e) => setPorcentajeMaximoUsd(e.target.value)}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-black/40">
+                  0 = sin tope, la venta completa se puede pagar en dólares. Con 50, una venta de $1,000 admite como
+                  máximo $500 en dólares y el resto va en otra forma de pago.
+                </p>
+              </FormField>
+              <FormField label="Monto máximo en dólares por venta (USD)">
+                <Input
+                  icon={DollarSign}
+                  type="number"
+                  min="0"
+                  step="1"
+                  disabled={!aceptaDolares}
+                  value={montoMaximoUsd}
+                  onChange={(e) => setMontoMaximoUsd(e.target.value)}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-black/40">
+                  0 = sin tope. Es el candado del cajón: limita cuántos billetes verdes se acumulan en un solo cobro,
+                  sin importar de cuánto sea la venta.
+                </p>
+              </FormField>
+            </FormGrid>
+
+            <p className="mt-3 rounded-lg bg-black/3 px-3 py-2 text-xs text-black/50">{resumenTopesDolares}</p>
+          </div>
+        ) : null}
 
         {mensaje ? <p className="mt-3 text-sm text-titos-green-700">{mensaje}</p> : null}
 
@@ -530,6 +704,43 @@ export function ConfiguracionManager() {
           </p>
         </FormField>
 
+        {/* Aviso al área de compras: distinto destinatario y distinto disparador
+            que los pedidos atrasados, por eso va en su propio bloque. */}
+        <div className="mb-3 border-t border-black/10 pt-4">
+          <h3 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+            <PackageX className="h-4 w-4 text-red-600" />
+            Aviso a compras por producto agotado
+          </h3>
+          <p className="mb-3 text-sm text-black/50">
+            Cuando una venta se lleva la última existencia de un producto, el sistema le manda un WhatsApp al área de
+            compras y mete el producto en las necesidades por ordenar. El faltante también aparece en el tablero de
+            matriz, así que aunque el mensaje no salga no se pierde.
+          </p>
+
+          <label className="mb-3 flex items-center gap-2 text-sm text-black/70">
+            <input
+              type="checkbox"
+              checked={alertaInventarioCero}
+              onChange={(e) => setAlertaInventarioCero(e.target.checked)}
+            />
+            Avisar cuando un producto quede en cero
+          </label>
+
+          <FormField label="WhatsApp del área de compras">
+            <Input
+              icon={PackageX}
+              disabled={!alertaInventarioCero}
+              value={destinatariosCompras}
+              onChange={(e) => setDestinatariosCompras(e.target.value)}
+              placeholder="6641234567, 6647654321"
+            />
+            <p className="mt-1 text-xs text-black/40">
+              Separados por coma. Mientras el producto siga agotado no se repite el aviso: se manda una sola vez por
+              producto y tienda, y se vuelve a habilitar cuando entra mercancía.
+            </p>
+          </FormField>
+        </div>
+
         {mensajeAlertas ? <p className="mb-3 text-sm text-titos-green-700">{mensajeAlertas}</p> : null}
 
         <div className="flex flex-wrap gap-2">
@@ -599,6 +810,71 @@ export function ConfiguracionManager() {
           </Button>
           {nipConfigurado ? (
             <Button variant="ghost" onClick={quitarNip} disabled={guardandoNip}>
+              Quitar NIP
+            </Button>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+          <UserCog className="h-4.5 w-4.5 text-titos-green-700" />
+          NIP para crear supervisores
+        </h2>
+        <p className="mb-4 text-sm text-black/50">
+          Un supervisor es quien autoriza cancelaciones y retiros en el mostrador, así que darle ese rol a alguien no
+          debe depender nada más de tener abierta la pantalla de usuarios. Con este NIP de 6 dígitos se autoriza crear
+          un usuario con rol de supervisor, ascender a uno existente y marcar un rol nuevo como de supervisor. Es
+          distinto del NIP de cancelaciones a propósito: ese lo conocen los supervisores, y con él no debe poder
+          nombrarse a otro.
+        </p>
+
+        <div
+          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+            nipSupConfigurado ? "bg-titos-green-100 text-titos-green-700" : "bg-amber-50 text-amber-800"
+          }`}
+        >
+          {nipSupConfigurado
+            ? "Hay un NIP configurado: se pide cada vez que se da de alta o se asciende a un supervisor."
+            : "Todavía no hay NIP. Mientras no lo haya, el sistema no deja crear usuarios con rol de supervisor."}
+        </div>
+
+        <FormGrid>
+          <FormField label={nipSupConfigurado ? "Nuevo NIP (6 dígitos)" : "NIP (6 dígitos)"}>
+            <Input
+              icon={KeyRound}
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={6}
+              value={nipSup}
+              onChange={(e) => setNipSup(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••••"
+            />
+          </FormField>
+          <FormField label="Confirmar NIP">
+            <Input
+              icon={KeyRound}
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              maxLength={6}
+              value={nipSupConfirmacion}
+              onChange={(e) => setNipSupConfirmacion(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••••"
+            />
+          </FormField>
+        </FormGrid>
+
+        {errorNipSup ? <p className="mt-3 text-sm text-red-600">{errorNipSup}</p> : null}
+        {mensajeNipSup ? <p className="mt-3 text-sm text-titos-green-700">{mensajeNipSup}</p> : null}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button onClick={guardarNipSupervisores} disabled={guardandoNipSup || cargandoConfig}>
+            {guardandoNipSup ? "Guardando..." : nipSupConfigurado ? "Cambiar NIP" : "Guardar NIP"}
+          </Button>
+          {nipSupConfigurado ? (
+            <Button variant="ghost" onClick={quitarNipSupervisores} disabled={guardandoNipSup}>
               Quitar NIP
             </Button>
           ) : null}

@@ -34,6 +34,21 @@ const CajaSesionSchema = new Schema(
       ],
       default: [],
     },
+    // Desglose de lo cobrado con tarjeta entre crédito, débito y American
+    // Express: cada uno lo deposita el banco por separado y con su comisión.
+    tarjetaPorTipo: {
+      type: [
+        new Schema(
+          {
+            tipo: { type: String, default: null },
+            etiqueta: { type: String, default: "" },
+            monto: { type: Number, default: 0 },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     totalVentasCredito: { type: Number, default: null }, // no es efectivo en caja, es cartera generada en el turno
     totalAbonosEfectivo: { type: Number, default: null }, // cobranza de clientes recibida en el turno
     totalDevoluciones: { type: Number, default: null }, // reembolsos pagados en el turno

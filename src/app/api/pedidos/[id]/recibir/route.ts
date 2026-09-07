@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import InventarioSucursal from "@/models/InventarioSucursal";
+import { cerrarAlertasResurtidas } from "@/lib/alertasInventario";
 import MovimientoInventario from "@/models/MovimientoInventario";
 import { requireSession, unauthorized, forbidden, badRequest, notFound, puede, sinPermiso } from "@/lib/apiAuth";
 
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { $inc: { stockActual: cantidad } },
       { upsert: true }
     );
+
+    // Ya llegó: la alerta de agotado que se le mandó a compras se cierra sola.
+    if (cantidad > 0) await cerrarAlertasResurtidas(item.productoId, session.sucursalId);
 
     const movimiento = await MovimientoInventario.create({
       tipo: "entrada_sucursal",

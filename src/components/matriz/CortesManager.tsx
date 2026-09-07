@@ -33,6 +33,7 @@ type Corte = {
   totalVentasDolaresMxn?: number;
   totalCambioDolaresMxn?: number;
   tarjetaPorTerminal?: { terminalId: string | null; alias: string; monto: number }[];
+  tarjetaPorTipo?: { tipo: string | null; etiqueta: string; monto: number }[];
   totalAbonosEfectivo?: number;
   totalDevoluciones?: number;
   totalRetiros: number;
@@ -293,6 +294,21 @@ export function CortesManager() {
                           <div className="flex justify-between pt-1.5 text-black/50">
                             <span>Ventas a crédito (cartera)</span>
                             <span>{formatMoney(corte.totalVentasCredito)}</span>
+                          </div>
+                        ) : null}
+                        {/* El banco liquida crédito, débito y American Express
+                            por separado y con su propia comisión. */}
+                        {(corte.tarjetaPorTipo ?? []).length > 0 ? (
+                          <div className="mt-2 border-t border-black/10 pt-2">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-black/40">
+                              Tarjeta por tipo
+                            </p>
+                            {(corte.tarjetaPorTipo ?? []).map((t) => (
+                              <div key={t.tipo ?? t.etiqueta} className="flex justify-between text-black/60">
+                                <span>{t.etiqueta}</span>
+                                <span className="font-medium">{formatMoney(t.monto)}</span>
+                              </div>
+                            ))}
                           </div>
                         ) : null}
                         {/* Cada renglón corresponde al depósito de una terminal:

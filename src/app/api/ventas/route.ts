@@ -11,7 +11,9 @@ import EmisorValeModel from "@/models/EmisorVale";
 import "@/models/Sucursal"; // necesario para que populate("sucursalId") funcione
 import { requireSession, unauthorized, forbidden, badRequest, conflict, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { siguienteFolio } from "@/lib/folios";
-import { obtenerConfiguracion } from "@/lib/configuracion";
+import { motivoRechazoDolares, obtenerConfiguracion, reglasDolaresDe } from "@/lib/configuracion";
+import { alertarInventarioEnCero, type ProductoAgotado } from "@/lib/alertasInventario";
+import { esTipoTarjeta, type TipoTarjeta } from "@/lib/tarjetas";
 import { resolverVentas2ParaVenta } from "@/lib/ventas2";
 import {
   ajustarStockPuntoVenta,
@@ -60,6 +62,7 @@ type PagoVenta = {
   tipoCambio?: number | null;
   terminalId?: string | null;
   terminalAlias?: string;
+  tarjetaTipo?: TipoTarjeta | null;
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
@@ -101,8 +104,16 @@ export async function POST(req: NextRequest) {
       }
       pago.montoUsd = montoUsd;
     }
-    if (p.metodoPago === "tarjeta" && p.terminalId) {
-      pago.terminalId = String(p.terminalId);
+    if (p.metodoPago === "tarjeta") {
+      if (p.terminalId) pago.terminalId = String(p.terminalId);
+      // Crédito, débito y American Express se liquidan por separado: sin el
+      // tipo, el corte no puede cuadrarse contra lo que deposita el banco.
+      // Solo se acepta vacío en las ventas que venían encoladas sin conexión
+      // desde una versión anterior, que quedan como "sin tipo identificado".
+      if (p.tarjetaTipo != null) {
+        if (!esTipoTarjeta(p.tarjetaTipo)) return badRequest("Tipo de tarjeta inválido");
+        pago.tarjetaTipo = p.tarjetaTipo;
+      }
     }
     if (p.metodoPago === "vales") {
       if (p.valeEmisorId) pago.valeEmisorId = String(p.valeEmisorId);
@@ -149,6 +160,7 @@ export async function POST(req: NextRequest) {
   // El tipo de cambio lo pone el servidor, nunca el navegador: si no, bastaría
   // con manipular la petición para llevarse la despensa con cinco dólares.
   const pagoDolares = pagos.find((p) => p.metodoPago === "efectivo_usd");
+  let reglasUsd: ReturnType<typeof reglasDolaresDe> | null = null;
   if (pagoDolares) {
     const config = await obtenerConfiguracion();
     if (config.dolares?.aceptaPagos === false) {
@@ -166,6 +178,9 @@ export async function POST(req: NextRequest) {
           `${pagoDolares.monto.toFixed(2)} que se le están aplicando a la venta`
       );
     }
+    // Los topes se validan aquí y no solo en el navegador: el punto de venta los
+    // avisa antes de cobrar, pero quien manda es el servidor.
+    reglasUsd = reglasDolaresDe(config);
     pagoDolares.tipoCambio = tipoCambio;
   }
 
@@ -224,7 +239,6 @@ export async function POST(req: NextRequest) {
   const stockPorProducto = await stockPuntoVenta(ctx, productoIds);
 
   const ventaItems = [];
-  const sinStock: string[] = [];
   let total = 0;
 
   for (const item of items) {
@@ -234,11 +248,11 @@ export async function POST(req: NextRequest) {
       return badRequest("Producto inválido o cantidad inválida en la venta");
     }
 
-    const stockActual = stockPorProducto.get(item.productoId) ?? 0;
-    if (stockActual < cantidad) {
-      sinStock.push(`${producto.nombre} (disponible: ${stockActual})`);
-      continue;
-    }
+    // La existencia ya NO bloquea la venta. El producto está físicamente en el
+    // mostrador y el cliente lo tiene en la mano: negarse a cobrarlo porque el
+    // sistema trae el inventario desfasado pierde la venta y no arregla el
+    // descuadre. Se cobra, la existencia queda en negativo (que es la señal de
+    // que hay que ajustar) y compras recibe el aviso.
 
     const subtotal = cantidad * producto.precioVenta;
     total += subtotal;
@@ -253,13 +267,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (sinStock.length > 0) {
-    return conflict(`Stock insuficiente para: ${sinStock.join(", ")}`);
-  }
-
   const sumaPagos = pagos.reduce((sum, p) => sum + p.monto, 0);
   if (Math.abs(sumaPagos - total) > 0.01) {
     return badRequest(`La suma de las formas de pago (${sumaPagos.toFixed(2)}) no coincide con el total (${total.toFixed(2)})`);
+  }
+
+  // Los topes de dólares se revisan hasta aquí porque el porcentaje se calcula
+  // sobre el total real de la venta, que es el que arman los precios del
+  // catálogo y no el que venga en la petición.
+  if (pagoDolares && reglasUsd) {
+    const rechazo = motivoRechazoDolares({
+      reglas: reglasUsd,
+      total,
+      montoAplicado: pagoDolares.monto,
+      montoUsd: pagoDolares.montoUsd ?? 0,
+    });
+    if (rechazo) return badRequest(rechazo);
   }
 
   const fechaVenta = new Date();
@@ -324,6 +347,10 @@ export async function POST(req: NextRequest) {
     await recalcularSaldoCliente(cliente._id);
   }
 
+  // Productos que esta venta deja en cero: se le avisan a compras en cuanto la
+  // venta ya está guardada.
+  const agotados: ProductoAgotado[] = [];
+
   for (const item of ventaItems) {
     await ajustarStockPuntoVenta(ctx, item.productoId, -item.cantidad);
     await MovimientoInventario.create({
@@ -335,6 +362,38 @@ export async function POST(req: NextRequest) {
       ventaId: venta._id,
       usuarioId: session.userId,
     });
+
+    // La existencia previa ya se leyó arriba, así que la resultante se deduce
+    // sin volver a consultar la base.
+    const stockPrevio = stockPorProducto.get(String(item.productoId)) ?? 0;
+    const stockResultante = stockPrevio - item.cantidad;
+    if (stockResultante <= 0) {
+      agotados.push({
+        productoId: item.productoId,
+        sku: item.sku,
+        nombreProducto: item.nombreProducto,
+        unidad: item.unidad,
+        cantidadVendida: item.cantidad,
+        stockResultante,
+        // Se vendió más de lo que el sistema decía tener: no es solo "se acabó",
+        // es que el inventario ya venía descuadrado y hay que ajustarlo.
+        vendidoSinExistencia: stockPrevio < item.cantidad,
+      });
+    }
+  }
+
+  // El aviso a compras nunca puede tumbar una venta ya cobrada: si Evolution API
+  // está caída o la alerta falla, la venta se devuelve igual y el faltante se ve
+  // de todos modos en el tablero de matriz.
+  try {
+    await alertarInventarioEnCero({
+      ctx,
+      agotados,
+      ventaId: venta._id,
+      ventaFolio: venta.folio,
+    });
+  } catch (err) {
+    console.error("No se pudo registrar la alerta de inventario en cero", err);
   }
 
   return NextResponse.json(venta, { status: 201 });

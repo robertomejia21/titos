@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const ctx = await contextoPuntoVenta(session);
   if (!ctx) return forbidden();
 
-  const autorizacion = await verificarNipSupervisor(nip);
+  const autorizacion = await verificarNipSupervisor(nip, ctx.sucursalId);
   if (!autorizacion.ok) return badRequest(autorizacion.error);
 
   const items = normalizarItemsCancelados(body?.items);
@@ -87,8 +87,16 @@ export async function POST(req: NextRequest) {
     session,
     motivo,
     autorizadoConNip: autorizacion.autorizadoConNip,
+    autorizadoPor: autorizacion.autorizadoPor ?? null,
     items,
   });
 
-  return NextResponse.json({ folio: registro.folio, autorizadoConNip: registro.autorizadoConNip }, { status: 201 });
+  return NextResponse.json(
+    {
+      folio: registro.folio,
+      autorizadoConNip: registro.autorizadoConNip,
+      autorizadoPorNombre: registro.autorizadoPorNombre,
+    },
+    { status: 201 }
+  );
 }

@@ -43,6 +43,7 @@ export async function registrarCancelacion({
   session,
   motivo,
   autorizadoConNip,
+  autorizadoPor = null,
   items = [],
   ventaId = null,
   ventaFolio = "",
@@ -53,6 +54,8 @@ export async function registrarCancelacion({
   session: SessionPayload;
   motivo: string;
   autorizadoConNip: boolean;
+  /** Encargado de turno que autorizó con su NIP personal, si lo hubo. */
+  autorizadoPor?: { id: string; nombre: string } | null;
   items?: ItemCancelado[];
   ventaId?: unknown;
   ventaFolio?: string;
@@ -84,6 +87,8 @@ export async function registrarCancelacion({
     importe: total,
     motivo,
     autorizadoConNip,
+    autorizadoPorId: autorizadoPor?.id ?? null,
+    autorizadoPorNombre: autorizadoPor?.nombre ?? "",
     fecha: new Date(),
     corte: todayCorte(zonaHoraria),
   });

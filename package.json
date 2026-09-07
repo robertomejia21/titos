@@ -11,7 +11,9 @@
     "seed:ventas-demo": "tsx scripts/seed-ventas-demo.ts",
     "clear:productos": "tsx scripts/clear-productos.ts",
     "import:sucursal": "tsx scripts/importar-inventario-sucursal.ts",
-    "presentacion:capturas": "node scripts/capturar-presentacion.mjs"
+    "presentacion:capturas": "node scripts/capturar-presentacion.mjs",
+    "check:reglas": "tsx scripts/check-reglas.ts",
+    "diagnostico:permisos": "tsx scripts/diagnostico-permisos.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

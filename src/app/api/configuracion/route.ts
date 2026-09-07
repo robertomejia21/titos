@@ -3,7 +3,14 @@ import { connectDB } from "@/lib/db";
 import { DIAS_SEMANA } from "@/lib/dias";
 import { requireSession, unauthorized, forbidden, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
-import { NIP_SUPERVISOR_REGEX, obtenerConfiguracion } from "@/lib/configuracion";
+import {
+  NIP_CREACION_SUPERVISOR_REGEX,
+  NIP_SUPERVISOR_REGEX,
+  obtenerConfiguracion,
+  reglasDolaresDe,
+} from "@/lib/configuracion";
+import { hayNipsDeSupervisor } from "@/lib/supervisores";
+import { contextoPuntoVenta } from "@/lib/puntoVenta";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -11,7 +18,16 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
   const config = await obtenerConfiguracion();
-  const nipSupervisorConfigurado = !!config.nipSupervisorHash;
+  const nipCreacionSupervisorConfigurado = !!config.nipCreacionSupervisorHash;
+  // "Hay NIP" para el punto de venta significa que hay CON QUÉ autorizar: el NIP
+  // general de la cadena o el personal de algún encargado de turno. Con
+  // cualquiera de los dos, el mostrador debe pedirlo al cancelar.
+  // Se pregunta por la tienda en la que opera la sesión (la sucursal, o el
+  // mostrador si quien consulta es matriz) para no exigir un NIP que ningún
+  // encargado de ESA tienda tiene.
+  const ctx = await contextoPuntoVenta(session);
+  const nipSupervisorConfigurado =
+    !!config.nipSupervisorHash || (await hayNipsDeSupervisor(ctx?.sucursalId));
 
   // Las sucursales solo necesitan el tipo de cambio y las reglas de dólares (las
   // usa el punto de venta), y saber si ya hay un NIP de supervisor con el que
@@ -19,18 +35,19 @@ export async function GET(req: NextRequest) {
   if (session.role !== "matriz") {
     return NextResponse.json({
       tipoCambio: config.tipoCambio ?? 17,
-      dolares: {
-        aceptaPagos: config.dolares?.aceptaPagos ?? true,
-        denominacionMaxima: config.dolares?.denominacionMaxima ?? 0,
-      },
+      // Se manda cuándo se actualizó para que el punto de venta pueda avisar
+      // que el tipo de cambio ya tiene días sin moverse.
+      tipoCambioActualizadoEn: config.tipoCambioActualizadoEn ?? null,
+      dolares: reglasDolaresDe(config),
       nipSupervisorConfigurado,
     });
   }
 
-  // El hash del NIP nunca sale de la API.
+  // Los hashes de los NIP nunca salen de la API.
   const objeto = config.toObject();
   delete objeto.nipSupervisorHash;
-  return NextResponse.json({ ...objeto, nipSupervisorConfigurado });
+  delete objeto.nipCreacionSupervisorHash;
+  return NextResponse.json({ ...objeto, nipSupervisorConfigurado, nipCreacionSupervisorConfigurado });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -57,16 +74,30 @@ export async function PATCH(req: NextRequest) {
     const tipoCambio = Number(body.tipoCambio);
     if (!Number.isFinite(tipoCambio) || tipoCambio <= 0) return badRequest("Tipo de cambio inválido");
     update.tipoCambio = tipoCambio;
+    // Se sella quién lo movió y cuándo: el punto de venta lo muestra junto al
+    // importe en dólares para que nadie cobre con el de hace tres semanas.
+    update.tipoCambioActualizadoEn = new Date();
+    update.tipoCambioActualizadoPor = session.nombre ?? "";
   }
   if ("dolares" in body) {
     const dolares = body.dolares ?? {};
     const denominacionMaxima = Number(dolares.denominacionMaxima ?? 0);
+    const porcentajeMaximo = Number(dolares.porcentajeMaximo ?? 0);
+    const montoMaximoUsd = Number(dolares.montoMaximoUsd ?? 0);
     if (!Number.isFinite(denominacionMaxima) || denominacionMaxima < 0) {
       return badRequest("La denominación máxima de dólares debe ser un número mayor o igual a cero");
+    }
+    if (!Number.isFinite(porcentajeMaximo) || porcentajeMaximo < 0 || porcentajeMaximo > 100) {
+      return badRequest("El porcentaje máximo a pagar en dólares debe ir de 0 a 100");
+    }
+    if (!Number.isFinite(montoMaximoUsd) || montoMaximoUsd < 0) {
+      return badRequest("El monto máximo en dólares debe ser un número mayor o igual a cero");
     }
     update.dolares = {
       aceptaPagos: dolares.aceptaPagos !== false,
       denominacionMaxima,
+      porcentajeMaximo,
+      montoMaximoUsd,
     };
   }
   if ("alertas" in body) {
@@ -82,11 +113,16 @@ export async function PATCH(req: NextRequest) {
     const destinatarios = Array.isArray(alertas.destinatarios)
       ? alertas.destinatarios.map((d: unknown) => String(d).trim()).filter(Boolean)
       : [];
+    const destinatariosCompras = Array.isArray(alertas.destinatariosCompras)
+      ? alertas.destinatariosCompras.map((d: unknown) => String(d).trim()).filter(Boolean)
+      : [];
     update.alertas = {
       activas: alertas.activas !== false,
       horasLimiteSurtido,
       horasLimiteRecepcion,
       destinatarios,
+      inventarioCeroActiva: alertas.inventarioCeroActiva !== false,
+      destinatariosCompras,
     };
   }
   if ("tasaIvaFactura" in body) {
@@ -106,11 +142,29 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Mismo trato para el NIP con el que se autoriza CREAR supervisores, que es
+  // un candado aparte del de las cancelaciones.
+  if ("nipCreacionSupervisor" in body) {
+    if (body.nipCreacionSupervisor === null) {
+      update.nipCreacionSupervisorHash = "";
+    } else {
+      const nip = String(body.nipCreacionSupervisor ?? "").trim();
+      if (!NIP_CREACION_SUPERVISOR_REGEX.test(nip)) {
+        return badRequest("El NIP para crear supervisores debe ser de 6 dígitos");
+      }
+      update.nipCreacionSupervisorHash = await hashPassword(nip);
+    }
+  }
+
   await connectDB();
   const actual = await obtenerConfiguracion();
   Object.assign(actual, update);
   await actual.save();
 
-  const { nipSupervisorHash, ...resto } = actual.toObject();
-  return NextResponse.json({ ...resto, nipSupervisorConfigurado: !!nipSupervisorHash });
+  const { nipSupervisorHash, nipCreacionSupervisorHash, ...resto } = actual.toObject();
+  return NextResponse.json({
+    ...resto,
+    nipSupervisorConfigurado: !!nipSupervisorHash,
+    nipCreacionSupervisorConfigurado: !!nipCreacionSupervisorHash,
+  });
 }

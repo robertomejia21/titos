@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, TriangleAlert, Clock, Wallet } from "lucide-react";
+import { Search, TriangleAlert, Clock, Wallet, Printer } from "lucide-react";
 import { Button, Card, EmptyState, FormField, Input, formatMoney } from "@/components/ui";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { imprimirTicketDevolucion } from "@/lib/ticketDevolucion";
 
 type ItemDevolvible = {
   productoId: string;
@@ -32,13 +33,15 @@ type Devolucion = {
   folio: string;
   ventaFolio: string;
   fecha: string;
+  /** Día de corte al que queda amarrada; va impreso en el ticket del turno. */
+  corte?: string;
   total: number;
   montoCredito: number;
   montoEfectivo: number;
   estado: "pendiente" | "pagada" | "cancelada";
   clienteNombre: string;
   motivo: string;
-  items: { nombreProducto: string; cantidad: number; unidad: string; subtotal: number }[];
+  items: { nombreProducto: string; cantidad: number; unidad: string; precioUnitario: number; subtotal: number }[];
   usuarioId?: { _id: string; nombre: string } | string | null;
   pagadaPorId?: { _id: string; nombre: string } | string | null;
 };
@@ -48,7 +51,7 @@ function nombreUsuario(valor: Devolucion["usuarioId"]) {
   return valor && typeof valor !== "string" ? valor.nombre : null;
 }
 
-export function DevolucionesManager() {
+export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: string }) {
   const zonaHoraria = useZonaHoraria();
   const [folio, setFolio] = useState("");
   const [buscando, setBuscando] = useState(false);
@@ -135,11 +138,33 @@ export function DevolucionesManager() {
 
     const devolucion: Devolucion = await res.json();
     setUltima(devolucion);
+    // Se imprime sola: la copia del turno es el respaldo en papel de la salida
+    // de efectivo, y si no sale en el momento nadie vuelve por ella.
+    imprimirDevolucion(devolucion);
     setResultado(null);
     setCantidades({});
     setMotivo("");
     setFolio("");
     cargar();
+  }
+
+  function imprimirDevolucion(devolucion: Devolucion) {
+    imprimirTicketDevolucion(
+      {
+        folio: devolucion.folio,
+        ventaFolio: devolucion.ventaFolio,
+        fecha: devolucion.fecha,
+        corte: devolucion.corte,
+        items: devolucion.items,
+        total: devolucion.total,
+        montoCredito: devolucion.montoCredito,
+        montoEfectivo: devolucion.montoEfectivo,
+        estado: devolucion.estado,
+        motivo: devolucion.motivo,
+        clienteNombre: devolucion.clienteNombre,
+      },
+      { sucursalNombre, zonaHoraria, cajero: nombreUsuario(devolucion.usuarioId) ?? "" }
+    );
   }
 
   async function pagarDevolucion(id: string) {
@@ -182,7 +207,8 @@ export function DevolucionesManager() {
       <Card>
         <h2 className="mb-1 font-semibold text-titos-green-900">Registrar devolución</h2>
         <p className="mb-4 text-sm text-black/50">
-          Busca la venta por su folio. Solo se admiten devoluciones dentro de las primeras 48 horas.
+          Busca la venta por su folio: basta el número, sin el <strong>VTA-</strong> ni los ceros. Solo se admiten
+          devoluciones dentro de las primeras 48 horas.
         </p>
 
         <form onSubmit={buscarVenta} className="mb-4 flex flex-wrap gap-2">
@@ -191,7 +217,7 @@ export function DevolucionesManager() {
               icon={Search}
               value={folio}
               onChange={(e) => setFolio(e.target.value)}
-              placeholder="Folio de la venta, ej. VTA-ABC123"
+              placeholder="Número de folio, ej. 123 (o VTA-000123)"
             />
           </div>
           <Button type="submit" disabled={buscando || !folio.trim()}>
@@ -203,9 +229,16 @@ export function DevolucionesManager() {
 
         {ultima ? (
           <div className="rounded-xl bg-titos-green-100 p-4 text-sm text-titos-green-900">
-            <p className="font-semibold">
-              Devolución {ultima.folio} registrada por {formatMoney(ultima.total)}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold">
+                Devolución {ultima.folio} registrada por {formatMoney(ultima.total)}
+              </p>
+              <Button variant="ghost" onClick={() => imprimirDevolucion(ultima)}>
+                <span className="inline-flex items-center gap-1.5">
+                  <Printer className="h-4 w-4" /> Reimprimir ticket
+                </span>
+              </Button>
+            </div>
             <ul className="mt-1 space-y-0.5 text-titos-green-800">
               {ultima.montoCredito > 0 ? (
                 <li>{formatMoney(ultima.montoCredito)} se abonaron a la cuenta por cobrar del cliente.</li>
@@ -219,6 +252,10 @@ export function DevolucionesManager() {
                 </li>
               ) : null}
               <li>El producto ya regresó al inventario.</li>
+              <li>
+                Se imprimieron dos copias: la del cliente y la del turno. La del turno se guarda en el cajón y
+                respalda la salida de efectivo del corte {ultima.corte ? `del ${ultima.corte}` : "del día"}.
+              </li>
             </ul>
           </div>
         ) : null}
@@ -388,16 +425,26 @@ export function DevolucionesManager() {
                       </span>
                     </td>
                     <td className="w-px py-2 pl-2 text-right whitespace-nowrap">
-                      {d.estado === "pendiente" ? (
+                      <div className="flex justify-end gap-1.5">
                         <Button
                           size="sm"
-                          className="w-20"
-                          onClick={() => pagarDevolucion(d._id)}
-                          disabled={pagando === d._id}
+                          variant="ghost"
+                          title="Reimprimir el ticket (cliente y turno)"
+                          onClick={() => imprimirDevolucion(d)}
                         >
-                          {pagando === d._id ? "..." : "Pagar"}
+                          <Printer className="h-4 w-4" />
                         </Button>
-                      ) : null}
+                        {d.estado === "pendiente" ? (
+                          <Button
+                            size="sm"
+                            className="w-20"
+                            onClick={() => pagarDevolucion(d._id)}
+                            disabled={pagando === d._id}
+                          >
+                            {pagando === d._id ? "..." : "Pagar"}
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

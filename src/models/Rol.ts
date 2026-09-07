@@ -13,6 +13,12 @@ const RolSchema = new Schema(
     // ámbito es lo que decide qué casillas se ofrecen al editarlo.
     ambito: { type: String, enum: AMBITOS_ROL, required: true },
     permisos: { type: [String], default: [] },
+    // Marca los roles de mando (supervisor de piso, encargado de turno). Dar de
+    // alta o ascender a alguien a uno de estos roles exige el NIP de creación
+    // de supervisores que matriz configura en /matriz/configuracion: el rol es
+    // lo que decide quién autoriza cancelaciones, así que repartirlo sin
+    // candado equivale a repartir la caja.
+    esSupervisor: { type: Boolean, default: false },
     // Los roles semilla no se pueden borrar: son los que reproducen los perfiles
     // con los que ya venía operando el sistema.
     esSistema: { type: Boolean, default: false },

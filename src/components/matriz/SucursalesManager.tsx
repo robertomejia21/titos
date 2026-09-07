@@ -50,6 +50,12 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // El usuario de acceso es opcional, pero a medias no sirve: o se capturan los
+  // dos campos o ninguno. Antes los dos eran obligatorios y el botón se quedaba
+  // apagado sin explicar por qué.
+  const capturoAlgo = !!form.email.trim() || !!form.password;
+  const credencialIncompleta = capturoAlgo && (!form.email.trim() || form.password.length < 6);
+
   async function crear() {
     setError(null);
     setSaving(true);
@@ -79,7 +85,7 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
       icon={Store}
       size="lg"
       footer={
-        <Button onClick={crear} disabled={saving || !form.nombre || !form.email || !form.password}>
+        <Button onClick={crear} disabled={saving || !form.nombre || credencialIncompleta}>
           {saving ? "Guardando..." : "Crear sucursal"}
         </Button>
       }
@@ -99,20 +105,35 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
         </FormGrid>
 
         <div className="rounded-xl border border-black/10 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-black/40">
-            Usuario de acceso de la sucursal
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-black/40">
+            Usuario de acceso de la sucursal <span className="normal-case text-black/30">(opcional)</span>
+          </p>
+          <p className="mb-3 text-xs text-black/40">
+            Puedes dejarlo vacío y dar de alta la tienda ahora; el usuario se crea después desde Usuarios y roles.
           </p>
           <FormGrid>
             <FormField label="Nombre del responsable" className="sm:col-span-2">
               <Input icon={User} value={form.usuarioNombre} onChange={(e) => setForm({ ...form, usuarioNombre: e.target.value })} />
             </FormField>
             <FormField label="Correo de acceso">
-              <Input icon={Mail} type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input icon={Mail} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </FormField>
             <FormField label="Contraseña">
-              <Input icon={Lock} type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <Input
+                icon={Lock}
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+              />
             </FormField>
           </FormGrid>
+          {credencialIncompleta ? (
+            <p className="mt-2 text-xs font-medium text-amber-700">
+              Para crear el usuario faltan datos: correo y contraseña de al menos 6 caracteres. Bórralos los dos si
+              prefieres dar de alta la tienda sin acceso todavía.
+            </p>
+          ) : null}
         </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -205,9 +226,17 @@ function SucursalModal({
           <ZonaHorariaField value={zonaHoraria} onChange={setZonaHoraria} />
         </FormGrid>
 
-        <label className="flex items-center gap-2 text-sm text-black/70">
-          <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
-          Activa
+        {/* Inactivar es la salida para una tienda que ya operó: eliminarla no se
+            puede una vez que tiene ventas o cortes. */}
+        <label className="flex items-start gap-2 rounded-xl border border-black/10 p-3 text-sm text-black/70">
+          <input type="checkbox" className="mt-0.5" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+          <span>
+            Sucursal activa
+            <span className="block text-xs text-black/40">
+              Desmárcala para inactivarla: deja de aparecer para operar, pero conserva su historial de ventas y
+              cortes.
+            </span>
+          </span>
         </label>
 
         <div className="rounded-xl border border-black/10 p-4">

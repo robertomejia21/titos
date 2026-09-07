@@ -146,24 +146,48 @@ const PERMISOS_SUCURSAL_ADMIN = permisosDeAmbito("sucursal").map((p) => p.clave)
 /** El perfil "ventas" solo veía el punto de venta y el historial. */
 const PERMISOS_SUCURSAL_VENTAS = ["pos.vender", "pos.cancelar", "caja.retirar", "ventas.historial"];
 
+/**
+ * El supervisor de piso: manda sobre el mostrador (cancela, retira, resuelve
+ * devoluciones y clientes) pero no administra la sucursal ni a su gente.
+ */
+const PERMISOS_SUPERVISOR = [
+  ...PERMISOS_SUCURSAL_VENTAS,
+  "devoluciones.registrar",
+  "clientes.administrar",
+  "prestamos.operar",
+];
+
 export const ROLES_SEMILLA = [
   {
     nombre: "Administrador de matriz",
     ambito: "matriz" as const,
     permisos: PERMISOS_MATRIZ_COMPLETO,
     descripcion: "Acceso completo a la administración central.",
+    esSupervisor: false,
   },
   {
     nombre: "Administrador de sucursal",
     ambito: "sucursal" as const,
     permisos: PERMISOS_SUCURSAL_ADMIN,
     descripcion: "Todo lo de una sucursal: punto de venta, clientes, pedidos y sus usuarios.",
+    esSupervisor: false,
+  },
+  {
+    nombre: "Encargado de turno",
+    ambito: "sucursal" as const,
+    permisos: PERMISOS_SUPERVISOR,
+    descripcion: "Manda en el mostrador: cancelaciones, retiros, devoluciones y clientes.",
+    // Dar de alta a alguien con este rol exige el NIP de creación de matriz, y
+    // a cada encargado se le asigna además su propio NIP de 6 dígitos con el
+    // que autoriza cancelaciones y retiros.
+    esSupervisor: true,
   },
   {
     nombre: "Cajero",
     ambito: "sucursal" as const,
     permisos: PERMISOS_SUCURSAL_VENTAS,
     descripcion: "Solo el punto de venta y la consulta de ventas del día.",
+    esSupervisor: false,
   },
 ];
 

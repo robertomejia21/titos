@@ -14,6 +14,8 @@ import {
   sinPermiso,
 } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
+import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
+import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
 
 const PERMISO = "usuarios.administrar";
 
@@ -71,12 +73,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("rolId" in body) {
     const rolId = body.rolId ? String(body.rolId) : null;
     if (rolId) {
-      const rol = await RolModel.findById(rolId).select("ambito activo").lean();
+      const rol = await RolModel.findById(rolId).select("ambito activo esSupervisor").lean();
       if (!rol) return badRequest("El rol no existe");
       if (!rol.activo) return badRequest("Ese rol está desactivado");
       if (rol.ambito !== usuario.role) return badRequest("El rol elegido no corresponde al tipo de usuario");
+
+      // Ascender a alguien a supervisor pide el mismo NIP que crearlo: si no,
+      // el candado se saltaría dando de alta un cajero y editándolo enseguida.
+      // Solo se pide cuando el rol cambia: guardar el nombre de un supervisor
+      // que ya lo era no tiene por qué exigirlo.
+      if (rol.esSupervisor && String(usuario.rolId ?? "") !== rolId) {
+        const autorizacion = await verificarNipCreacionSupervisor(
+          String(body.nipCreacionSupervisor ?? "").trim()
+        );
+        if (!autorizacion.ok) return badRequest(autorizacion.error);
+      }
     }
     usuario.rolId = rolId;
+  }
+
+  // NIP personal del encargado de turno. `null` se lo quita (deja de poder
+  // autorizar); una cadena de 6 dígitos lo cambia. Si la llave no viene, el NIP
+  // actual no se toca: guardar el teléfono de alguien no debe borrarle el NIP.
+  if ("nipOperacion" in body) {
+    if (body.nipOperacion === null || body.nipOperacion === "") {
+      usuario.nipOperacionHash = "";
+    } else {
+      const nip = String(body.nipOperacion).trim();
+      if (!NIP_OPERACION_REGEX.test(nip)) return badRequest("El NIP de operaciones debe ser de 6 dígitos");
+      usuario.nipOperacionHash = await hashPassword(nip);
+    }
   }
 
   if ("activo" in body) usuario.activo = Boolean(body.activo);

@@ -5,6 +5,7 @@ import { requireSession, unauthorized, forbidden, badRequest, conflict, puede, s
 import { esPermisoValido } from "@/lib/permisos";
 import { AMBITOS_ROL } from "@/lib/rolesConstantes";
 import { asegurarRolesSemilla } from "@/lib/roles";
+import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 
 const PERMISO = "usuarios.administrar";
 
@@ -42,7 +43,19 @@ export async function POST(req: NextRequest) {
     ? body.permisos.map((p: unknown) => String(p)).filter(esPermisoValido)
     : [];
 
+  // Marcar un rol como de supervisor es lo que hace que crear usuarios con él
+  // exija el NIP, así que el propio marcado va detrás del mismo NIP: si no, se
+  // podría fabricar un rol de supervisor sin candado y asignarlo libremente.
+  const esSupervisor = body?.esSupervisor === true;
+
   await connectDB();
+
+  if (esSupervisor) {
+    const autorizacion = await verificarNipCreacionSupervisor(
+      String(body?.nipCreacionSupervisor ?? "").trim()
+    );
+    if (!autorizacion.ok) return badRequest(autorizacion.error);
+  }
 
   try {
     const rol = await RolModel.create({
@@ -50,6 +63,7 @@ export async function POST(req: NextRequest) {
       descripcion: String(body?.descripcion ?? "").trim(),
       ambito,
       permisos,
+      esSupervisor,
       esSistema: false,
     });
     return NextResponse.json({ ...rol.toObject(), _id: String(rol._id) }, { status: 201 });

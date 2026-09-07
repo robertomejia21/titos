@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EstadoBadge, Button, FormField, Input, Modal, formatMoney } from "@/components/ui";
 import { ChevronDown, ChevronRight, ShieldAlert, Printer } from "lucide-react";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
+import { ETIQUETA_TIPO_TARJETA, esTipoTarjeta } from "@/lib/tarjetas";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { formatFecha } from "@/lib/creditoCliente";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
@@ -26,6 +27,7 @@ type PagoVenta = {
   montoUsd?: number | null;
   tipoCambio?: number | null;
   terminalAlias?: string;
+  tarjetaTipo?: string | null;
 };
 type Venta = {
   _id: string;
@@ -152,6 +154,7 @@ export function VentasHistorial({
                       <li key={idx} className="flex items-center justify-between">
                         <span>
                           {ETIQUETAS_METODO[p.metodoPago] ?? p.metodoPago}
+                          {esTipoTarjeta(p.tarjetaTipo) ? ` — ${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]}` : ""}
                           {p.montoUsd ? ` — ${p.montoUsd.toFixed(2)} USD` : ""}
                           {p.terminalAlias ? ` — ${p.terminalAlias}` : ""}
                         </span>

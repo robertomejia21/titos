@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType } from "mongoose";
+import { TIPOS_TARJETA } from "@/lib/tarjetas";
 
 // "credito" no entra dinero a la caja: genera una cuenta por cobrar del cliente.
 // "vales" son vales de despensa: valen como pago de contado, pero no son
@@ -50,6 +51,11 @@ const PagoVentaSchema = new Schema(
     // Con qué terminal física se cobró, para cuadrar contra el banco.
     terminalId: { type: Schema.Types.ObjectId, ref: "TerminalPago", default: null },
     terminalAlias: { type: String, default: "" },
+    // Crédito, débito o American Express. El banco liquida cada uno por
+    // separado y con su propia comisión, así que el corte tiene que poder
+    // desglosarlos. `null` en las ventas anteriores a esta versión: se muestran
+    // como "sin tipo identificado" en vez de inventarles uno.
+    tarjetaTipo: { type: String, enum: [...TIPOS_TARJETA, null], default: null },
   },
   { _id: false }
 );

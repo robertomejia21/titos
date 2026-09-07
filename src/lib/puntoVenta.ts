@@ -1,6 +1,7 @@
 import Producto from "@/models/Producto";
 import InventarioSucursal from "@/models/InventarioSucursal";
 import Sucursal from "@/models/Sucursal";
+import { cerrarAlertasResurtidas } from "@/lib/alertasInventario";
 import type { SessionPayload } from "@/lib/auth";
 
 export const NOMBRE_MOSTRADOR_MATRIZ = "Matriz (mostrador)";
@@ -84,12 +85,16 @@ export async function ajustarStockPuntoVenta(
 ) {
   if (ctx.esMatriz) {
     await Producto.updateOne({ _id: productoId }, { $inc: { existenciaMatriz: cantidad } });
-    return;
+  } else {
+    await InventarioSucursal.findOneAndUpdate(
+      { sucursalId: ctx.sucursalId, productoId },
+      { $inc: { stockActual: cantidad } },
+      { upsert: true }
+    );
   }
 
-  await InventarioSucursal.findOneAndUpdate(
-    { sucursalId: ctx.sucursalId, productoId },
-    { $inc: { stockActual: cantidad } },
-    { upsert: true }
-  );
+  // Si vuelve a entrar mercancía (una devolución, una venta cancelada), la
+  // alerta de agotado que se le mandó a compras ya no aplica: se cierra sola en
+  // vez de quedarse pidiendo lo que ya está en el piso.
+  if (cantidad > 0) await cerrarAlertasResurtidas(productoId, ctx.sucursalId);
 }

@@ -68,6 +68,8 @@ export type PagoPayload = {
   montoUsd?: number;
   /** Terminal con la que se cobró; solo para "tarjeta". */
   terminalId?: string;
+  /** Crédito, débito o American Express; solo para "tarjeta". */
+  tarjetaTipo?: "credito" | "debito" | "amex";
   /** Emisor del vale y últimos 4 de la tarjeta; solo para "vales". */
   valeEmisorId?: string;
   valeUltimos4?: string;

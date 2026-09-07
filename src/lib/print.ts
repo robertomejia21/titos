@@ -120,26 +120,58 @@ export function imprimirTicket(titulo: string, contenidoHTML: string) {
         <style>
           @page { size: 80mm auto; margin: 0; }
           * { box-sizing: border-box; }
+          /*
+            Courier New a 11 px reventaba los dígitos en la térmica: el 5 y el 6
+            se imprimían con el trazo tan delgado que el cabezal se saltaba
+            puntos y quedaban como 3 y 8. Se cambió a Consolas/DejaVu Sans Mono
+            (numerales de trazo grueso y con el 6 cerrado), se subió el cuerpo y
+            se puso todo el documento en seminegrita: en papel térmico un poco
+            de peso de más se lee, uno de menos se pierde.
+          */
           body {
             width: 80mm;
             margin: 0;
             padding: 4mm 3mm;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 11px;
-            line-height: 1.35;
+            font-family: Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.4;
+            letter-spacing: 0.01em;
             color: #000;
             background: #fff;
+            /* Los números se alinean en columna y no bailan de renglón a renglón. */
+            font-variant-numeric: tabular-nums lining-nums;
+            -webkit-font-smoothing: none;
+            text-rendering: geometricPrecision;
           }
           .centro { text-align: center; }
-          .titulo { font-size: 14px; font-weight: bold; letter-spacing: 0.04em; }
-          .sucursal { font-size: 12px; font-weight: bold; }
+          .titulo { font-size: 17px; font-weight: 800; letter-spacing: 0.04em; }
+          .sucursal { font-size: 14px; font-weight: 700; }
           .sep { border-top: 1px dashed #000; margin: 5px 0; }
           .fila { display: flex; justify-content: space-between; gap: 6px; }
-          .fila span:last-child { white-space: nowrap; }
+          /* Los importes nunca se parten de renglón ni se aprietan. */
+          .fila span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
           .concepto { flex: 1; word-break: break-word; }
-          .fuerte { font-weight: bold; font-size: 13px; }
-          .tenue { font-size: 10px; }
-          .pie { margin-top: 8px; font-size: 10px; }
+          .fuerte { font-weight: 800; font-size: 15px; }
+          /* Lo "tenue" baja de tamaño, nunca de peso: adelgazarlo es justo lo
+             que hacía ilegibles los dígitos. */
+          .tenue { font-size: 11.5px; font-weight: 600; }
+          .pie { margin-top: 8px; font-size: 11.5px; }
+          .copia {
+            margin: 2px 0 6px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+          }
+          .firma { margin-top: 14px; }
+          .firma .linea { border-top: 1px solid #000; margin-bottom: 3px; }
+          /* Cada copia arranca en su propio corte de papel. */
+          .corte { page-break-after: always; break-after: page; }
+          .corte:last-child { page-break-after: auto; break-after: auto; }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
         </style>
       </head>
       <body>${contenidoHTML}</body>

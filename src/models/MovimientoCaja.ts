@@ -15,9 +15,14 @@ const MovimientoCajaSchema = new Schema(
     moneda: { type: String, enum: MONEDAS_CAJA, default: "MXN" },
     monto: { type: Number, required: true },
     motivo: { type: String, required: true },
-    // Usuario que capturó el retiro y confirmó su contraseña para autorizarlo.
+    // Usuario que capturó el retiro y sacó el dinero del cajón.
     usuarioId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     usuarioNombre: { type: String, default: "" },
+    // Encargado de turno que lo autorizó con su NIP de 6 dígitos. Vacío cuando
+    // el cajero se autorizó a sí mismo con su propia clave de acceso, que es lo
+    // que se hacía antes de que existieran los NIP personales.
+    autorizadoPorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    autorizadoPorNombre: { type: String, default: "" },
     fecha: { type: Date, default: Date.now },
     corte: { type: String, required: true }, // YYYY-MM-DD
   },

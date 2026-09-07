@@ -11,6 +11,16 @@ const ConfiguracionDolaresSchema = new Schema(
     // propósito: el día que el negocio decida rechazar los de 100 se cambia
     // aquí, sin tocar código ni volver a desplegar.
     denominacionMaxima: { type: Number, default: 0, min: 0 },
+    // Tope de cuánto de una venta puede pagarse en billete verde. Existen los
+    // dos porque son topes distintos y la tienda usa el que le aplique: el
+    // porcentaje protege el ticket grande (no aceptar que una compra de 20 mil
+    // se liquide entera en dólares) y el monto protege el cajón (no quedarse
+    // con más billetes de los que se pueden cambiar en el día).
+    // 0 en cualquiera de los dos = ese tope no aplica.
+    /** Máximo del total de la venta que puede cubrirse con dólares, en %. */
+    porcentajeMaximo: { type: Number, default: 0, min: 0, max: 100 },
+    /** Máximo de dólares en billete que se reciben en una sola venta. */
+    montoMaximoUsd: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -29,6 +39,12 @@ const ConfiguracionAlertasSchema = new Schema(
      * de recepción atrasada van al WhatsApp de la sucursal correspondiente.
      */
     destinatarios: { type: [String], default: [] },
+    /**
+     * Aviso al área de compras cuando una venta deja un producto en cero. Va a
+     * su propia lista de WhatsApp: quien surte pedidos no es quien compra.
+     */
+    inventarioCeroActiva: { type: Boolean, default: true },
+    destinatariosCompras: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -38,12 +54,23 @@ const ConfiguracionSchema = new Schema(
     diasLaborales: { type: [String], enum: DIAS_SEMANA, default: ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"] },
     horaCorte: { type: String, default: "16:00" },
     tipoCambio: { type: Number, default: 17 },
+    // Quién y cuándo movió el tipo de cambio por última vez. El punto de venta
+    // lo muestra junto al importe en dólares: un tipo de cambio de hace tres
+    // semanas regala mercancía y nadie se entera hasta el corte.
+    tipoCambioActualizadoEn: { type: Date, default: null },
+    tipoCambioActualizadoPor: { type: String, default: "" },
     dolares: { type: ConfiguracionDolaresSchema, default: () => ({}) },
     alertas: { type: ConfiguracionAlertasSchema, default: () => ({}) },
     // NIP con el que un supervisor autoriza las cancelaciones en los puntos de
     // venta (matriz y sucursales). Se guarda hasheado y nunca se devuelve por la
     // API: solo se informa si ya está configurado.
     nipSupervisorHash: { type: String, default: "" },
+    // NIP de 6 dígitos que hay que capturar para poder dar de alta (o ascender
+    // a) un usuario con rol de supervisor. Es un candado aparte del NIP de
+    // cancelaciones a propósito: ese lo conocen los supervisores del mostrador,
+    // y con él no debe poder crearse otro supervisor. También se guarda
+    // hasheado y la API solo informa si ya está configurado.
+    nipCreacionSupervisorHash: { type: String, default: "" },
     // Tasa de IVA con la que se generan las facturas del sistema. La mayoría del
     // abarrote es tasa 0%, por eso el default no es 16.
     tasaIvaFactura: { type: Number, default: 0, min: 0, max: 100 },

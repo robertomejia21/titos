@@ -21,11 +21,16 @@ import {
   ShieldAlert,
   Printer,
   Coins,
+  Info,
+  Keyboard,
+  PlusCircle,
 } from "lucide-react";
 import { Button, Card, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
+import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
+import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
 import { imprimirHTML } from "@/lib/print";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
@@ -100,7 +105,13 @@ type LecturaVale = {
   reconocida: boolean;
 };
 
-type ReglasDolares = { aceptaPagos: boolean; denominacionMaxima: number };
+/** Reglas de dólares con las que arranca el punto de venta sin conexión. */
+const REGLAS_DOLARES_DEFAULT: ReglasDolares = {
+  aceptaPagos: true,
+  denominacionMaxima: 0,
+  porcentajeMaximo: 0,
+  montoMaximoUsd: 0,
+};
 
 const TIPO_CAMBIO_CACHE_KEY = "titos-pos-tipo-cambio";
 const TERMINALES_CACHE_KEY = "titos-pos-terminales";
@@ -132,6 +143,7 @@ type PagoResp = {
   tipoCambio?: number | null;
   terminalId?: string | null;
   terminalAlias?: string;
+  tarjetaTipo?: TipoTarjeta | null;
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
@@ -201,6 +213,7 @@ type ResumenCaja = {
   totalVentasDolaresMxn: number;
   totalCambioDolaresMxn: number;
   tarjetaPorTerminal: { terminalId: string | null; alias: string; monto: number }[];
+  tarjetaPorTipo: { tipo: string | null; etiqueta: string; monto: number }[];
   valesPorEmisor: { emisorId: string | null; nombre: string; monto: number }[];
   totalAbonosEfectivo: number;
   totalDevoluciones: number;
@@ -217,6 +230,66 @@ function nombreCajero(sesion: SesionCaja | null) {
 
 function formatDolares(value: number) {
   return `$${value.toFixed(2)}`;
+}
+
+/**
+ * Atajos del punto de venta.
+ *
+ * Se eligieron teclas de función porque el mostrador se opera con una mano en
+ * el lector y la otra en el teclado, sin mirar. Se evitaron a propósito F1
+ * (ayuda del navegador), F3 (buscar en la página), F5 (recargar) y F12
+ * (herramientas de desarrollo): el navegador se las queda antes que la página.
+ *
+ * Los Alt+letra viejos se conservan porque ya hay quien los tiene en los dedos.
+ */
+const ATAJOS_POS: { teclas: string; que: string; detalle?: string }[] = [
+  { teclas: "F2", que: "Consultar precio", detalle: "Con opción de agregar el producto al carrito." },
+  { teclas: "F4", que: "Cobrar", detalle: "Abre el cobro con el carrito capturado." },
+  { teclas: "F6", que: "Retirar efectivo" },
+  { teclas: "F7", que: "Corte de caja" },
+  { teclas: "F8", que: "Cancelar la venta en curso", detalle: "Pide motivo y autorización." },
+  { teclas: "F9", que: "Ir al lector de código", detalle: "Devuelve el cursor al campo de escaneo." },
+  { teclas: "Alt + I", que: "Ver esta lista de atajos" },
+  { teclas: "Esc", que: "Cerrar la ventana abierta" },
+  { teclas: "Alt + C", que: "Consultar precio", detalle: "Equivale a F2." },
+  { teclas: "Alt + R", que: "Retirar efectivo", detalle: "Equivale a F6." },
+  { teclas: "Alt + T", que: "Corte de caja", detalle: "Equivale a F7." },
+];
+
+/**
+ * Crédito / débito / American Express. Va como botonera y no como lista
+ * desplegable porque en el mostrador se elige con el dedo y sin mirar.
+ */
+function SelectorTipoTarjeta({
+  valor,
+  onChange,
+}: {
+  valor: TipoTarjeta | "";
+  onChange: (tipo: TipoTarjeta) => void;
+}) {
+  return (
+    <FormField label="Tipo de tarjeta">
+      <div className="flex flex-wrap gap-1.5">
+        {TIPOS_TARJETA.map((tipo) => (
+          <button
+            key={tipo}
+            type="button"
+            onClick={() => onChange(tipo)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+              valor === tipo ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
+            }`}
+          >
+            {ETIQUETA_TIPO_TARJETA[tipo]}
+          </button>
+        ))}
+      </div>
+      {!valor ? (
+        <p className="mt-1 text-xs text-amber-700">
+          Márcalo antes de cobrar: el banco deposita cada uno por separado y así se cuadra el corte.
+        </p>
+      ) : null}
+    </FormField>
+  );
 }
 
 export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: string }) {
@@ -244,7 +317,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [metodoRapido, setMetodoRapido] = useState<MetodoPago>("efectivo");
   const [terminales, setTerminales] = useState<TerminalPos[]>([]);
   const [terminalId, setTerminalId] = useState("");
-  const [reglasDolares, setReglasDolares] = useState<ReglasDolares>({ aceptaPagos: true, denominacionMaxima: 0 });
+  // Crédito, débito o American Express: el banco liquida cada uno por separado,
+  // así que el cajero lo marca al cobrar. No se deduce del plástico porque el
+  // BIN dice la marca, no si la tarjeta es de crédito o de débito.
+  const [tarjetaTipo, setTarjetaTipo] = useState<TipoTarjeta | "">("");
+  const [reglasDolares, setReglasDolares] = useState<ReglasDolares>(REGLAS_DOLARES_DEFAULT);
   // --- Vales de despensa: la tarjeta se identifica sola por su BIN ---
   const [emisoresVale, setEmisoresVale] = useState<EmisorVale[]>([]);
   const [valeLectura, setValeLectura] = useState("");
@@ -273,6 +350,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [retiroMotivo, setRetiroMotivo] = useState("");
   const [retiroMoneda, setRetiroMoneda] = useState<MonedaCaja>("MXN");
   const [retiroClave, setRetiroClave] = useState("");
+  // Un retiro se autoriza de dos formas: el cajero con su propia clave, o el
+  // encargado de turno con su NIP de 6 dígitos cuando autoriza en caja ajena.
+  const [retiroConNip, setRetiroConNip] = useState(false);
+  const [retiroNip, setRetiroNip] = useState("");
   const [retirando, setRetirando] = useState(false);
   const [errorRetiro, setErrorRetiro] = useState<string | null>(null);
   const [ultimoRetiro, setUltimoRetiro] = useState<RetiroResp | null>(null);
@@ -297,6 +378,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [modalPrecio, setModalPrecio] = useState(false);
   const [precioCodigo, setPrecioCodigo] = useState("");
   const [precioResultado, setPrecioResultado] = useState<Producto | null | undefined>(undefined);
+  // Cantidad con la que se agrega al carrito desde la consulta de precio: la
+  // consulta rápida es lo normal, pero cuando el cliente dice "sí, dame dos"
+  // obligar a cerrar y volver a escanear es una vuelta de más.
+  const [precioCantidad, setPrecioCantidad] = useState("1");
+  const [modalAtajos, setModalAtajos] = useState(false);
 
   // --- Cancelaciones: piden NIP de supervisor y quedan en la bitácora ---
   const [nipConfigurado, setNipConfigurado] = useState(false);
@@ -424,11 +510,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
     fetch("/api/configuracion")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("http-error"))))
-      .then((data: { tipoCambio?: number; dolares?: ReglasDolares; nipSupervisorConfigurado?: boolean }) => {
+      .then((data: { tipoCambio?: number; dolares?: Partial<ReglasDolares>; nipSupervisorConfigurado?: boolean }) => {
         const valor = Number(data.tipoCambio) || 0;
         const reglas: ReglasDolares = {
           aceptaPagos: data.dolares?.aceptaPagos !== false,
           denominacionMaxima: Number(data.dolares?.denominacionMaxima) || 0,
+          porcentajeMaximo: Number(data.dolares?.porcentajeMaximo) || 0,
+          montoMaximoUsd: Number(data.dolares?.montoMaximoUsd) || 0,
         };
         setTipoCambio(valor);
         setReglasDolares(reglas);
@@ -442,9 +530,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         try {
           setTipoCambio(Number(localStorage.getItem(TIPO_CAMBIO_CACHE_KEY)) || 0);
         } catch {}
-        setReglasDolares(
-          leerCacheJson<ReglasDolares>(REGLAS_DOLARES_CACHE_KEY, { aceptaPagos: true, denominacionMaxima: 0 })
-        );
+        setReglasDolares(leerCacheJson<ReglasDolares>(REGLAS_DOLARES_CACHE_KEY, REGLAS_DOLARES_DEFAULT));
       });
 
     // Terminales de la tienda: se cachean para que un cobro con tarjeta también
@@ -504,33 +590,107 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (!e.altKey) return;
-      const key = e.key.toLowerCase();
-      if (key === "c") {
-        e.preventDefault();
+      // Con una ventana abierta los atajos se apagan: abrir el retiro encima
+      // del cobro dejaría dos operaciones a medias.
+      const hayModal =
+        !!pesaje || !!ventaCompletada || modalRetiro || modalCorte || modalPrecio || modalCobro || !!cancelacion || modalAtajos;
+
+      const abrirPrecio = () => {
         setPrecioCodigo("");
         setPrecioResultado(undefined);
+        setPrecioCantidad("1");
         setModalPrecio(true);
-      } else if (key === "r" && sesion) {
-        e.preventDefault();
-        abrirModalRetiro();
-      } else if (key === "t" && sesion) {
-        e.preventDefault();
+      };
+      const abrirCorte = () => {
         setEfectivoContado("");
         setNotasCorte("");
         setCorteCerrado(null);
         setModalCorte(true);
         cargarResumenCorte();
+      };
+
+      if (e.altKey) {
+        const key = e.key.toLowerCase();
+        if (key === "i") {
+          e.preventDefault();
+          setModalAtajos((v) => !v);
+        } else if (hayModal) {
+          return;
+        } else if (key === "c") {
+          e.preventDefault();
+          abrirPrecio();
+        } else if (key === "r" && sesion) {
+          e.preventDefault();
+          abrirModalRetiro();
+        } else if (key === "t" && sesion) {
+          e.preventDefault();
+          abrirCorte();
+        }
+        return;
+      }
+
+      if (hayModal) return;
+
+      switch (e.key) {
+        case "F2":
+          e.preventDefault();
+          abrirPrecio();
+          break;
+        case "F4": {
+          // Solo tiene sentido con un carrito capturado; si no, el atajo no
+          // hace nada en lugar de abrir un cobro vacío.
+          const hayQueCobrar = carrito.length > 0 && carrito.every((l) => Number(l.cantidad) > 0);
+          if (!sesion || !hayQueCobrar) return;
+          e.preventDefault();
+          abrirCobro();
+          break;
+        }
+        case "F6":
+          if (!sesion) return;
+          e.preventDefault();
+          abrirModalRetiro();
+          break;
+        case "F7":
+          if (!sesion) return;
+          e.preventDefault();
+          abrirCorte();
+          break;
+        case "F8":
+          if (!sesion) return;
+          e.preventDefault();
+          cancelarVenta();
+          break;
+        case "F9":
+          e.preventDefault();
+          inputRef.current?.focus();
+          inputRef.current?.select();
+          break;
+        default:
+          break;
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sesion, cargarResumenCorte]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- las acciones se leen del cierre en cada evento
+  }, [
+    sesion,
+    cargarResumenCorte,
+    carrito,
+    pesaje,
+    ventaCompletada,
+    modalRetiro,
+    modalCorte,
+    modalPrecio,
+    modalCobro,
+    cancelacion,
+    modalAtajos,
+  ]);
 
   const total = useMemo(
     () => carrito.reduce((sum, l) => sum + (Number(l.cantidad) || 0) * l.precioUnitario, 0),
     [carrito]
   );
+
 
   const totalDolares = tipoCambio > 0 ? total / tipoCambio : null;
 
@@ -559,7 +719,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         return nDolaresUsd > 0 ? [{ metodoPago: "efectivo_usd", monto: total, montoUsd: nDolaresUsd }] : [];
       }
       if (metodoRapido === "tarjeta") {
-        return [{ metodoPago: "tarjeta", monto: total, terminalId: terminalId || null }];
+        return [
+          {
+            metodoPago: "tarjeta",
+            monto: total,
+            terminalId: terminalId || null,
+            tarjetaTipo: tarjetaTipo || null,
+          },
+        ];
       }
       if (metodoRapido === "vales") {
         return [
@@ -585,7 +752,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         ? [{ metodoPago: "efectivo_usd" as const, monto: aplicadoUsd, montoUsd: nDolaresUsd }]
         : []),
       ...(mTarjeta > 0
-        ? [{ metodoPago: "tarjeta" as const, monto: mTarjeta, terminalId: terminalId || null }]
+        ? [
+            {
+              metodoPago: "tarjeta" as const,
+              monto: mTarjeta,
+              terminalId: terminalId || null,
+              tarjetaTipo: tarjetaTipo || null,
+            },
+          ]
         : []),
       ...(mTransferencia > 0 ? [{ metodoPago: "transferencia" as const, monto: mTransferencia }] : []),
       ...(mVales > 0
@@ -605,6 +779,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     modoMixto,
     metodoRapido,
     terminalId,
+    tarjetaTipo,
     nDolaresUsd,
     valorDolaresMxn,
     valeEmisorId,
@@ -646,6 +821,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       ? Number(((cambioEfectivo ?? 0) + cambioDolares).toFixed(2))
       : null;
 
+  // Tope en pesos que admite esta venta en billete verde (null = sin tope por
+  // porcentaje). Solo se le enseña al cajero cuando el cobro involucra dólares.
+  const topeDolaresMxn = topeDolaresEnPesos(reglasDolares, total);
+  const hayTopeDolares = topeDolaresMxn != null || reglasDolares.montoMaximoUsd > 0;
+  const cobroTocaDolares = modoMixto ? reglasDolares.aceptaPagos && tipoCambio > 0 : metodoRapido === "efectivo_usd";
+  const mostrarTopeDolares = hayTopeDolares && cobroTocaDolares && total > 0;
+
   const carritoValido = carrito.length > 0 && carrito.every((l) => Number(l.cantidad) > 0);
 
   const cliente = useMemo(() => clientes.find((c) => c._id === clienteId) ?? null, [clientes, clienteId]);
@@ -671,6 +853,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   // La terminal solo se exige cuando la tienda ya dio de alta las suyas; el
   // servidor aplica la misma regla.
   const faltaTerminal = nTarjeta > 0 && terminales.length > 0 && !terminalId;
+  // El tipo de tarjeta sí se exige siempre: sin él, el corte no se puede cuadrar
+  // contra lo que deposita el banco de cada producto.
+  const faltaTipoTarjeta = nTarjeta > 0 && !tarjetaTipo;
   // Los dólares entregados tienen que alcanzar para la parte que se les asignó.
   const dolaresInsuficientes = nDolaresMxn > 0 && valorDolaresMxn - nDolaresMxn < -0.01;
 
@@ -682,20 +867,31 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     if (dolaresInsuficientes) {
       return `Los ${nDolaresUsd.toFixed(2)} USD equivalen a ${formatMoney(valorDolaresMxn)} y falta cubrir ${formatMoney(nDolaresMxn)}.`;
     }
+    // Mismos topes que valida el servidor, para avisar antes de intentar cobrar.
+    const rechazoDolares = motivoRechazoDolares({
+      reglas: reglasDolares,
+      total,
+      montoAplicado: nDolaresMxn,
+      montoUsd: nDolaresUsd,
+    });
+    if (rechazoDolares) return rechazoDolares;
     if (faltaTerminal) return "Indica con cuál terminal se cobró.";
+    if (faltaTipoTarjeta) return "Marca si la tarjeta fue de crédito, de débito o American Express.";
     if (nEfectivo > 0 && efectivoRecibidoNum < nEfectivo - 0.001) {
       return `El efectivo recibido no alcanza: faltan ${formatMoney(nEfectivo - efectivoRecibidoNum)}.`;
     }
     return null;
   }, [
+    total,
     nDolaresMxn,
     nDolaresUsd,
     valorDolaresMxn,
     dolaresInsuficientes,
     faltaTerminal,
+    faltaTipoTarjeta,
     nEfectivo,
     efectivoRecibidoNum,
-    reglasDolares.aceptaPagos,
+    reglasDolares,
     tipoCambio,
   ]);
 
@@ -781,7 +977,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setError(null);
     if (metodo !== "efectivo") setEfectivoRecibido("");
     if (metodo !== "efectivo_usd") setDolaresRecibidos("");
-    if (metodo !== "tarjeta") setTerminalId("");
+    if (metodo !== "tarjeta") {
+      setTerminalId("");
+      setTarjetaTipo("");
+    }
     if (metodo !== "vales") {
       setValeLectura("");
       setValeInfo(null);
@@ -980,6 +1179,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setEfectivoRecibido("");
     setDolaresRecibidos("");
     setTerminalId("");
+    setTarjetaTipo("");
     setValeLectura("");
     setValeInfo(null);
     setValeEmisorId("");
@@ -1015,6 +1215,25 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     });
   }
 
+  /**
+   * Pasa el producto de la consulta de precio al carrito. Si se vende por
+   * kilogramo se encadena con el modal de pesaje, igual que al escanearlo.
+   */
+  function agregarDesdeConsulta() {
+    const producto = precioResultado;
+    if (!producto) return;
+    setModalPrecio(false);
+
+    if (producto.requierePesaje) {
+      setPesaje(producto);
+      setPesoInput("");
+      return;
+    }
+
+    const cantidad = Math.max(1, Math.floor(Number(precioCantidad) || 1));
+    agregarAlCarrito(producto, cantidad);
+  }
+
   function abrirCobro() {
     if (!carritoValido) return;
     setError(null);
@@ -1024,6 +1243,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setEfectivoRecibido("");
     setDolaresRecibidos("");
     setTerminalId(terminales.length === 1 ? terminales[0]._id : "");
+    setTarjetaTipo("");
     setModalCobro(true);
   }
 
@@ -1097,6 +1317,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       monto: p.monto,
       ...(p.montoUsd ? { montoUsd: p.montoUsd } : {}),
       ...(p.terminalId ? { terminalId: p.terminalId } : {}),
+      ...(p.tarjetaTipo ? { tarjetaTipo: p.tarjetaTipo } : {}),
       ...(p.valeEmisorId ? { valeEmisorId: p.valeEmisorId } : {}),
       ...(p.valeUltimos4 ? { valeUltimos4: p.valeUltimos4 } : {}),
     }));
@@ -1238,6 +1459,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setRetiroMotivo("");
     setRetiroMoneda("MXN");
     setRetiroClave("");
+    setRetiroConNip(false);
+    setRetiroNip("");
     setErrorRetiro(null);
     setUltimoRetiro(null);
     setModalRetiro(true);
@@ -1255,13 +1478,17 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       setErrorRetiro("Captura el motivo del retiro");
       return;
     }
-    if (!retiroClave) {
-      setErrorRetiro("Confirma tu clave de acceso para autorizar el retiro");
+    if (retiroConNip ? retiroNip.length !== 6 : !retiroClave) {
+      setErrorRetiro(
+        retiroConNip
+          ? "Captura el NIP de 6 dígitos del encargado de turno"
+          : "Confirma tu clave de acceso para autorizar el retiro"
+      );
       return;
     }
-    // El retiro exige validar la clave contra el servidor, así que no se encola.
+    // La autorización se valida contra el servidor, así que el retiro no se encola.
     if (!isOnline) {
-      setErrorRetiro("Sin conexión no se pueden registrar retiros: la clave se valida en el servidor.");
+      setErrorRetiro("Sin conexión no se pueden registrar retiros: la autorización se valida en el servidor.");
       return;
     }
 
@@ -1275,7 +1502,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           monto,
           motivo,
           moneda: retiroMoneda,
-          password: retiroClave,
+          ...(retiroConNip ? { nipSupervisor: retiroNip } : { password: retiroClave }),
         }),
       });
       if (!res.ok) {
@@ -1285,6 +1512,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       }
       const retiro: RetiroResp = await res.json();
       setRetiroClave("");
+      setRetiroNip("");
       setUltimoRetiro(retiro);
     } catch {
       setErrorRetiro("Se perdió la conexión. El retiro no se registró, inténtalo de nuevo.");
@@ -1482,11 +1710,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               onClick={() => {
                 setPrecioCodigo("");
                 setPrecioResultado(undefined);
+                setPrecioCantidad("1");
                 setModalPrecio(true);
               }}
               className="rounded px-2.5 py-1 text-sm text-black/70 hover:bg-black/5"
             >
-              Consultar precio <span className="text-xs text-black/35">(Alt+C)</span>
+              Consultar precio <span className="text-xs text-black/35">(F2)</span>
             </button>
             <button
               onClick={() => {
@@ -1494,7 +1723,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               }}
               className="rounded px-2.5 py-1 text-sm text-black/70 hover:bg-black/5"
             >
-              Retirar efectivo <span className="text-xs text-black/35">(Alt+R)</span>
+              Retirar efectivo <span className="text-xs text-black/35">(F6)</span>
             </button>
             <button
               onClick={() => {
@@ -1506,7 +1735,17 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               }}
               className="rounded px-2.5 py-1 text-sm text-black/70 hover:bg-black/5"
             >
-              Corte de caja <span className="text-xs text-black/35">(Alt+T)</span>
+              Corte de caja <span className="text-xs text-black/35">(F7)</span>
+            </button>
+            {/* La lista completa de atajos: en el mostrador nadie se aprende
+                seis teclas de memoria, pero sí se acuerda de dónde verlas. */}
+            <button
+              onClick={() => setModalAtajos(true)}
+              title="Ver los atajos de teclado (Alt+I)"
+              aria-label="Ver los atajos de teclado"
+              className="ml-1 rounded-full p-1 text-titos-green-700 hover:bg-titos-green-100"
+            >
+              <Info className="h-4 w-4" />
             </button>
           </div>
           <div className="flex items-center gap-2 pr-1 text-xs text-black/50">
@@ -1680,7 +1919,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               <button
                 onClick={cancelarVenta}
                 disabled={carrito.length === 0 && sumaPagos === 0}
-                title="Cancelar venta (requiere autorización)"
+                title="Cancelar venta — F8 (requiere autorización)"
                 className="grid h-12 place-items-center rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X className="h-5 w-5" />
@@ -1688,7 +1927,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               <button
                 onClick={abrirCobro}
                 disabled={!carritoValido}
-                title="Cobrar"
+                title="Cobrar — F4"
                 className="grid h-12 place-items-center rounded-lg bg-emerald-500 text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <DollarSign className="h-6 w-6" />
@@ -1855,6 +2094,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 </FormField>
               ) : null}
 
+              {metodoRapido === "tarjeta" ? (
+                <SelectorTipoTarjeta valor={tarjetaTipo} onChange={setTarjetaTipo} />
+              ) : null}
+
               {metodoRapido === "tarjeta" && terminales.length > 0 ? (
                 <FormField label="Terminal con la que se cobró">
                   <Select icon={CreditCard} value={terminalId} onChange={(e) => setTerminalId(e.target.value)}>
@@ -1917,6 +2160,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                     Completar
                   </button>
                 </div>
+                {nTarjeta > 0 ? <SelectorTipoTarjeta valor={tarjetaTipo} onChange={setTarjetaTipo} /> : null}
                 {nTarjeta > 0 && terminales.length > 0 ? (
                   <Select icon={CreditCard} value={terminalId} onChange={(e) => setTerminalId(e.target.value)}>
                     <option value="">Elige la terminal con la que se cobró</option>
@@ -2065,6 +2309,26 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             </p>
           ) : null}
 
+          {/* Cuánto de esta venta se puede recibir en dólares. Se muestra en
+              cuanto el cobro toca dólares, para que el cajero lo sepa antes de
+              recibir el billete y no después de teclearlo. */}
+          {mostrarTopeDolares ? (
+            <p className="mb-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800">
+              Tope en dólares para esta venta:{" "}
+              {topeDolaresMxn != null ? (
+                <>
+                  {formatMoney(topeDolaresMxn)} ({reglasDolares.porcentajeMaximo}% del total)
+                </>
+              ) : (
+                "sin límite por porcentaje"
+              )}
+              {reglasDolares.montoMaximoUsd > 0
+                ? ` · máximo ${reglasDolares.montoMaximoUsd.toFixed(2)} USD por venta`
+                : ""}
+              . El resto se cobra en otra forma de pago.
+            </p>
+          ) : null}
+
           {errorCredito ? (
             <p className="mb-2 flex items-start gap-1.5 rounded-lg bg-red-50 p-2.5 text-xs font-semibold text-red-700">
               <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -2178,6 +2442,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               <div key={idx} className="flex justify-between text-black/50">
                 <span>
                   {ETIQUETAS_METODO[p.metodoPago]}
+                  {p.tarjetaTipo ? ` — ${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]}` : ""}
                   {p.montoUsd ? ` — ${p.montoUsd.toFixed(2)} USD` : ""}
                   {p.terminalAlias ? ` — ${p.terminalAlias}` : ""}
                   {p.valeEmisorNombre ? ` — ${p.valeEmisorNombre}` : ""}
@@ -2259,7 +2524,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           </FormField>
 
           {nipConfigurado ? (
-            <FormField label="NIP de supervisor">
+            <FormField label="NIP del encargado de turno">
               <Input
                 type="password"
                 inputMode="numeric"
@@ -2274,8 +2539,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             </FormField>
           ) : (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Matriz todavía no configura el NIP de supervisor, así que la cancelación procede sin autorización pero se
-              marca como tal en la bitácora.
+              Todavía no hay ningún NIP configurado, así que la cancelación procede sin autorización pero se marca
+              como tal en la bitácora.
             </p>
           )}
 
@@ -2284,7 +2549,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       ) : null}
 
       {modalPrecio ? (
-        <Modal open onClose={() => setModalPrecio(false)} title="Consultar precio" icon={Search}>
+        <Modal open onClose={() => setModalPrecio(false)} title="Consultar precio (F2)" icon={Search}>
           <form onSubmit={buscarPrecio} className="mb-4 flex gap-2">
             <Input
               icon={ScanLine}
@@ -2295,24 +2560,83 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             />
             <Button type="submit">Buscar</Button>
           </form>
-          {precioResultado === undefined ? null : precioResultado === null ? (
+          {precioResultado === undefined ? (
+            <p className="text-sm text-black/40">
+              Consulta rápida: el producto <strong>no</strong> se agrega al carrito a menos que lo pidas.
+            </p>
+          ) : precioResultado === null ? (
             <p className="text-sm text-red-600">No se encontró ningún producto con ese código.</p>
           ) : (
-            <div className="rounded-xl bg-titos-green-100 p-4">
-              <p className="font-semibold text-titos-green-900">{precioResultado.nombre}</p>
-              <p className="mb-2 text-xs text-black/40">SKU: {precioResultado.sku}</p>
-              <p className="text-2xl font-bold text-titos-green-900">{formatMoney(precioResultado.precioVenta)}</p>
-              {tipoCambio > 0 ? (
-                <p className="text-sm font-semibold text-sky-700">
-                  {formatDolares(precioResultado.precioVenta / tipoCambio)} USD
+            <>
+              <div className="rounded-xl bg-titos-green-100 p-4">
+                <p className="font-semibold text-titos-green-900">{precioResultado.nombre}</p>
+                <p className="mb-2 text-xs text-black/40">SKU: {precioResultado.sku}</p>
+                <p className="text-2xl font-bold text-titos-green-900">{formatMoney(precioResultado.precioVenta)}</p>
+                {tipoCambio > 0 ? (
+                  <p className="text-sm font-semibold text-sky-700">
+                    {formatDolares(precioResultado.precioVenta / tipoCambio)} USD
+                  </p>
+                ) : null}
+                <p className="text-xs text-black/50">
+                  por {precioResultado.unidad} · Stock disponible:{" "}
+                  {inventario.get(precioResultado._id) ?? 0}
                 </p>
+              </div>
+
+              {/* Cuando el cliente pregunta el precio y dice "sí, dámelo",
+                  cerrar el modal y volver a escanear es una vuelta de más. */}
+              {sesion ? (
+                <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-black/10 pt-4">
+                  {!precioResultado.requierePesaje ? (
+                    <div className="w-28">
+                      <label className="mb-1 block text-xs text-black/50">Cantidad</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={precioCantidad}
+                        onChange={(e) => setPrecioCantidad(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <p className="flex-1 text-xs text-black/50">
+                      Se vende por kilogramo: al agregarlo se pide el peso.
+                    </p>
+                  )}
+                  <Button onClick={agregarDesdeConsulta}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <PlusCircle className="h-4 w-4" /> Agregar al carrito
+                    </span>
+                  </Button>
+                  <Button variant="ghost" onClick={() => setModalPrecio(false)}>
+                    Solo consulta
+                  </Button>
+                </div>
               ) : null}
-              <p className="text-xs text-black/50">
-                por {precioResultado.unidad} · Stock disponible:{" "}
-                {inventario.get(precioResultado._id) ?? 0}
-              </p>
-            </div>
+            </>
           )}
+        </Modal>
+      ) : null}
+
+      {/* Ayuda de atajos: se abre con el icono (i) de la barra o con Alt+I. */}
+      {modalAtajos ? (
+        <Modal open onClose={() => setModalAtajos(false)} title="Atajos del punto de venta" icon={Keyboard}>
+          <p className="mb-3 text-sm text-black/50">
+            Funcionan cuando no hay ninguna ventana abierta. <strong>Esc</strong> cierra la que esté abierta.
+          </p>
+          <ul className="divide-y divide-black/5">
+            {ATAJOS_POS.map((a) => (
+              <li key={`${a.teclas}-${a.que}`} className="flex items-start gap-3 py-2">
+                <kbd className="min-w-16 shrink-0 rounded-md border border-black/15 bg-black/3 px-2 py-1 text-center font-mono text-xs font-semibold text-black/70">
+                  {a.teclas}
+                </kbd>
+                <span className="text-sm">
+                  {a.que}
+                  {a.detalle ? <span className="block text-xs text-black/40">{a.detalle}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
         </Modal>
       ) : null}
 
@@ -2385,17 +2709,62 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                   placeholder="Ej. pago a proveedor"
                 />
               </FormField>
-              <FormField label="Tu clave de acceso">
-                <Input
-                  type="password"
-                  value={retiroClave}
-                  onChange={(e) => setRetiroClave(e.target.value)}
-                  placeholder="Confirma tu contraseña para autorizar"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !retirando) registrarRetiro();
-                  }}
-                />
-              </FormField>
+              {/* Quien saca el dinero es siempre el usuario de la sesión; lo
+                  que se elige aquí es quién lo autoriza. El NIP del encargado
+                  existe para cuando autoriza en la caja de alguien más sin
+                  tener que darle su contraseña al cajero. */}
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRetiroConNip(false)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    !retiroConNip ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
+                  }`}
+                >
+                  Con mi clave
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRetiroConNip(true)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    retiroConNip ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
+                  }`}
+                >
+                  Con NIP del encargado
+                </button>
+              </div>
+
+              {retiroConNip ? (
+                <FormField label="NIP del encargado de turno (6 dígitos)">
+                  <Input
+                    icon={ShieldAlert}
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={retiroNip}
+                    onChange={(e) => setRetiroNip(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="••••••"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !retirando) registrarRetiro();
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-black/40">
+                    El retiro queda a nombre de quien lo captura, y en la bitácora aparece quién lo autorizó.
+                  </p>
+                </FormField>
+              ) : (
+                <FormField label="Tu clave de acceso">
+                  <Input
+                    type="password"
+                    value={retiroClave}
+                    onChange={(e) => setRetiroClave(e.target.value)}
+                    placeholder="Confirma tu contraseña para autorizar"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !retirando) registrarRetiro();
+                    }}
+                  />
+                </FormField>
+              )}
               {errorRetiro ? <p className="mt-2 text-sm text-red-600">{errorRetiro}</p> : null}
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setModalRetiro(false)}>
@@ -2477,6 +2846,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                   <span className="text-black/50">Ventas con tarjeta</span>
                   <span className="font-medium">{formatMoney(resumenCorte.totalVentasTarjeta)}</span>
                 </div>
+                {/* Crédito, débito y American Express se depositan por separado
+                    y con distinta comisión: el corte los tiene que separar. */}
+                {(resumenCorte.tarjetaPorTipo ?? []).map((t) => (
+                  <div key={t.tipo ?? t.etiqueta} className="flex justify-between pl-4 text-xs">
+                    <span className="text-black/40">· {t.etiqueta}</span>
+                    <span className="text-black/60">{formatMoney(t.monto)}</span>
+                  </div>
+                ))}
                 {/* Desglose por terminal: es con lo que se cuadra cada depósito del banco. */}
                 {(resumenCorte.tarjetaPorTerminal ?? []).map((t) => (
                   <div key={t.terminalId ?? t.alias} className="flex justify-between pl-4 text-xs">
