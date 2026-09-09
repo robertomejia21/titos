@@ -30,6 +30,7 @@ const PedidoItemSchema = new Schema(
     cantidadAsignada: { type: Number, default: null },
     cantidadSurtida: { type: Number, default: null },
     pesoSurtidoKg: { type: Number, default: null },
+    notaRecepcion: { type: String, default: "", maxlength: 1000 },
     cantidadRecibida: { type: Number, default: null },
     pesoRecibidoKg: { type: Number, default: null },
   },

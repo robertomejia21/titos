@@ -28,6 +28,7 @@ type Item = {
   cantidadSurtida: number | null;
   pesoSurtidoKg: number | null;
   cantidadRecibida: number | null;
+  notaRecepcion?: string;
   pesoRecibidoKg: number | null;
 };
 
@@ -506,6 +507,7 @@ function PedidoModal({
               <tr key={item.productoId} className="border-b border-black/5">
                 <td className="py-1.5 pr-2 font-medium">
                   {item.nombreProducto}
+                  {item.notaRecepcion ? <p className="mt-1 whitespace-pre-wrap text-xs font-normal text-black/70">Nota de recepción: {item.notaRecepcion}</p> : null}
                   {item.requierePesaje ? <span className="ml-1 text-xs text-titos-orange-600">(pesaje)</span> : null}
                 </td>
                 <td className="py-1.5 pr-2">
@@ -799,6 +801,10 @@ export function PedidosManager() {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<(typeof TABS)[number]["value"]>(tabInicial);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza enlaces del buscador con la pestaña de la URL
+    setTab(tabInicial);
+  }, [tabInicial]);
   const [nivelando, setNivelando] = useState(false);
   const [resultadoNivelador, setResultadoNivelador] = useState<string | null>(null);
   const [pedidoModal, setPedidoModal] = useState<Pedido | null>(null);

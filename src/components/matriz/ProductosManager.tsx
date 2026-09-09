@@ -257,18 +257,18 @@ function ProductoFormModal({
   );
 }
 
-export function ProductosManager() {
+export function ProductosManager({ initialQuery = "", initialCreate = false }: { initialQuery?: string; initialCreate?: boolean }) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [total, setTotal] = useState(0);
   const [lineas, setLineas] = useState<Linea[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState("");
-  const [busquedaDebounced, setBusquedaDebounced] = useState("");
+  const [busqueda, setBusqueda] = useState(initialQuery);
+  const [busquedaDebounced, setBusquedaDebounced] = useState(initialQuery);
   const [categoriaFiltro, setCategoriaFiltro] = useState("");
   const [orden, setOrden] = useState<"nombre" | "anaquel">("nombre");
   const [page, setPage] = useState(1);
-  const [creando, setCreando] = useState(false);
+  const [creando, setCreando] = useState(initialCreate);
   const [editando, setEditando] = useState<Producto | null>(null);
   const [proveedoresModal, setProveedoresModal] = useState<Producto | null>(null);
 

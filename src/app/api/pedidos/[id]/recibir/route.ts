@@ -1,79 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import InventarioSucursal from "@/models/InventarioSucursal";
-import { cerrarAlertasResurtidas } from "@/lib/alertasInventario";
+import AlertaInventarioCero from "@/models/AlertaInventarioCero";
 import MovimientoInventario from "@/models/MovimientoInventario";
-import { requireSession, unauthorized, forbidden, badRequest, notFound, puede, sinPermiso } from "@/lib/apiAuth";
+import { requireSession, unauthorized, forbidden, puede } from "@/lib/apiAuth";
+import { ErrorRecepcion, validarRecepcion, validarProductosRecepcion } from "@/lib/recepcion";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireSession(req);
-  if (!session) return unauthorized();
-  if (!puede(session, "pedidos.recibir")) return sinPermiso("pedidos.recibir");
-  if (session.role !== "sucursal" || !session.sucursalId) return forbidden();
-
-  const { id } = await params;
-  const body = await req.json().catch(() => null);
-  const items: { productoId: string; cantidadRecibida: number; pesoRecibidoKg?: number }[] = body?.items ?? [];
-
-  if (items.length === 0) return badRequest("Debes capturar la cantidad recibida de al menos un producto");
-
-  await connectDB();
-  const pedido = await Pedido.findById(id);
-  if (!pedido) return notFound("Pedido no encontrado");
-  if (String(pedido.sucursalId) !== session.sucursalId) return forbidden();
-
-  if (pedido.estado !== "surtido") {
-    return badRequest("Sólo se puede registrar la recepción de pedidos que la matriz ya surtió");
-  }
-
-  type PedidoItemDoc = (typeof pedido.items)[number];
-  const movimientos = [];
-
-  for (const entrada of items) {
-    const item = pedido.items.find((i: PedidoItemDoc) => String(i.productoId) === entrada.productoId);
-    if (!item) continue;
-
-    const cantidad = Number(entrada.cantidadRecibida);
-    if (item.requierePesaje && (!entrada.pesoRecibidoKg || entrada.pesoRecibidoKg <= 0)) {
-      return badRequest(`El producto "${item.nombreProducto}" requiere capturar el peso en kg al recibirlo`);
-    }
-
-    item.cantidadRecibida = cantidad;
-    item.pesoRecibidoKg = entrada.pesoRecibidoKg ?? null;
-
-    await InventarioSucursal.findOneAndUpdate(
-      { sucursalId: session.sucursalId, productoId: item.productoId },
-      { $inc: { stockActual: cantidad } },
-      { upsert: true }
-    );
-
-    // Ya llegó: la alerta de agotado que se le mandó a compras se cierra sola.
-    if (cantidad > 0) await cerrarAlertasResurtidas(item.productoId, session.sucursalId);
-
-    const movimiento = await MovimientoInventario.create({
-      tipo: "entrada_sucursal",
-      productoId: item.productoId,
-      nombreProducto: item.nombreProducto,
-      ubicacion: session.sucursalId,
-      cantidad,
-      pesoKg: item.pesoRecibidoKg,
-      pedidoId: pedido._id,
-      usuarioId: session.userId,
+  const usuario = await requireSession(req);
+  if (!usuario) return unauthorized();
+  if (usuario.role !== "sucursal" || !usuario.sucursalId || !puede(usuario, "pedidos.recibir")) return forbidden();
+  try {
+    const { id } = await params;
+    if (!mongoose.isValidObjectId(id)) throw new ErrorRecepcion("Pedido inválido");
+    const body = await req.json().catch(() => null);
+    const entradas = validarRecepcion(body?.items);
+    await connectDB();
+    const resultado = await mongoose.connection.transaction(async (session) => {
+      const pedido = await Pedido.findById(id).session(session);
+      if (!pedido) throw new ErrorRecepcion("Pedido no encontrado", 404);
+      if (String(pedido.sucursalId) !== usuario.sucursalId) throw new ErrorRecepcion("Pedido de otra sucursal", 403);
+      if (pedido.estado !== "surtido") throw new ErrorRecepcion("Este pedido ya no está pendiente de recepción. Actualiza la pantalla.", 409);
+      validarProductosRecepcion(entradas, pedido.items);
+      const movimientos = [];
+      for (const item of pedido.items) {
+        if (item.cantidadRecibida != null) throw new ErrorRecepcion("Este pedido contiene una recepción parcial anterior. Requiere revisión antes de continuar.", 409);
+        const entrada = entradas.find((e) => e.productoId === String(item.productoId))!;
+        if (item.requierePesaje && entrada.cantidadRecibida > 0 && !(entrada.pesoRecibidoKg! > 0)) throw new ErrorRecepcion(`Captura el peso real de ${item.nombreProducto}`);
+        item.cantidadRecibida = entrada.cantidadRecibida;
+        item.pesoRecibidoKg = entrada.pesoRecibidoKg ?? null;
+        item.notaRecepcion = entrada.notaRecepcion;
+        await InventarioSucursal.findOneAndUpdate({sucursalId: usuario.sucursalId, productoId: item.productoId}, {$inc: {stockActual: entrada.cantidadRecibida}}, {upsert: true, session});
+        if (entrada.cantidadRecibida > 0) await AlertaInventarioCero.updateOne({productoId: item.productoId, sucursalId: usuario.sucursalId, estado: "abierta"}, {$set: {estado: "atendida", atendidaEn: new Date(), atendidaPorNombre: "Resurtido automático"}}, {session});
+        movimientos.push(...await MovimientoInventario.create([{
+          tipo: "entrada_sucursal", productoId: item.productoId, nombreProducto: item.nombreProducto,
+          ubicacion: usuario.sucursalId, cantidad: entrada.cantidadRecibida, pesoKg: item.pesoRecibidoKg,
+          notaRecepcion: entrada.notaRecepcion, pedidoId: pedido._id, usuarioId: usuario.userId,
+        }], {session}));
+      }
+      pedido.estado = "recibido";
+      pedido.recibidoEn = new Date();
+      pedido.recibidoPorId = usuario.userId;
+      await pedido.save({session});
+      return {pedido, movimientos};
     });
-    movimientos.push(movimiento);
+    return NextResponse.json(resultado);
+  } catch (error) {
+    if (error instanceof ErrorRecepcion) return NextResponse.json({error: error.message}, {status: error.status});
+    console.error("Error al recibir pedido", error);
+    return NextResponse.json({error: "No se guardó la recepción. Intenta nuevamente."}, {status: 500});
   }
-
-  const todosRecibidos = pedido.items.every(
-    (i: PedidoItemDoc) => i.cantidadRecibida !== null && i.cantidadRecibida !== undefined
-  );
-  if (todosRecibidos) {
-    pedido.estado = "recibido";
-    pedido.recibidoEn = new Date();
-    pedido.recibidoPorId = session.userId;
-  }
-
-  await pedido.save();
-
-  return NextResponse.json({ pedido, movimientos });
 }

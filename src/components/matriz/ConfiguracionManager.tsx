@@ -430,6 +430,14 @@ export function ConfiguracionManager() {
 
   const info = ESTADO_INFO[estado];
 
+  useEffect(() => {
+    if (cargandoConfig) return;
+    const go = () => { const id = decodeURIComponent(window.location.hash.slice(1)); if (id) document.getElementById(id)?.scrollIntoView({block: "center"}); };
+    const frame = requestAnimationFrame(go);
+    window.addEventListener("hashchange", go);
+    return () => {cancelAnimationFrame(frame); window.removeEventListener("hashchange", go);};
+  }, [cargandoConfig]);
+
   /** Cómo queda la política de dólares con lo que hay capturado ahora mismo. */
   const resumenTopesDolares = (() => {
     if (!aceptaDolares) return "Los pagos en dólares están desactivados, así que estos topes no se aplican.";
@@ -448,7 +456,7 @@ export function ConfiguracionManager() {
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-semibold text-titos-green-900">Conexión de WhatsApp</h2>
+            <h2 id="whatsapp" className="font-semibold text-titos-green-900">Conexión de WhatsApp</h2>
             <p className="text-sm text-black/50">
               Se usa para enviar pedidos y órdenes de compra en PDF por WhatsApp (Evolution API).
             </p>
@@ -491,7 +499,7 @@ export function ConfiguracionManager() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-semibold text-titos-green-900">Días y horario laborales</h2>
+        <h2 id="horarios" className="mb-1 font-semibold text-titos-green-900">Días y horario laborales</h2>
         <p className="mb-4 text-sm text-black/50">
           Define los días de operación y la hora de corte de pedidos del día.
         </p>
@@ -514,7 +522,7 @@ export function ConfiguracionManager() {
               <Input icon={Clock} type="time" value={horaCorte} onChange={(e) => setHoraCorte(e.target.value)} />
             </FormField>
             <FormField label="Tipo de cambio (pesos por dólar)">
-              <Input
+              <Input id="tipo-cambio"
                 icon={DollarSign}
                 type="number"
                 min="0.01"
@@ -567,7 +575,7 @@ export function ConfiguracionManager() {
               </div>
             </FormField>
             <FormField label="Tasa de IVA para facturas (%)">
-              <Input
+              <Input id="iva-facturas"
                 icon={Percent}
                 type="number"
                 min="0"
@@ -587,7 +595,7 @@ export function ConfiguracionManager() {
             caja ese día. */}
         {!cargandoConfig ? (
           <div className="mt-5 border-t border-black/10 pt-4">
-            <h3 className="mb-1 font-semibold text-titos-green-900">Límite de aceptación de dólares</h3>
+            <h3 id="limites-dolares" className="mb-1 font-semibold text-titos-green-900">Límite de aceptación de dólares</h3>
             <p className="mb-3 text-sm text-black/50">
               Hasta cuánto de una venta se acepta en dólares. Son dos topes independientes y se aplican los dos: gana
               el que se alcance primero. El punto de venta avisa al cajero antes de cobrar y el servidor lo vuelve a
@@ -646,7 +654,7 @@ export function ConfiguracionManager() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+        <h2 id="alertas-pedidos" className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
           <BellRing className="h-4.5 w-4.5 text-titos-green-700" />
           Alertas de pedidos atrasados
         </h2>
@@ -707,7 +715,7 @@ export function ConfiguracionManager() {
         {/* Aviso al área de compras: distinto destinatario y distinto disparador
             que los pedidos atrasados, por eso va en su propio bloque. */}
         <div className="mb-3 border-t border-black/10 pt-4">
-          <h3 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+          <h3 id="alertas-inventario" className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
             <PackageX className="h-4 w-4 text-red-600" />
             Aviso a compras por producto agotado
           </h3>
@@ -754,7 +762,7 @@ export function ConfiguracionManager() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+        <h2 id="nip-operaciones" className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
           <ShieldCheck className="h-4.5 w-4.5 text-titos-green-700" />
           NIP de supervisor
         </h2>
@@ -817,7 +825,7 @@ export function ConfiguracionManager() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
+        <h2 id="nip-supervisores" className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
           <UserCog className="h-4.5 w-4.5 text-titos-green-700" />
           NIP para crear supervisores
         </h2>
