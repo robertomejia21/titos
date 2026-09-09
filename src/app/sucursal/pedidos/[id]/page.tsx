@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import { Card, PageHeader, EstadoBadge, formatMoney } from "@/components/ui";
 import { RecepcionForm } from "@/components/sucursal/RecepcionForm";
+import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
 import { montoLineaPedido } from "@/lib/montoPedido";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
                   <td className="py-2 pr-2">
                     {item.cantidadRecibida ?? "—"}
                     {item.pesoRecibidoKg ? ` (${item.pesoRecibidoKg} kg)` : ""}
+                    <DiferenciaRecepcion esperado={item.cantidadSurtida ?? 0} recibido={item.cantidadRecibida} referencia="lo surtido" />
                   </td>
                   <td className="py-2 pr-2">{formatMoney(item.precioVenta ?? 0)}</td>
                   <td className="py-2 pr-2 font-medium">{formatMoney(montoLineaPedido(item))}</td>

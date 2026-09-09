@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
 
 type Item = {
   productoId: string;
@@ -71,7 +72,10 @@ export function RecepcionForm({ pedidoId, items }: { pedidoId: string; items: It
       <div className="space-y-2">
         {items.map((item) => (
           <div key={item.productoId} className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="w-40 font-medium">{item.nombreProducto}</span>
+            <div className="w-40 font-medium">{item.nombreProducto}
+              <span className="block text-xs font-normal text-black/70">Surtido: {item.cantidadSurtida ?? 0} {item.unidad}</span>
+              <DiferenciaRecepcion esperado={item.cantidadSurtida ?? 0} recibido={valores[item.productoId]?.cantidad ?? item.cantidadSurtida} referencia="lo surtido" />
+            </div>
             <input
               type="number"
               step="any"

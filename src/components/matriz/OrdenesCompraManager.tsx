@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
+import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
 import { imprimirHTML } from "@/lib/print";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
@@ -527,14 +528,13 @@ function OrdenModal({
                       onChange={(e) => setRecepcion((prev) => ({ ...prev, [item.productoId]: e.target.value }))}
                       className="w-20"
                     />
+                    <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={recepcion[item.productoId]} referencia="lo ordenado" />
                   </td>
                 ) : null}
                 {orden.estado === "recibida" ? (
                   <td className="py-1.5 pr-2">
                     {item.cantidadRecibida}
-                    {item.cantidadRecibida !== item.cantidadOrdenada ? (
-                      <span className="ml-1 text-xs text-amber-600">(ajustado)</span>
-                    ) : null}
+                    <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={item.cantidadRecibida} referencia="lo ordenado" />
                   </td>
                 ) : null}
                 {!editable ? <td className="py-1.5 pr-2">
