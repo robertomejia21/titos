@@ -1,4 +1,5 @@
 import Venta from "@/models/Venta";
+import type { ClientSession } from "mongoose";
 import MovimientoCaja from "@/models/MovimientoCaja";
 import AbonoCliente from "@/models/AbonoCliente";
 import Devolucion from "@/models/Devolucion";
@@ -17,8 +18,8 @@ export type TarjetaPorTerminal = { terminalId: string | null; alias: string; mon
 export type TarjetaPorTipo = { tipo: TipoTarjeta | null; etiqueta: string; monto: number };
 export type ValesPorEmisor = { emisorId: string | null; nombre: string; monto: number };
 
-export async function calcularResumenSesion(cajaSesionId: string) {
-  const ventas = await Venta.find({ cajaSesionId, estado: "completada", esVentas2: { $ne: true } }).select("pagos").lean();
+export async function calcularResumenSesion(cajaSesionId: string, session?: ClientSession) {
+  const ventas = await Venta.find({ cajaSesionId, estado: "completada", esVentas2: { $ne: true } }).select("pagos").session(session ?? null).lean();
 
   let totalVentasEfectivo = 0;
   let totalVentasTarjeta = 0;
@@ -107,7 +108,7 @@ export async function calcularResumenSesion(cajaSesionId: string) {
     .sort((a, b) => b.monto - a.monto);
 
   // Los abonos de clientes sí son cobranza del turno: el efectivo entra al cajón.
-  const abonos = await AbonoCliente.find({ cajaSesionId }).select("monto metodoPago").lean();
+  const abonos = await AbonoCliente.find({ cajaSesionId }).select("monto metodoPago").session(session ?? null).lean();
   let totalAbonosEfectivo = 0;
   let totalAbonosOtros = 0;
   for (const abono of abonos) {
@@ -117,10 +118,10 @@ export async function calcularResumenSesion(cajaSesionId: string) {
 
   // Reembolsos pagados durante este turno, incluidos los de ventas de días
   // anteriores cuyo corte ya estaba cerrado.
-  const devoluciones = await Devolucion.find({ cajaSesionId, estado: "pagada" }).select("montoEfectivo").lean();
+  const devoluciones = await Devolucion.find({ cajaSesionId, estado: "pagada" }).select("montoEfectivo").session(session ?? null).lean();
   const totalDevoluciones = devoluciones.reduce((sum, d) => sum + (d.montoEfectivo ?? 0), 0);
 
-  const retiros = await MovimientoCaja.find({ cajaSesionId }).select("monto moneda").lean();
+  const retiros = await MovimientoCaja.find({ cajaSesionId }).select("monto moneda").session(session ?? null).lean();
   let totalRetiros = 0;
   let totalRetirosUsd = 0;
   for (const retiro of retiros) {

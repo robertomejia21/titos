@@ -36,7 +36,8 @@ async function idsRolesSupervisor(): Promise<unknown[]> {
  */
 export async function buscarSupervisorPorNip(
   nip: string,
-  sucursalId?: unknown
+  sucursalId?: unknown,
+  exigirIdentidadUnica = false
 ): Promise<SupervisorAutorizante | null> {
   if (!NIP_OPERACION_REGEX.test(nip)) return null;
 
@@ -50,17 +51,21 @@ export async function buscarSupervisorPorNip(
     ...(sucursalId ? { $or: [{ sucursalId }, { role: "matriz" }] } : {}),
   })
     .select("nombre nipOperacionHash")
-    .limit(50)
+    .limit(exigirIdentidadUnica ? 51 : 50)
     .lean();
 
+  if (exigirIdentidadUnica && candidatos.length > 50) return null;
+  let encontrado: SupervisorAutorizante | null = null;
   for (const candidato of candidatos) {
     const hash = (candidato as { nipOperacionHash?: string }).nipOperacionHash ?? "";
     if (hash && (await verifyPassword(nip, hash))) {
-      return { id: String(candidato._id), nombre: candidato.nombre };
+      if (!exigirIdentidadUnica) return { id: String(candidato._id), nombre: candidato.nombre };
+      if (encontrado) return null;
+      encontrado = { id: String(candidato._id), nombre: candidato.nombre };
     }
   }
 
-  return null;
+  return encontrado;
 }
 
 /** ¿Ya hay al menos un encargado de turno con NIP repartido? */
