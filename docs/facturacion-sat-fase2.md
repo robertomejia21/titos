@@ -6,7 +6,7 @@ y válidos ante el SAT.
 ## 1. Qué ya está resuelto (fase 1, implementada)
 
 El módulo `/matriz/facturas` convierte una venta del punto de venta en una factura del
-sistema. Cada factura ya guarda **todo lo que exige el CFDI 4.0**:
+sistema. El modelo contiene estos campos base; su presencia no acredita que cada documento esté validado para timbrar:
 
 | Dato del CFDI | Dónde vive hoy |
 | --- | --- |
@@ -22,8 +22,8 @@ sistema. Cada factura ya guarda **todo lo que exige el CFDI 4.0**:
 El bloque `timbrado` ya existe en el modelo justamente para que la fase 2 no obligue a
 migrar datos: solo se llena.
 
-**Lo único que falta** para que sean CFDI reales: sellarlas con el CSD de la empresa y
-enviarlas a un PAC para que las certifique y devuelva el UUID (folio fiscal).
+Sigue pendiente validar los datos fiscales, completar las reglas por producto e integrar
+el envío al servicio de timbrado y la conservación de su respuesta.
 
 ## 2. Lo que la empresa tiene que conseguir
 
@@ -42,37 +42,28 @@ Esto no es desarrollo, es trámite. Sin ello no se puede timbrar aunque el códi
    abarrote). Para timbrar hay que marcar producto por producto cuál es tasa 0%, cuál
    16% y cuál exento — el SAT lo valida.
 
-## 3. Proveedores (PAC) y costos
+## 3. Proveedores y costos consultados
 
-Precios de referencia del mercado mexicano. **Hay que pedir cotización formal**: los PAC
-manejan descuentos por volumen y los precios cambian.
+Actualización: 9 de septiembre de 2026. Referencias publicadas, sin contratación. MXN, IVA incluido.
 
-| Proveedor | Modelo de cobro | Costo aproximado por timbre | Notas |
+| Servicio | Cuota | Consumo | Fuente oficial |
 | --- | --- | --- | --- |
-| **Facturama** | Paquetes de folios prepagados | ~$1.00 – $2.50 MXN | API REST muy documentada, sandbox gratis. La opción más rápida de integrar. |
-| **SW Sapien (Smarter Web)** | Paquetes de folios | ~$0.80 – $2.00 MXN | Muy usado por ERPs; SDK en varios lenguajes y buen soporte técnico. |
-| **Finkok** | Paquetes de folios | ~$0.50 – $1.50 MXN | De los más baratos por volumen; API SOAP (un poco más áspera de integrar). |
-| **Solución Factible** | Paquetes de folios | ~$1.00 – $2.00 MXN | Estable, con timbrado y cancelación en el mismo servicio. |
-| **Facturapi** | Suscripción mensual + timbres | Desde ~$500 MXN/mes | El más cómodo para desarrollar (maneja catálogos y PDF), pero el más caro en fijo. |
+| Facturama API Web / Multiemisor | $1,650 anuales, incluye 100 folios | $0.50 por folio adicional en compras de 1 a 10,000; prepago | [Costos API](https://api.facturama.mx/costos) |
+| Facturapi API CFDI | $299 mensuales | $0.60 por timbre | [Precios](https://www.facturapi.io/pricing) |
 
-Los folios **no caducan** en la mayoría de los PAC y se compran por paquete
-(1,000 / 5,000 / 10,000). A mayor paquete, menor costo unitario.
+Facturama distingue API Web para un RFC y Multiemisor para varios; la segunda modalidad no refleja sus documentos en la plataforma web. Facturapi anuncia su API como multi organización. Confirmar con cada proveedor el alcance comercial para los RFC de Mercados Tito’s.
 
-### Estimación de costo mensual
+Estimaciones propias para doce meses de uso constante:
 
-| Facturas al mes | Costo estimado de timbrado |
-| --- | --- |
-| 100 | $100 – $250 MXN |
-| 500 | $400 – $1,000 MXN |
-| 2,000 | $1,200 – $3,000 MXN |
+| Facturas por mes | Facturama, primer año | Facturapi, año |
+| --- | ---: | ---: |
+| 100 | $2,200 | $4,308 |
+| 500 | $4,600 | $7,188 |
+| 2,000 | $13,600 | $17,988 |
 
-A esto hay que sumar:
-- **Cancelaciones**: la mayoría de los PAC no las cobran aparte, pero conviene confirmarlo.
-- **Consultas de estatus** ante el SAT: normalmente incluidas.
+Cálculo: Facturama = 1,650 + (12 × facturas mensuales − 100) × 0.50. Facturapi = 12 × 299 + 12 × facturas mensuales × 0.60. Para Facturama se supone compra periódica de folios a la tarifa de 0.50; no se aplican descuentos por compras mayores. La anualidad se paga como anualidad, no en doce mensualidades.
 
-**Recomendación:** empezar con **Facturama** o **SW Sapien** por un paquete de 1,000
-folios. La inversión inicial es de ~$1,500 – $2,500 MXN y permite validar todo el flujo
-sin comprometerse a una mensualidad.
+Estas cifras no incluyen integración, mantenimiento ni servicios adicionales. Antes de elegir: confirmar volumen real, RFC emisores, contrato existente, vigencia de folios, cancelaciones y soporte. Esta consulta de costos está resuelta; implementar timbrado es una petición distinta.
 
 ## 4. Qué hay que desarrollar
 

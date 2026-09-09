@@ -31,7 +31,7 @@ import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
-import { imprimirHTML } from "@/lib/print";
+import { imprimirHTML, abrirVentanaTicket, cerrarVentanaTicket } from "@/lib/print";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
@@ -332,6 +332,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [clientes, setClientes] = useState<ClienteConCredito[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const cobroEnCurso = useRef(false);
+  const [avisoImpresion, setAvisoImpresion] = useState("");
   const [procesando, setProcesando] = useState(false);
   const [ventaCompletada, setVentaCompletada] = useState<VentaResp | null>(null);
   const [tipoCambio, setTipoCambio] = useState(0);
@@ -1247,9 +1249,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setModalCobro(true);
   }
 
-  function registrarVentaOffline(payload: VentaPayload) {
-    agregarACola({ id: generarIdLocal(), tipo: "venta", creadaEn: new Date().toISOString(), payload });
-    setPendientes(leerCola().length);
+  function registrarVentaOffline(payload: VentaPayload, ventanaTicket: Window | null) {
+    const accionId = generarIdLocal();
+    agregarACola({ id: accionId, tipo: "venta", creadaEn: new Date().toISOString(), payload });
+    const cola = leerCola();
+    if (!cola.some((accion) => accion.id === accionId)) throw new Error("La venta no se guardó en el equipo");
+    setPendientes(cola.length);
 
     const ventaLocal: VentaResp = {
       folio: generarFolioLocal(),
@@ -1282,6 +1287,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     aplicarDescuentoInventario();
     setModalCobro(false);
     setVentaCompletada(ventaLocal);
+    imprimirTicket(ventaLocal, ventanaTicket);
     limpiarCarritoYPago();
   }
 
@@ -1309,7 +1315,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }
 
   async function cobrar() {
-    if (!puedeCobrar) return;
+    if (!puedeCobrar || cobroEnCurso.current) return;
     setError(null);
 
     const pagos: PagoPayload[] = pagosVenta.map((p) => ({
@@ -1340,16 +1346,25 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         setError("Sin conexión no se puede vender a crédito. Cobra de contado o espera a que vuelva el servicio.");
         return;
       }
-      registrarVentaOffline(payload);
+      cobroEnCurso.current = true;
+      const ventanaTicket = abrirVentanaTicket();
+      try { registrarVentaOffline(payload, ventanaTicket); }
+      catch {
+        cerrarVentanaTicket(ventanaTicket);
+        setError("No se pudo guardar la venta sin conexión. Revisa el almacenamiento del equipo antes de volver a cobrar.");
+      } finally { cobroEnCurso.current = false; }
       return;
     }
 
+    cobroEnCurso.current = true;
+    const ventanaTicket = abrirVentanaTicket();
     setProcesando(true);
     try {
       const res = await enviarVenta(payload);
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        cerrarVentanaTicket(ventanaTicket);
         setError(data.error || "No se pudo registrar la venta");
         return;
       }
@@ -1358,6 +1373,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       aplicarDescuentoInventario();
       setModalCobro(false);
       setVentaCompletada(venta);
+      imprimirTicket(venta, ventanaTicket);
       const eraCredito = nCredito > 0;
       limpiarCarritoYPago();
       if (eraCredito) recargarClientes();
@@ -1366,21 +1382,28 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // pierde, se encola. Si resultó que el servidor sí la había guardado, al
       // sincronizar el `clienteOperacionId` evita que se duplique.
       if (nCredito > 0) {
+        cerrarVentanaTicket(ventanaTicket);
         setError("Se perdió la conexión y la venta es a crédito. Vuelve a intentarla cuando regrese el servicio.");
         return;
       }
-      registrarVentaOffline(payload);
+      try { registrarVentaOffline(payload, ventanaTicket); }
+      catch { cerrarVentanaTicket(ventanaTicket); setError("No se pudo guardar la venta localmente. Revisa la conexión y el historial antes de volver a cobrar."); }
     } finally {
+      cobroEnCurso.current = false;
       setProcesando(false);
     }
   }
 
-  function imprimirTicket(venta: VentaResp) {
-    imprimirTicketVenta(venta, {
-      sucursalNombre,
-      zonaHoraria,
-      cajero: nombreCajero(sesion ?? null) ?? "",
-    });
+  function imprimirTicket(venta: VentaResp, ventanaPreparada?: Window | null) {
+    try {
+      const abierta = imprimirTicketVenta(venta, {
+        sucursalNombre, zonaHoraria, cajero: nombreCajero(sesion ?? null) ?? "",
+      }, ventanaPreparada);
+      setAvisoImpresion(abierta ? "" : "La venta quedó guardada, pero no se pudo abrir la impresión. Usa Reimprimir ticket y permite las ventanas emergentes de este sitio.");
+    } catch {
+      cerrarVentanaTicket(ventanaPreparada ?? null);
+      setAvisoImpresion("La venta quedó guardada. No se pudo preparar el ticket; intenta reimprimirlo.");
+    }
   }
 
   function nuevaVenta() {
@@ -2410,13 +2433,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             <>
               <Button variant="ghost" onClick={() => imprimirTicket(ventaCompletada)}>
                 <span className="inline-flex items-center gap-1.5">
-                  <Printer className="h-4 w-4" /> Imprimir ticket
+                  <Printer className="h-4 w-4" /> Reimprimir ticket
                 </span>
               </Button>
               <Button onClick={nuevaVenta}>Nueva venta</Button>
             </>
           }
         >
+          {avisoImpresion ? <p role="status" className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900">{avisoImpresion}</p> : <p className="mb-3 text-sm text-black/60">Se solicitó la impresión del ticket. Puedes reimprimirlo si cancelaste el diálogo.</p>}
           {ventaCompletada.offline ? (
             <p className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-800">
               Guardada localmente — se sincronizará cuando vuelva la conexión.

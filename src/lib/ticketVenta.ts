@@ -225,7 +225,8 @@ export function ticketVentaHTML(
 
 export function imprimirTicketVenta(
   venta: VentaTicket,
-  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string }
+  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string },
+  ventanaPreparada?: Window | null
 ) {
-  imprimirTicket(`Ticket ${venta.folio}`, ticketVentaHTML(venta, opciones));
+  return imprimirTicket(`Ticket ${venta.folio}`, ticketVentaHTML(venta, opciones), ventanaPreparada);
 }
