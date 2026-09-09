@@ -46,6 +46,7 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
                 <tr key={item.productoId?.toString()} className="border-b border-black/5">
                   <td className="py-2 pr-2 font-medium">
                     {item.nombreProducto}
+                    {item.notaRecepcion ? <p className="mt-1 whitespace-pre-wrap text-xs font-normal text-black/70">Nota de recepción: {item.notaRecepcion}</p> : null}
                     {item.requierePesaje ? <span className="ml-1 text-xs text-titos-orange-600">(pesaje)</span> : null}
                   </td>
                   <td className="py-2 pr-2">

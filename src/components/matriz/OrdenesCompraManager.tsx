@@ -50,6 +50,7 @@ type OrdenItem = {
   cantidadOrdenada: number;
   precioUnitario: number;
   cantidadRecibida: number | null;
+  notaRecepcion?: string;
   necesidadId?: string | null;
 };
 
@@ -325,6 +326,7 @@ function OrdenModal({
   const [recepcion, setRecepcion] = useState<Record<string, string>>(() =>
     Object.fromEntries(orden.items.map((i) => [i.productoId, String(i.cantidadOrdenada)]))
   );
+  const [notas, setNotas] = useState<Record<string, string>>({});
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -393,17 +395,21 @@ function OrdenModal({
   }
 
   async function confirmarRecepcion() {
-    const res = await fetch(`/api/ordenes-compra/${orden._id}/recibir`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: items.map((i) => ({
-          productoId: i.productoId,
-          cantidadRecibida: Number(recepcion[i.productoId]) || 0,
-        })),
-      }),
-    });
-    if (res.ok) onUpdated(await res.json());
+    setSaving(true);
+    setError(null);
+    try {
+      if (items.some((i) => !recepcion[i.productoId]?.trim())) throw new Error("Captura la cantidad recibida de cada producto; usa cero si no llegó.");
+      const res = await fetch(`/api/ordenes-compra/${orden._id}/recibir`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items: items.map((i) => ({productoId: i.productoId,
+          cantidadRecibida: Number(recepcion[i.productoId]), notaRecepcion: notas[i.productoId] ?? ""}))}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo registrar la recepción");
+      setItems(data.items);
+      onUpdated({...data, proveedorId: orden.proveedorId});
+    } catch (error) { setError((error as Error).message); }
+    finally { setSaving(false); }
   }
 
   async function cancelarOrden() {
@@ -431,7 +437,7 @@ function OrdenModal({
               </Button>
             </>
           ) : null}
-          {orden.estado === "solicitada" ? <Button onClick={confirmarRecepcion}>Confirmar recepción</Button> : null}
+          {orden.estado === "solicitada" ? <Button onClick={confirmarRecepcion} disabled={saving}>{saving ? "Guardando..." : "Confirmar recepción"}</Button> : null}
           {(orden.estado === "borrador" || orden.estado === "solicitada") && !confirmandoCancelar ? (
             <Button variant="danger" onClick={() => setConfirmandoCancelar(true)}>
               Cancelar orden
@@ -456,7 +462,8 @@ function OrdenModal({
         <span className="text-xs text-black/40">{fechaRelevante(orden)}</span>
       </div>
 
-      {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
+      {orden.estado === "solicitada" ? <p className="mb-3 text-sm text-black/70">Captura lo que llegó y anota cualquier diferencia. Confirmar cierra esta recepción; la cantidad ordenada se conserva.</p> : null}
+      {error ? <p role="alert" className="mb-2 text-sm text-red-600">{error}</p> : null}
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -468,6 +475,7 @@ function OrdenModal({
               <th className="py-1.5 pr-2">Subtotal</th>
               {orden.estado === "solicitada" ? <th className="py-1.5 pr-2">Recibido</th> : null}
               {orden.estado === "recibida" ? <th className="py-1.5 pr-2">Recibido</th> : null}
+              {!editable ? <th className="py-1.5 pr-2">Nota de recepción</th> : null}
               {editable ? <th className="py-1.5 pr-2" /> : null}
             </tr>
           </thead>
@@ -513,6 +521,8 @@ function OrdenModal({
                     <Input
                       type="number"
                       min="0"
+                      step="any"
+                      aria-label={`Cantidad recibida de ${item.nombreProducto}`}
                       value={recepcion[item.productoId] ?? ""}
                       onChange={(e) => setRecepcion((prev) => ({ ...prev, [item.productoId]: e.target.value }))}
                       className="w-20"
@@ -527,6 +537,14 @@ function OrdenModal({
                     ) : null}
                   </td>
                 ) : null}
+                {!editable ? <td className="py-1.5 pr-2">
+                  {orden.estado === "solicitada" ? <textarea maxLength={1000}
+                    aria-label={`Nota de recepción de ${item.nombreProducto}`}
+                    placeholder="Faltante, daño u observación" value={notas[item.productoId] ?? ""}
+                    onChange={(e) => setNotas((prev) => ({...prev, [item.productoId]: e.target.value}))}
+                    className="min-w-44 rounded border border-black/20 p-2 text-sm focus-visible:outline-2 focus-visible:outline-titos-green-600" />
+                    : <span className="whitespace-pre-wrap">{item.notaRecepcion || "—"}</span>}
+                </td> : null}
                 {editable ? (
                   <td className="py-1.5 pr-2">
                     <button onClick={() => quitarItem(item.productoId)} className="text-xs text-red-500">
@@ -592,6 +610,10 @@ export function OrdenesCompraManager() {
   const tabInicial = TABS.find((t) => t.value === searchParams.get("tab"))?.value ?? "por-ordenar";
 
   const [tab, setTab] = useState<(typeof TABS)[number]["value"]>(tabInicial);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza enlaces del buscador con la pestaña de la URL
+    setTab(tabInicial);
+  }, [tabInicial]);
   const [necesidades, setNecesidades] = useState<Necesidad[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [productos, setProductos] = useState<ProductoOpcion[]>([]);

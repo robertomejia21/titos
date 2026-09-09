@@ -26,12 +26,12 @@ type InventarioRow = {
 
 type Categoria = { _id: string; nombre: string };
 
-export function ProductosSucursal() {
+export function ProductosSucursal({ initialQuery = "" }: { initialQuery?: string }) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [inventario, setInventario] = useState<Map<string, InventarioRow>>(new Map());
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(initialQuery);
   const [categoriaFiltro, setCategoriaFiltro] = useState("");
   const [soloConStock, setSoloConStock] = useState(false);
   const [page, setPage] = useState(1);

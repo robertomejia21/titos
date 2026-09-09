@@ -22,6 +22,7 @@ const MovimientoInventarioSchema = new Schema(
     productoId: { type: Schema.Types.ObjectId, ref: "Producto", required: true },
     nombreProducto: { type: String, required: true },
     ubicacion: { type: String, required: true }, // "matriz" o sucursalId como string
+    notaRecepcion: { type: String, default: "", maxlength: 1000 },
     cantidad: { type: Number, required: true },
     pesoKg: { type: Number, default: null },
     pedidoId: { type: Schema.Types.ObjectId, ref: "Pedido", default: null },
