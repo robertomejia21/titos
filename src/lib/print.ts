@@ -99,6 +99,22 @@ export function escaparHTML(texto: string) {
     .replaceAll('"', "&quot;");
 }
 
+/** Reserva la ventana durante el clic: después de esperar al servidor el navegador puede bloquearla. */
+export function abrirVentanaTicket(): Window | null {
+  try {
+    const ventana = window.open("", "_blank", "width=380,height=700");
+    if (ventana) {
+      ventana.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Preparando ticket</title></head><body><p>Esperando confirmación de la venta…</p></body></html>');
+      ventana.document.close();
+    }
+    return ventana;
+  } catch { return null; }
+}
+
+export function cerrarVentanaTicket(ventana: Window | null) {
+  try { if (ventana && !ventana.closed) ventana.close(); } catch { /* La ventana puede haberse cerrado desde el navegador. */ }
+}
+
 /**
  * Imprime un ticket en rollo de 80 mm (la impresora térmica del mostrador).
  *
@@ -107,9 +123,11 @@ export function escaparHTML(texto: string) {
  * monoespaciada y sin fondos de color: la térmica no imprime color y cualquier
  * margen de más recorta el renglón.
  */
-export function imprimirTicket(titulo: string, contenidoHTML: string) {
-  const ventana = window.open("", "_blank", "width=380,height=700");
-  if (!ventana) return;
+export function imprimirTicket(titulo: string, contenidoHTML: string, ventanaPreparada?: Window | null): boolean {
+  const ventana = ventanaPreparada === undefined ? abrirVentanaTicket() : ventanaPreparada;
+  if (!ventana || ventana.closed) return false;
+  try {
+  ventana.document.open();
 
   ventana.document.write(`
     <!doctype html>
@@ -181,4 +199,9 @@ export function imprimirTicket(titulo: string, contenidoHTML: string) {
   ventana.document.close();
   ventana.focus();
   ventana.print();
+  return true;
+  } catch {
+    cerrarVentanaTicket(ventana);
+    return false;
+  }
 }

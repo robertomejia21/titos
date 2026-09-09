@@ -630,13 +630,21 @@ export function FacturasManager() {
           <Stamp className="h-4.5 w-4.5 text-sky-700" />
           Siguiente fase: timbrado ante el SAT
         </h2>
-        <p className="text-sm text-black/60">
-          Estas facturas son documentos internos: llevan ya todos los datos que exige el CFDI 4.0 (RFC, régimen, uso de
-          CFDI, código postal, claves de producto y unidad, forma y método de pago), pero todavía no tienen UUID ni
-          sello del SAT. Para timbrarlas hace falta contratar un PAC y cargar la e.firma y el CSD de la empresa. La
-          propuesta con proveedores, costos y pasos está en{" "}
-          <span className="font-mono text-xs">docs/facturacion-sat-fase2.md</span> del repositorio.
+        <p className="text-sm text-black/70">
+          Las facturas actuales son documentos internos sin timbre fiscal. La integración y la validación de los
+          datos fiscales siguen pendientes. Esta comparación cubre el servicio de timbrado; no incluye desarrollo.
         </p>
+        <p className="mt-3 text-sm font-medium">Costos consultados el 9 de septiembre de 2026 · MXN, IVA incluido</p>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead><tr className="border-b border-black/15"><th className="p-2">Proveedor</th><th className="p-2">Cuota</th><th className="p-2">Consumo</th></tr></thead>
+            <tbody>
+              <tr className="border-b border-black/10"><th scope="row" className="p-2 font-medium"><a href="https://api.facturama.mx/costos" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturama API</a></th><td className="p-2">$1,650 al año; incluye 100 folios</td><td className="p-2">$0.50 por folio adicional en compras de 1 a 10,000; prepago</td></tr>
+              <tr><th scope="row" className="p-2 font-medium"><a href="https://www.facturapi.io/pricing" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturapi API CFDI</a></th><td className="p-2">$299 al mes</td><td className="p-2">$0.60 por timbre</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-sm text-black/70">Antes de contratar, confirmar volumen de facturas, RFC emisores, vigencia de folios y condiciones de cancelación. Las tarifas enlazadas pueden cambiar.</p>
       </Card>
 
       {ventaAFacturar ? (
