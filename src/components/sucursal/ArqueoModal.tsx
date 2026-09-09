@@ -56,7 +56,7 @@ export function ArqueoModal({ onClose }: { onClose: () => void }) {
       <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 text-sm">
         {([
           ["Fondo inicial", datos.efectivoInicial], ["Ventas en efectivo", r!.totalVentasEfectivo],
-          ["Abonos en efectivo", r!.totalAbonosEfectivo], ["Devoluciones pagadas", r!.totalDevoluciones],
+          ["Abonos en efectivo", r!.totalAbonosEfectivo], ["Abonos por otros medios", r!.totalAbonosOtros], ["Devoluciones en efectivo", r!.totalDevoluciones],
           ["Retiros en pesos", r!.totalRetiros], ["Cambio en pesos por cobros en dólares", r!.totalCambioDolaresMxn],
           ["Tarjetas", r!.totalVentasTarjeta], ["Transferencias", r!.totalVentasTransferencia],
           ["Vales", r!.totalVentasVales], ["Ventas a crédito", r!.totalVentasCredito],
