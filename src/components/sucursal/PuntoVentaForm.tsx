@@ -33,6 +33,7 @@ import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
 import { imprimirHTML, abrirVentanaTicket, cerrarVentanaTicket } from "@/lib/print";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
+import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
 import { formatFechaHora, formatHora, formatFechaLarga } from "@/lib/zonasHorarias";
@@ -361,6 +362,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [ultimoRetiro, setUltimoRetiro] = useState<RetiroResp | null>(null);
 
   const [modalCorte, setModalCorte] = useState(false);
+  const [modalArqueo, setModalArqueo] = useState(false);
   const [resumenCorte, setResumenCorte] = useState<ResumenCaja | null>(null);
   const [cargandoResumen, setCargandoResumen] = useState(false);
   const [efectivoContado, setEfectivoContado] = useState("");
@@ -564,10 +566,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }, []);
 
   useEffect(() => {
-    if (!pesaje && !ventaCompletada && !modalRetiro && !modalCorte && !modalPrecio && !modalCobro && !cancelacion) {
+    if (!pesaje && !ventaCompletada && !modalRetiro && !modalCorte && !modalArqueo && !modalPrecio && !modalCobro && !cancelacion) {
       inputRef.current?.focus();
     }
-  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalPrecio, modalCobro, cancelacion, carrito]);
+  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalArqueo, modalPrecio, modalCobro, cancelacion, carrito]);
 
   const cargarResumenCorte = useCallback(async () => {
     if (!navigator.onLine) {
@@ -595,7 +597,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // Con una ventana abierta los atajos se apagan: abrir el retiro encima
       // del cobro dejaría dos operaciones a medias.
       const hayModal =
-        !!pesaje || !!ventaCompletada || modalRetiro || modalCorte || modalPrecio || modalCobro || !!cancelacion || modalAtajos;
+        !!pesaje || !!ventaCompletada || modalRetiro || modalCorte || modalArqueo || modalPrecio || modalCobro || !!cancelacion || modalAtajos;
 
       const abrirPrecio = () => {
         setPrecioCodigo("");
@@ -682,6 +684,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     ventaCompletada,
     modalRetiro,
     modalCorte,
+    modalArqueo,
     modalPrecio,
     modalCobro,
     cancelacion,
@@ -1760,6 +1763,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             >
               Corte de caja <span className="text-xs text-black/35">(F7)</span>
             </button>
+            <button onClick={() => setModalArqueo(true)} className="rounded px-2.5 py-1 text-sm text-black/70 hover:bg-black/5">Arqueo</button>
             {/* La lista completa de atajos: en el mostrador nadie se aprende
                 seis teclas de memoria, pero sí se acuerda de dónde verlas. */}
             <button
@@ -2803,6 +2807,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         </Modal>
       ) : null}
 
+      {modalArqueo ? <ArqueoModal onClose={() => setModalArqueo(false)} /> : null}
       {modalCorte ? (
         <Modal open onClose={cerrarModalCorte} title="Nuevo corte de caja" icon={ClipboardCheck} size="lg">
           {corteCerrado ? (
