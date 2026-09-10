@@ -5,6 +5,7 @@ import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert } from "lucide
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PUESTOS } from "@/lib/puestos";
+import { requiereNipCaja } from "@/lib/nipCaja";
 
 type Rol = {
   _id: string;
@@ -86,7 +87,8 @@ function UsuarioModal({
   const esEncargado = !!rolElegido?.esSupervisor;
   const pideNipSupervisor = esEncargado && (!esEdicion || usuario!.rol?._id !== rolId);
   const yaTieneNip = esEdicion && !!usuario!.tieneNipOperacion;
-  const nipOperacionObligatorio = !esEdicion || (esEncargado && !yaTieneNip);
+  const usaNipCaja = requiereNipCaja(rolElegido, esEdicion && !rolId ? usuario : undefined);
+  const nipOperacionObligatorio = usaNipCaja && !yaTieneNip;
 
   async function guardar() {
     setError(null);
@@ -96,7 +98,7 @@ function UsuarioModal({
     if (!usuario?.propio) cuerpo.rolId = rolId || null;
     if (password) cuerpo.password = password;
     if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
-    if (nipOperacion) cuerpo.nipOperacion = nipOperacion;
+    if (usaNipCaja && nipOperacion) cuerpo.nipOperacion = nipOperacion;
     if (esEdicion) {
       if (!usuario?.propio) cuerpo.activo = activo;
       if (usuario!.role === "sucursal") cuerpo.sucursalId = sucursalId || null;
@@ -127,7 +129,8 @@ function UsuarioModal({
     (!esEdicion && !rolId) ||
     (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId))) ||
     (pideNipSupervisor && nipSupervisor.length !== 6) ||
-    (nipOperacionObligatorio && nipOperacion.length !== 6);
+    (nipOperacionObligatorio && nipOperacion.length !== 6) ||
+    (usaNipCaja && !!nipOperacion && nipOperacion.length !== 6);
 
   return (
     <Modal
@@ -222,7 +225,7 @@ function UsuarioModal({
           {rolElegido.perfilDocumentoId ? <p className="mt-3 rounded bg-amber-50 p-2 text-sm text-amber-900"><strong>Funciones pendientes: </strong>{PUESTOS.find((p) => p.perfilDocumentoId === rolElegido.perfilDocumentoId)?.pendientes}</p> : null}
         </div> : null}
 
-          <FormField
+          {usaNipCaja ? <FormField
             label={
               yaTieneNip
                 ? "Nuevo NIP personal (6 dígitos, opcional)"
@@ -240,11 +243,11 @@ function UsuarioModal({
               placeholder={yaTieneNip ? "Déjalo vacío para conservar el actual" : "••••••"}
             />
             <p className="mt-1 text-xs text-black/70">
-              El administrador asigna un NIP distinto a cada persona. Compartir un rol no significa compartir el NIP.
+              Administración puede asignar y cambiar el NIP de cada cajero o supervisor de caja. No se comparte entre personas.
               Solo los roles de supervisor pueden autorizar operaciones.
               {yaTieneNip ? " Ya tiene uno asignado." : ""}
             </p>
-          </FormField>
+          </FormField> : null}
 
         {/* Nombrar encargado a alguien pide además el NIP que matriz guarda en
             Configuración. El servidor lo valida igual. */}

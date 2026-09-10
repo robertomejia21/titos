@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requiereNipCaja } from "@/lib/nipCaja";
 import { connectDB } from "@/lib/db";
 import UserModel from "@/models/User";
 import RolModel from "@/models/Rol";
@@ -95,10 +96,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     usuario.rolId = rolId;
   }
 
-  // Omitir el campo conserva el NIP actual. Un NIP no se comparte entre roles.
-  if ("nipOperacion" in body) {
+  const rolFinal = usuario.rolId ? await RolModel.findById(usuario.rolId).select("nombre perfilDocumentoId esSupervisor").lean() : null;
+  const usaNip = requiereNipCaja(rolFinal, usuario);
+  const nuevoNip = String(body.nipOperacion ?? "").trim();
+  if (!usaNip && nuevoNip) return badRequest("El NIP personal es solo para cajeros y supervisores de caja");
+  if (usaNip && !usuario.nipOperacionHash && !nuevoNip) return badRequest("Asigna un NIP personal al cajero o supervisor de caja");
+  // Vacío conserva el NIP; cambiar de puesto no elimina credenciales existentes.
+  if (usaNip && nuevoNip) {
     try {
-      Object.assign(usuario, await prepararNipPersonal(String(body.nipOperacion ?? "").trim(), id));
+      Object.assign(usuario, await prepararNipPersonal(nuevoNip, id));
     } catch (error) {
       if (error instanceof NipPersonalError) return badRequest(error.message);
       throw error;
