@@ -19,6 +19,7 @@ const UserSchema = new Schema(
     // API: solo se informa si el usuario ya tiene uno. Es lo que permite que la
     // bitácora diga QUIÉN autorizó, y no solo que alguien lo hizo.
     nipOperacionHash: { type: String, default: "" },
+    nipOperacionHuella: { type: String, select: false },
     activo: { type: Boolean, default: true },
   },
   { timestamps: true }

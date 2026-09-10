@@ -15,7 +15,7 @@ import {
 } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
-import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
+import { prepararNipPersonal, NipPersonalError, esNipDuplicado } from "@/lib/nipPersonal";
 
 const PERMISO = "usuarios.administrar";
 
@@ -88,26 +88,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         );
         if (!autorizacion.ok) return badRequest(autorizacion.error);
       }
+      if (rol.esSupervisor && !usuario.nipOperacionHash && !body.nipOperacion) {
+        return badRequest("Asigna un NIP personal al supervisor");
+      }
     }
     usuario.rolId = rolId;
   }
 
-  // NIP personal del encargado de turno. `null` se lo quita (deja de poder
-  // autorizar); una cadena de 6 dígitos lo cambia. Si la llave no viene, el NIP
-  // actual no se toca: guardar el teléfono de alguien no debe borrarle el NIP.
+  // Omitir el campo conserva el NIP actual. Un NIP no se comparte entre roles.
   if ("nipOperacion" in body) {
-    if (body.nipOperacion === null || body.nipOperacion === "") {
-      usuario.nipOperacionHash = "";
-    } else {
-      const nip = String(body.nipOperacion).trim();
-      if (!NIP_OPERACION_REGEX.test(nip)) return badRequest("El NIP de operaciones debe ser de 6 dígitos");
-      usuario.nipOperacionHash = await hashPassword(nip);
+    try {
+      Object.assign(usuario, await prepararNipPersonal(String(body.nipOperacion ?? "").trim(), id));
+    } catch (error) {
+      if (error instanceof NipPersonalError) return badRequest(error.message);
+      throw error;
     }
   }
 
   if ("activo" in body) usuario.activo = Boolean(body.activo);
 
-  await usuario.save();
+  try {
+    await usuario.save();
+  } catch (error) {
+    if (esNipDuplicado(error)) return conflict("Ese NIP ya está asignado a otra persona");
+    throw error;
+  }
 
   return NextResponse.json({ ok: true });
 }
