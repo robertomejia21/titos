@@ -13,6 +13,7 @@ const RolSchema = new Schema(
     // ámbito es lo que decide qué casillas se ofrecen al editarlo.
     ambito: { type: String, enum: AMBITOS_ROL, required: true },
     permisos: { type: [String], default: [] },
+    perfilDocumentoId: { type: String },
     // Marca los roles de mando (supervisor de piso, encargado de turno). Dar de
     // alta o ascender a alguien a uno de estos roles exige el NIP de creación
     // de supervisores que matriz configura en /matriz/configuracion: el rol es
@@ -28,6 +29,7 @@ const RolSchema = new Schema(
 );
 
 RolSchema.index({ ambito: 1, activo: 1 });
+RolSchema.index({ perfilDocumentoId: 1 }, { unique: true, partialFilterExpression: { perfilDocumentoId: { $type: "string" } } });
 
 export type Rol = InferSchemaType<typeof RolSchema> & { _id: string };
 

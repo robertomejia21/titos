@@ -1,9 +1,18 @@
-export const PUESTOS_BASE = [
-  "Repartidor",
-  "Recepción de compras",
-  "Almacén",
-  "Compras",
-  "Chofer",
-  "Supervisor",
-  "Gerente",
-] as const;
+import { PERFILES_DOCUMENTO } from "./perfilesDocumento";
+
+export const PUESTOS_BASE = ["Repartidor", "Recepción de compras", "Almacén", "Compras", "Chofer", "Supervisor", "Gerente"] as const;
+
+const pos = ["pos.vender", "caja.retirar", "ventas.historial", "devoluciones.registrar"];
+const definiciones: Record<string, { nombre: string; ambito: "matriz" | "sucursal"; permisos: string[]; esSupervisor?: boolean; pendientes: string }> = {
+  "pos-administrador": { nombre: "Administrador · POS", ambito: "sucursal", permisos: pos, esSupervisor: true, pendientes: "Cambio de precio en caja, etiquetas, preventa, configuración local/puertos/impresoras, clientes y reimpresiones específicas requieren separar o implementar sus controles. Devolución Transacción permanece sin autorizar." },
+  "pos-cajero": { nombre: "Cajero · POS", ambito: "sucursal", permisos: pos, pendientes: "No se autoriza Devolución Transacción ni impresión de etiquetas. Preventa, configuración local, clientes y reimpresiones específicas quedan pendientes; el documento muestra grupos vacíos con opciones internas marcadas." },
+  "pos-gerente": { nombre: "Gerente · POS", ambito: "sucursal", permisos: pos, esSupervisor: true, pendientes: "Configuración local y Preventa permanecen pendientes por las marcas del documento. Cambio de precio, etiquetas, clientes y reimpresiones específicas requieren controles separados. Devolución Transacción permanece sin autorizar." },
+  "web-administrador": { nombre: "Administrador · Web", ambito: "matriz", permisos: ["reportes.ver", "bitacora.ver", "precios.actualizar", "notasventa.administrar", "productos.administrar", "catalogos.administrar", "inventario.administrar", "pedidos.surtir", "compras.administrar", "facturas.administrar", "configuracion.editar", "usuarios.administrar", "clientes.administrar"], pendientes: "Servicios, mermas, inventario físico/reinicio por área, autenticación de dos factores, permisos de app, etiquetas y documentos fiscales adicionales todavía no tienen equivalencia completa." },
+  "web-almacenista": { nombre: "Almacenista", ambito: "matriz", permisos: ["inventario.administrar"], pendientes: "Entradas de mercancía disponibles en Inventario central. Traslados, transferencias, mermas, devolución a proveedor, recepción desde órdenes y reportes de mínimos/inventario/kardex/existencias/movimientos requieren módulos o controles específicos; no se concede acceso a todos los reportes." },
+  "web-compras": { nombre: "Compras", ambito: "matriz", permisos: ["productos.administrar", "proveedores.administrar", "precios.actualizar", "inventario.administrar", "reportes.productos", "reportes.ventas"], pendientes: "Las acciones sobre órdenes de compra no se muestran en la página 6 y quedan pendientes. También promociones, áreas, niveles, traslados, mermas, devoluciones a proveedor, reportes no disponibles y catálogos específicos. No puede administrar usuarios ni configuración general." },
+  "web-contabilidad": { nombre: "Contabilidad", ambito: "matriz", permisos: ["reportes.productos", "cortes.ver", "facturas.administrar"], pendientes: "Estado de cuenta, reporte por terminal, ticket digital, devolución a proveedor, complemento de pago, factura global y notas de crédito requieren módulos o permisos específicos. Facturas habilita el flujo actual; no agrega cálculos fiscales ni timbrado nuevos." },
+  "web-gerentes": { nombre: "Gerentes", ambito: "matriz", permisos: ["reportes.productos", "reportes.ventas", "cortes.ver", "inventario.administrar"], pendientes: "Clientes, pedidos, traslados, mermas, transformación y devolución a proveedor, reportes adicionales, factura global y notas de crédito requieren controles específicos. No puede emitir facturas de ventas ni administrar usuarios." },
+  "web-inventario": { nombre: "Inventario", ambito: "matriz", permisos: ["inventario.administrar", "reportes.productos", "reportes.ventas", "cortes.ver"], pendientes: "Ubicaciones, inventario físico/ajustes/reinicio por áreas, traslados, mermas, transformación, devolución a proveedor, reportes específicos y factura global siguen pendientes. El permiso de Inventario central registra entradas; no equivale a todas estas funciones." },
+};
+
+export const PUESTOS = PERFILES_DOCUMENTO.map((perfil) => ({ ...definiciones[perfil.id], perfilDocumentoId: perfil.id, pagina: perfil.pagina, esSupervisor: !!definiciones[perfil.id].esSupervisor }));

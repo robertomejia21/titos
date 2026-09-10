@@ -24,12 +24,13 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const pageParam = url.searchParams.get("page");
+  const campos = session.perfilDocumentoId && !["web-administrador", "web-compras"].includes(session.perfilDocumentoId) ? "-precioCompra" : "";
 
   // Sin "page": comportamiento original, devuelve el catálogo completo. Lo usan
   // el punto de venta y el combobox de pedidos, que necesitan la lista completa
   // en el cliente para buscar/escanear al instante sin ida y vuelta al servidor.
   if (!pageParam) {
-    const productos = await Producto.find({ activo: true }).sort({ nombre: 1 }).lean();
+    const productos = await Producto.find({ activo: true }).select(campos).sort({ nombre: 1 }).lean();
     return NextResponse.json(productos.map(normalizado));
   }
 
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
 
   const [items, total] = await Promise.all([
     Producto.find(filter)
+      .select(campos)
       .sort(orden)
       .skip((page - 1) * pageSize)
       .limit(pageSize)

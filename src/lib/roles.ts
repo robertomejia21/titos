@@ -1,5 +1,6 @@
 import RolModel from "@/models/Rol";
 import { ROLES_SEMILLA, permisosLegado, esPermisoValido } from "@/lib/permisos";
+import { PUESTOS } from "@/lib/puestos";
 
 // Resolución y semilla de los roles configurables.
 
@@ -13,15 +14,16 @@ import { ROLES_SEMILLA, permisosLegado, esPermisoValido } from "@/lib/permisos";
  */
 export async function asegurarRolesSemilla() {
   await Promise.all(
-    ROLES_SEMILLA.map((rol) =>
+    [...ROLES_SEMILLA, ...PUESTOS.map((p) => ({ ...p, descripcion: `Puesto establecido por Mercados Tito’s. Consulta sus permisos y funciones pendientes al asignarlo.` }))].map((rol) =>
       RolModel.updateOne(
-        { nombre: rol.nombre },
+        "perfilDocumentoId" in rol ? { perfilDocumentoId: rol.perfilDocumentoId } : { nombre: rol.nombre },
         {
           $setOnInsert: {
             nombre: rol.nombre,
             descripcion: rol.descripcion,
             ambito: rol.ambito,
             permisos: rol.permisos,
+            ...("perfilDocumentoId" in rol ? { perfilDocumentoId: rol.perfilDocumentoId } : {}),
             esSupervisor: rol.esSupervisor,
             esSistema: true,
             activo: true,
@@ -49,9 +51,8 @@ export async function permisosDeUsuario(usuario: UsuarioParaPermisos): Promise<s
   if (!usuario.rolId) return permisosLegado(usuario.role, usuario.sucursalRol);
 
   const rol = await RolModel.findById(usuario.rolId).select("permisos activo").lean();
-  // Un rol desactivado o borrado no debe dejar al usuario sin poder trabajar:
-  // se cae al perfil heredado en lugar de dejarlo con cero permisos.
-  if (!rol || !rol.activo) return permisosLegado(usuario.role, usuario.sucursalRol);
+  // Un rol inválido nunca recupera los permisos amplios del perfil heredado.
+  if (!rol || !rol.activo) return [];
 
   return (rol.permisos ?? []).filter(esPermisoValido);
 }

@@ -28,6 +28,7 @@ export type SessionPayload = {
    * traen; `permisosDeSesion()` los deduce del rol viejo.
    */
   permisos?: string[];
+  perfilDocumentoId?: string;
 };
 
 export const SESSION_COOKIE = "titos_session";
