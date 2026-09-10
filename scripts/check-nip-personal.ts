@@ -17,6 +17,7 @@ import Rol from "../src/models/Rol";
 async function main() {
   assert.equal(requiereNipCaja({ perfilDocumentoId: "pos-cajero" }), true);
   assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: true }), true);
+  assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: false }), true);
   assert.equal(requiereNipCaja({ nombre: "Compras" }), false);
   assert.equal(requiereNipCaja({ nombre: "Administrador de sucursal" }), false);
   assert.equal(requiereNipCaja(null, { role: "sucursal", sucursalRol: "ventas" }), true);
