@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
+import { PerfilesDocumento } from "./PerfilesDocumento";
 
 type Rol = {
   _id: string;
@@ -68,7 +69,6 @@ function UsuarioModal({
   const [sucursalId, setSucursalId] = useState(usuario?.sucursal?._id ?? "");
   const [rolId, setRolId] = useState(usuario?.rol?._id ?? "");
   const [nipSupervisor, setNipSupervisor] = useState("");
-  // NIP personal del encargado de turno, con el que autoriza en el mostrador.
   const [nipOperacion, setNipOperacion] = useState("");
   const [activo, setActivo] = useState(usuario?.activo ?? true);
   const [guardando, setGuardando] = useState(false);
@@ -84,21 +84,20 @@ function UsuarioModal({
   const rolElegido = roles.find((r) => r._id === rolId) ?? null;
   const esEncargado = !!rolElegido?.esSupervisor;
   const pideNipSupervisor = esEncargado && (!esEdicion || usuario!.rol?._id !== rolId);
-  // Al crear (o al ascender a alguien) hay que asignarle su NIP; a un encargado
-  // que ya lo tiene solo se le ofrece cambiarlo.
   const yaTieneNip = esEdicion && !!usuario!.tieneNipOperacion;
-  const nipOperacionObligatorio = esEncargado && !yaTieneNip;
+  const nipOperacionObligatorio = !esEdicion || (esEncargado && !yaTieneNip);
 
   async function guardar() {
     setError(null);
     setGuardando(true);
 
-    const cuerpo: Record<string, unknown> = { nombre, email, rolId: rolId || null };
+    const cuerpo: Record<string, unknown> = { nombre, email };
+    if (!usuario?.propio) cuerpo.rolId = rolId || null;
     if (password) cuerpo.password = password;
     if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
-    if (esEncargado && nipOperacion) cuerpo.nipOperacion = nipOperacion;
+    if (nipOperacion) cuerpo.nipOperacion = nipOperacion;
     if (esEdicion) {
-      cuerpo.activo = activo;
+      if (!usuario?.propio) cuerpo.activo = activo;
       if (usuario!.role === "sucursal") cuerpo.sucursalId = sucursalId || null;
     } else {
       cuerpo.role = role;
@@ -209,15 +208,11 @@ function UsuarioModal({
           </p>
         </FormField>
 
-        {/* El NIP personal es lo que deja el NOMBRE de quien autorizó en la
-            bitácora; el NIP general de Configuración solo dice que alguien lo
-            hizo. Por eso un encargado nuevo no se crea sin el suyo. */}
-        {esEncargado ? (
           <FormField
             label={
               yaTieneNip
-                ? "Nuevo NIP de operaciones (6 dígitos, opcional)"
-                : "NIP de operaciones del encargado (6 dígitos)"
+                ? "Nuevo NIP personal (6 dígitos, opcional)"
+                : "NIP personal (6 dígitos)"
             }
           >
             <Input
@@ -230,13 +225,12 @@ function UsuarioModal({
               onChange={(e) => setNipOperacion(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder={yaTieneNip ? "Déjalo vacío para conservar el actual" : "••••••"}
             />
-            <p className="mt-1 text-xs text-black/40">
-              Con este NIP autoriza cancelaciones y retiros en el punto de venta, y su nombre queda en la bitácora.
-              Es personal: no lo comparte con los cajeros.
+            <p className="mt-1 text-xs text-black/70">
+              El administrador asigna un NIP distinto a cada persona. Compartir un rol no significa compartir el NIP.
+              Solo los roles de supervisor pueden autorizar operaciones.
               {yaTieneNip ? " Ya tiene uno asignado." : ""}
             </p>
           </FormField>
-        ) : null}
 
         {/* Nombrar encargado a alguien pide además el NIP que matriz guarda en
             Configuración. El servidor lo valida igual. */}
@@ -490,7 +484,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
 // ----------------------------------------------------------------- Pantalla ---
 
 export function UsuariosRolesManager() {
-  const [tab, setTab] = useState<"usuarios" | "roles">("usuarios");
+  const [tab, setTab] = useState<"usuarios" | "roles" | "documento">("usuarios");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
@@ -521,7 +515,7 @@ export function UsuariosRolesManager() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-1.5">
-        {(["usuarios", "roles"] as const).map((valor) => (
+        {(["usuarios", "roles", "documento"] as const).map((valor) => (
           <button
             key={valor}
             type="button"
@@ -530,12 +524,12 @@ export function UsuariosRolesManager() {
               tab === valor ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
             }`}
           >
-            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : `Roles (${roles.length})`}
+            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : valor === "roles" ? `Roles (${roles.length})` : "Perfiles del PDF (9)"}
           </button>
         ))}
       </div>
 
-      {tab === "usuarios" ? (
+      {tab === "documento" ? <PerfilesDocumento /> : tab === "usuarios" ? (
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold text-titos-green-900">Usuarios del sistema</h2>

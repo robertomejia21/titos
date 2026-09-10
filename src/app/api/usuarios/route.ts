@@ -8,6 +8,7 @@ import { hashPassword } from "@/lib/auth";
 import { asegurarRolesSemilla } from "@/lib/roles";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
+import { prepararNipPersonal, NipPersonalError, esNipDuplicado } from "@/lib/nipPersonal";
 
 // Administración unificada de usuarios: matriz da de alta y edita los usuarios
 // de todas las sucursales desde un solo lugar. Antes cada sucursal administraba
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
   const nipOperacion = String(body?.nipOperacion ?? "").trim();
 
   if (!nombre) return badRequest("El nombre es requerido");
+  if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al usuario");
   if (!email) return badRequest("El correo es requerido");
   if (password.length < 6) return badRequest("La contraseña debe tener al menos 6 caracteres");
   if (!["matriz", "sucursal"].includes(role)) return badRequest("Elige si el usuario es de matriz o de sucursal");
@@ -119,21 +121,26 @@ export async function POST(req: NextRequest) {
       if (!NIP_OPERACION_REGEX.test(nipOperacion)) {
         return badRequest("Asígnale al encargado de turno un NIP de 6 dígitos para autorizar cancelaciones y retiros");
       }
-    } else if (nipOperacion) {
-      return badRequest("El NIP de operaciones solo aplica a los roles de encargado de turno");
     }
   }
 
-  const usuario = await UserModel.create({
-    nombre,
-    email,
-    passwordHash: await hashPassword(password),
-    role,
-    sucursalId: role === "sucursal" ? sucursalId : null,
-    rolId,
-    nipOperacionHash: nipOperacion ? await hashPassword(nipOperacion) : "",
-    activo: true,
-  });
+  try {
+    const nipPersonal = await prepararNipPersonal(nipOperacion);
+    const usuario = await UserModel.create({
+      nombre,
+      email,
+      passwordHash: await hashPassword(password),
+      role,
+      sucursalId: role === "sucursal" ? sucursalId : null,
+      rolId,
+      ...nipPersonal,
+      activo: true,
+    });
 
-  return NextResponse.json({ _id: String(usuario._id) }, { status: 201 });
+    return NextResponse.json({ _id: String(usuario._id) }, { status: 201 });
+  } catch (error) {
+    if (error instanceof NipPersonalError) return badRequest(error.message);
+    if (esNipDuplicado(error)) return conflict("Ese NIP ya está asignado a otra persona");
+    throw error;
+  }
 }
