@@ -57,7 +57,7 @@ async function main() {
         assert.equal(accesoPaginaPuesto(session, "/matriz/reportes/ventas"), false);
       }
       if (p.perfilDocumentoId === "web-compras") {
-        const alta = await crearUsuario(req("/api/usuarios", adminToken, "POST", { nombre: "Compras nueva", email: "nueva@prueba.local", role: "matriz", rolId: String(rol._id), password: "Pruebas-locales-2026", nipOperacion: "193824" }));
+        const alta = await crearUsuario(req("/api/usuarios", adminToken, "POST", { nombre: "Compras nueva", email: "nueva@prueba.local", role: "matriz", rolId: String(rol._id), password: "Pruebas-locales-2026" }));
         assert.equal(alta.status, 201, await alta.clone().text());
         assert.equal(accesoApiPuesto(session, "/api/ordenes-compra", "POST"), false);
         await Rol.updateOne({ _id: rol._id }, { $set: { permisos: [] } });

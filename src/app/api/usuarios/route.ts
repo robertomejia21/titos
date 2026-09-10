@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requiereNipCaja } from "@/lib/nipCaja";
 import { connectDB } from "@/lib/db";
 import UserModel from "@/models/User";
 import RolModel from "@/models/Rol";
@@ -89,7 +90,6 @@ export async function POST(req: NextRequest) {
 
   if (!nombre) return badRequest("El nombre es requerido");
   if (!rolId) return badRequest("Elige el puesto del usuario");
-  if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al usuario");
   if (!email) return badRequest("El correo es requerido");
   if (password.length < 6) return badRequest("La contraseña debe tener al menos 6 caracteres");
   if (!["matriz", "sucursal"].includes(role)) return badRequest("Elige si el usuario es de matriz o de sucursal");
@@ -106,10 +106,13 @@ export async function POST(req: NextRequest) {
   // Un rol de sucursal no puede asignarse a un usuario de matriz ni al revés:
   // sus permisos no aplican del otro lado.
   if (rolId) {
-    const rol = await RolModel.findById(rolId).select("ambito activo esSupervisor").lean();
+    const rol = await RolModel.findById(rolId).select("nombre perfilDocumentoId ambito activo esSupervisor").lean();
     if (!rol) return badRequest("El rol no existe");
     if (!rol.activo) return badRequest("Ese rol está desactivado");
     if (rol.ambito !== role) return badRequest("El rol elegido no corresponde al tipo de usuario");
+    if (requiereNipCaja(rol)) {
+      if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al cajero o supervisor de caja");
+    } else if (nipOperacion) return badRequest("El NIP personal es solo para cajeros y supervisores de caja");
 
     // El supervisor es quien autoriza cancelaciones y retiros: crear uno exige
     // el NIP de 6 dígitos que matriz guarda en /matriz/configuracion, para que
@@ -127,7 +130,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const nipPersonal = await prepararNipPersonal(nipOperacion);
+    const nipPersonal = nipOperacion ? await prepararNipPersonal(nipOperacion) : {};
     const usuario = await UserModel.create({
       nombre,
       email,
