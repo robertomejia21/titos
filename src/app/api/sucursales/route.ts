@@ -13,9 +13,12 @@ export async function GET(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
   if (session.role !== "matriz") return forbidden();
-  if (!puede(session, PERMISO)) return sinPermiso(PERMISO);
+  const administra = puede(session, PERMISO);
+  const consulta = ["reportes.productos", "reportes.ventas", "cortes.ver", "facturas.administrar", "usuarios.administrar", "precios.actualizar", "pedidos.surtir"].some((p) => puede(session, p));
+  if (!administra && !consulta) return sinPermiso(PERMISO);
 
   await connectDB();
+  if (!administra) return NextResponse.json(await Sucursal.find({}).select("nombre").sort({ nombre: 1 }).lean());
   const sucursales = await Sucursal.find({}).sort({ nombre: 1 }).lean();
 
   const usuarios = await UserModel.find({

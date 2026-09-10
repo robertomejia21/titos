@@ -5,7 +5,7 @@ import { filtrosProductos, obtenerReporteProductos } from "@/lib/reporteProducto
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
-  if (session.role !== "matriz" || !puede(session, "reportes.ver")) return forbidden();
+  if (session.role !== "matriz" || !puede(session, "reportes.productos")) return forbidden();
   let filtros;
   try { filtros = filtrosProductos(req.nextUrl.searchParams); }
   catch (error) { return badRequest((error as Error).message); }

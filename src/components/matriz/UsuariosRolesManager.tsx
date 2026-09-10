@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
-import { PerfilesDocumento } from "./PerfilesDocumento";
+import { PUESTOS } from "@/lib/puestos";
 
 type Rol = {
   _id: string;
@@ -12,6 +12,7 @@ type Rol = {
   descripcion: string;
   ambito: AmbitoRolPermiso;
   permisos: string[];
+  perfilDocumentoId?: string | null;
   /** Rol de mando: asignarlo exige el NIP de 6 dígitos de matriz. */
   esSupervisor: boolean;
   esSistema: boolean;
@@ -76,7 +77,7 @@ function UsuarioModal({
 
   // Solo se ofrecen los roles del ámbito correcto: un rol de sucursal no tiene
   // sentido en un usuario de matriz.
-  const rolesDisponibles = roles.filter((r) => r.ambito === role && r.activo);
+  const rolesDisponibles = roles.filter((r) => r.activo && (!esEdicion || r.ambito === role));
 
   // El NIP solo se pide cuando el rol elegido es de supervisor, y al editar solo
   // si además el rol está cambiando: guardar el teléfono de un supervisor que ya
@@ -123,6 +124,7 @@ function UsuarioModal({
   const faltaCampo =
     !nombre ||
     !email ||
+    (!esEdicion && !rolId) ||
     (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId))) ||
     (pideNipSupervisor && nipSupervisor.length !== 6) ||
     (nipOperacionObligatorio && nipOperacion.length !== 6);
@@ -190,23 +192,35 @@ function UsuarioModal({
           </FormField>
         ) : null}
 
-        <FormField label="Rol">
-          <Select icon={ShieldCheck} value={rolId} onChange={(e) => setRolId(e.target.value)} disabled={usuario?.propio}>
-            <option value="">— Perfil heredado —</option>
-            {rolesDisponibles.map((r) => (
-              <option key={r._id} value={r._id}>
-                {r.nombre}
-              </option>
-            ))}
+        <FormField label="Puesto / rol">
+          <Select aria-label="Puesto / rol" icon={ShieldCheck} value={rolId} onChange={(e) => {
+            setRolId(e.target.value);
+            const elegido = roles.find((r) => r._id === e.target.value);
+            if (!esEdicion && elegido) setRole(elegido.ambito);
+          }} disabled={usuario?.propio}>
+            <option value="" disabled={!esEdicion}>{esEdicion ? "Perfil heredado" : "Elige el puesto"}</option>
+            <optgroup label="Puestos establecidos">
+              {rolesDisponibles.filter((r) => r.perfilDocumentoId).map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
+            </optgroup>
+            <optgroup label="Otros roles existentes">
+              {rolesDisponibles.filter((r) => !r.perfilDocumentoId).map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
+            </optgroup>
           </Select>
           <p className="mt-1 text-xs text-black/40">
             {usuario?.propio
               ? "No puedes cambiar tu propio rol."
               : rolElegido
                 ? rolElegido.descripcion || `Tendrá los permisos definidos en el rol ${rolElegido.nombre}.`
-                : "Sin rol asignado, el usuario conserva exactamente los accesos que tenía antes."}
+                : esEdicion ? "Sin rol asignado, el usuario conserva los accesos anteriores." : "Elige el puesto para consultar los permisos que tendrá esta persona."}
           </p>
         </FormField>
+
+        {rolElegido ? <div className="rounded-lg border border-black/10 p-3">
+          <p className="font-medium text-titos-green-900">Permisos del puesto seleccionado</p>
+          <p className="mb-2 text-xs text-black/70">Se aplican automáticamente al asignar este rol. El administrador puede modificarlos en Roles.</p>
+          <div className="space-y-2">{PERMISOS.filter((p) => rolElegido.permisos.includes(p.clave)).map((p) => <label key={p.clave} className="flex items-start gap-2 text-sm text-black/80"><input type="checkbox" checked readOnly aria-label={p.etiqueta} /><span>{p.etiqueta}</span></label>)}</div>
+          {rolElegido.perfilDocumentoId ? <p className="mt-3 rounded bg-amber-50 p-2 text-sm text-amber-900"><strong>Funciones pendientes: </strong>{PUESTOS.find((p) => p.perfilDocumentoId === rolElegido.perfilDocumentoId)?.pendientes}</p> : null}
+        </div> : null}
 
           <FormField
             label={
@@ -484,7 +498,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
 // ----------------------------------------------------------------- Pantalla ---
 
 export function UsuariosRolesManager() {
-  const [tab, setTab] = useState<"usuarios" | "roles" | "documento">("usuarios");
+  const [tab, setTab] = useState<"usuarios" | "roles">("usuarios");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
@@ -515,7 +529,7 @@ export function UsuariosRolesManager() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-1.5">
-        {(["usuarios", "roles", "documento"] as const).map((valor) => (
+        {(["usuarios", "roles"] as const).map((valor) => (
           <button
             key={valor}
             type="button"
@@ -524,12 +538,12 @@ export function UsuariosRolesManager() {
               tab === valor ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
             }`}
           >
-            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : valor === "roles" ? `Roles (${roles.length})` : "Perfiles del PDF (9)"}
+            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : `Roles (${roles.length})`}
           </button>
         ))}
       </div>
 
-      {tab === "documento" ? <PerfilesDocumento /> : tab === "usuarios" ? (
+      {tab === "usuarios" ? (
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold text-titos-green-900">Usuarios del sistema</h2>

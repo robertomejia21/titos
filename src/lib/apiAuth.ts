@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession, type SessionPayload } from "@/lib/auth";
 import { PERMISOS, tienePermiso } from "@/lib/permisos";
 import { fechaEnZona, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
+import { sesionVigente } from "./sesionVigente";
+import { accesoApiPuesto } from "./accesoPuestos";
 
 export async function requireSession(req: NextRequest): Promise<SessionPayload | null> {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySession(token);
+  const session = await sesionVigente(await verifySession(token));
+  return session && accesoApiPuesto(session, req.nextUrl.pathname, req.method) ? session : null;
 }
 
 export function unauthorized() {

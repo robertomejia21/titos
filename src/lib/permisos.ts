@@ -29,6 +29,10 @@ export type Permiso = {
 };
 
 export const PERMISOS: Permiso[] = [
+  { clave: "reportes.productos", etiqueta: "Comparación y detalle de ventas por producto", grupo: "Reportes específicos", ambito: "matriz" },
+  { clave: "reportes.ventas", etiqueta: "Ventas por sucursal", grupo: "Reportes específicos", ambito: "matriz" },
+  { clave: "cortes.ver", etiqueta: "Consultar cortes globales", grupo: "Reportes específicos", ambito: "matriz" },
+  { clave: "proveedores.administrar", etiqueta: "Administrar proveedores", grupo: "Catálogos específicos", ambito: "matriz" },
   // ---------------- Sucursal ----------------
   { clave: "pos.vender", etiqueta: "Cobrar en el punto de venta", grupo: "Punto de venta", ambito: "ambos" },
   {
@@ -90,15 +94,20 @@ export function esPermisoValido(clave: string) {
  * no queda atrapada por la regla de `/matriz/mostrador`.
  */
 export const PERMISO_POR_RUTA: Record<string, string> = {
+  "/matriz/reportes/productos": "reportes.productos",
+  "/matriz/reportes/ventas": "reportes.ventas",
+  "/matriz/mostrador/clientes": "clientes.administrar",
+  "/matriz/mostrador/ventas": "ventas.historial",
+  "/matriz/mostrador/devoluciones": "devoluciones.registrar",
   "/matriz/mostrador": "pos.vender",
   "/matriz/reportes": "reportes.ver",
   "/matriz/cancelaciones": "reportes.ver",
-  "/matriz/cortes": "reportes.ver",
+  "/matriz/cortes": "cortes.ver",
   "/matriz/notas-de-venta": "notasventa.administrar",
   "/matriz/actualizacion-precios": "precios.actualizar",
   "/matriz/productos": "productos.administrar",
   "/matriz/sucursales": "catalogos.administrar",
-  "/matriz/proveedores": "catalogos.administrar",
+  "/matriz/proveedores": "proveedores.administrar",
   "/matriz/personal": "catalogos.administrar",
   "/matriz/terminales": "catalogos.administrar",
   "/matriz/vales": "catalogos.administrar",
@@ -213,7 +222,7 @@ export function permisosDeSesion(sesion: {
   sucursalRol?: string | null;
   permisos?: string[] | null;
 }): string[] {
-  if (sesion.permisos && sesion.permisos.length > 0) return sesion.permisos;
+  if (Array.isArray(sesion.permisos)) return sesion.permisos;
   return permisosLegado(sesion.role, sesion.sucursalRol);
 }
 
@@ -221,5 +230,12 @@ export function tienePermiso(
   sesion: { role?: string | null; sucursalRol?: string | null; permisos?: string[] | null },
   clave: string
 ) {
-  return permisosDeSesion(sesion).includes(clave);
+  const permisos = permisosDeSesion(sesion);
+  const grupos: Record<string, string> = {
+    "reportes.productos": "reportes.ver",
+    "reportes.ventas": "reportes.ver",
+    "cortes.ver": "reportes.ver",
+    "proveedores.administrar": "catalogos.administrar",
+  };
+  return permisos.includes(clave) || !!(grupos[clave] && permisos.includes(grupos[clave]));
 }

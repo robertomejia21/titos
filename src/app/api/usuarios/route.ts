@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       descripcion: r.descripcion,
       ambito: r.ambito,
       permisos: r.permisos ?? [],
+      perfilDocumentoId: r.perfilDocumentoId ?? null,
       // La pantalla lo usa para pedir el NIP de 6 dígitos en cuanto se elige un
       // rol de supervisor, en vez de esperar a que el servidor rechace el alta.
       esSupervisor: !!r.esSupervisor,
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
   const nipOperacion = String(body?.nipOperacion ?? "").trim();
 
   if (!nombre) return badRequest("El nombre es requerido");
+  if (!rolId) return badRequest("Elige el puesto del usuario");
   if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al usuario");
   if (!email) return badRequest("El correo es requerido");
   if (password.length < 6) return badRequest("La contraseña debe tener al menos 6 caracteres");

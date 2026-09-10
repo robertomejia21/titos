@@ -45,7 +45,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { opcionesBusqueda, type ResultadoBusqueda } from "@/lib/busqueda";
-import { permisoDeRuta } from "@/lib/permisos";
+import { permisoDeRuta, tienePermiso } from "@/lib/permisos";
 
 // "exact" es para las rutas que son padre de otras (el punto de venta del
 // mostrador) y no deben marcarse activas mientras se navega en sus hijas.
@@ -210,7 +210,7 @@ export function Sidebar({
   const visible = useCallback(
     (href: string) => {
       const permiso = permisoDeRuta(href);
-      return !permiso || permisos.includes(permiso);
+      return !permiso || tienePermiso({ permisos }, permiso);
     },
     [permisos]
   );
