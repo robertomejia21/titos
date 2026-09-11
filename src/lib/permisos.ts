@@ -106,6 +106,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/matriz/notas-de-venta": "notasventa.administrar",
   "/matriz/actualizacion-precios": "precios.actualizar",
   "/matriz/productos": "productos.administrar",
+  "/matriz/promociones": "precios.actualizar",
   "/matriz/sucursales": "catalogos.administrar",
   "/matriz/proveedores": "proveedores.administrar",
   "/matriz/personal": "catalogos.administrar",

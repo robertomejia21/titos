@@ -28,6 +28,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (["empleados", "terminales", "vales"].includes(recurso)) return tiene("catalogos.administrar") || (get && recurso !== "empleados" && tiene("pos.vender"));
   if (recurso === "inventario") return parte[2] === "entrada" && method === "POST" && tiene("inventario.administrar");
   if (recurso === "inventario-sucursal") return get && tiene("pos.vender", "inventario.administrar");
+  if (recurso === "promociones") return tiene("precios.actualizar");
   if (recurso === "actualizacion-precios") return tiene("precios.actualizar");
   if (recurso === "bitacora") return get && tiene("bitacora.ver");
   if (["ordenes-compra", "necesidades-compra", "solicitudes-producto"].includes(recurso)) return tiene("compras.administrar");
