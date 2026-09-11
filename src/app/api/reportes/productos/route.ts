@@ -1,3 +1,4 @@
+import { tienePermiso } from "@/lib/permisos";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, unauthorized, forbidden, puede, badRequest } from "@/lib/apiAuth";
 import { connectDB } from "@/lib/db";
@@ -5,7 +6,7 @@ import { filtrosProductos, obtenerReporteProductos } from "@/lib/reporteProducto
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
-  if (session.role !== "matriz" || !puede(session, "reportes.productos")) return forbidden();
+  if ((session.role !== "matriz" && !tienePermiso(session, "reportes.globales")) || !puede(session, "reportes.productos")) return forbidden();
   let filtros;
   try { filtros = filtrosProductos(req.nextUrl.searchParams); }
   catch (error) { return badRequest((error as Error).message); }

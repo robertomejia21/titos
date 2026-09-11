@@ -1,3 +1,4 @@
+import { validarFiscalProducto } from "@/lib/fiscalProducto";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Producto from "@/models/Producto";
@@ -74,6 +75,10 @@ export async function POST(req: NextRequest) {
     return badRequest("Faltan campos requeridos (sku, nombre, categoria, unidad)");
   }
 
+  let fiscal;
+  if (body.fiscal !== undefined) {
+    try { fiscal = validarFiscalProducto(body.fiscal); } catch (e) { return badRequest((e as Error).message); }
+  }
   const alias: string[] = Array.isArray(body.alias)
     ? body.alias.map((a: string) => String(a).trim()).filter(Boolean)
     : [];
@@ -81,8 +86,10 @@ export async function POST(req: NextRequest) {
   await connectDB();
   const producto = await Producto.create({
     sku: body.sku,
+    ...(fiscal ? { fiscal } : {}),
     nombre: body.nombre,
     alias,
+    area: typeof body.area === "string" ? body.area.trim().slice(0, 100) : "",
     linea: body.linea || "",
     categoria: body.categoria,
     anaquel: String(body.anaquel ?? "").trim(),

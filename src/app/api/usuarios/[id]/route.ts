@@ -74,9 +74,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("rolId" in body) {
     const rolId = body.rolId ? String(body.rolId) : null;
     if (rolId) {
-      const rol = await RolModel.findById(rolId).select("ambito activo esSupervisor").lean();
+      const rol = await RolModel.findById(rolId).select("ambito activo retirado esSupervisor").lean();
       if (!rol) return badRequest("El rol no existe");
-      if (!rol.activo) return badRequest("Ese rol está desactivado");
+      if (rol.retirado) return badRequest("Este rol fue sustituido. Elige un puesto del catálogo actual.");
+    if (!rol.activo) return badRequest("Ese rol está desactivado");
       if (rol.ambito !== usuario.role) return badRequest("El rol elegido no corresponde al tipo de usuario");
 
       // Ascender a alguien a supervisor pide el mismo NIP que crearlo: si no,

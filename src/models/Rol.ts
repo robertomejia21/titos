@@ -14,6 +14,8 @@ const RolSchema = new Schema(
     ambito: { type: String, enum: AMBITOS_ROL, required: true },
     permisos: { type: [String], default: [] },
     perfilDocumentoId: { type: String },
+    codigoSistema: { type: String },
+    retirado: { type: Boolean, default: false },
     // Marca los roles de mando (supervisor de piso, encargado de turno). Dar de
     // alta o ascender a alguien a uno de estos roles exige el NIP de creación
     // de supervisores que matriz configura en /matriz/configuracion: el rol es
@@ -28,6 +30,7 @@ const RolSchema = new Schema(
   { timestamps: true }
 );
 
+RolSchema.index({ codigoSistema: 1 }, { unique: true, partialFilterExpression: { codigoSistema: { $type: "string" } } });
 RolSchema.index({ ambito: 1, activo: 1 });
 RolSchema.index({ perfilDocumentoId: 1 }, { unique: true, partialFilterExpression: { perfilDocumentoId: { $type: "string" } } });
 

@@ -19,6 +19,10 @@ const VentaItemSchema = new Schema(
     cantidad: { type: Number, required: true },
     precioUnitario: { type: Number, required: true },
     subtotal: { type: Number, required: true },
+    precioLista: Number,
+    descuento: { type: Number, default: 0 },
+    promocionId: { type: Schema.Types.ObjectId, ref: "Promocion", default: null },
+    promocionNombre: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -80,6 +84,8 @@ const VentaSchema = new Schema(
     corte: { type: String, required: true }, // YYYY-MM-DD, útil para cortes de caja futuros
     items: { type: [VentaItemSchema], default: [] },
     total: { type: Number, required: true },
+    subtotalSinDescuento: Number,
+    descuento: { type: Number, default: 0 },
     // Pago mixto: la suma de pagos[].monto debe ser igual a total. Puede incluir
     // más de un método (ej. una parte en efectivo y otra con tarjeta).
     pagos: { type: [PagoVentaSchema], required: true, default: [] },

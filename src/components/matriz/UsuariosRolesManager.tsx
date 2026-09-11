@@ -208,12 +208,7 @@ function UsuarioModal({
             if (!esEdicion && elegido) setRole(elegido.ambito);
           }} disabled={usuario?.propio}>
             <option value="" disabled={!esEdicion}>{esEdicion ? "Perfil heredado" : "Elige el puesto"}</option>
-            <optgroup label="Puestos establecidos">
-              {rolesDisponibles.filter((r) => r.perfilDocumentoId).map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
-            </optgroup>
-            <optgroup label="Otros roles existentes">
-              {rolesDisponibles.filter((r) => !r.perfilDocumentoId).map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
-            </optgroup>
+            {rolesDisponibles.map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
           </Select>
           <p className="mt-1 text-xs text-black/40">
             {usuario?.propio

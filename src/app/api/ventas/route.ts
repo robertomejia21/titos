@@ -1,3 +1,5 @@
+import Promocion from "@/models/Promocion";
+import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Venta, { METODOS_PAGO } from "@/models/Venta";
@@ -81,7 +83,7 @@ export async function POST(req: NextRequest) {
   const clienteOperacionId = body?.clienteOperacionId ? String(body.clienteOperacionId) : null;
 
   if (items.length === 0) return badRequest("La venta debe incluir al menos un producto");
-  if (pagosBody.length === 0) return badRequest("Debes capturar al menos una forma de pago");
+  if (!Array.isArray(items) || !Array.isArray(pagosBody)) return badRequest("Datos de venta inválidos.");
 
   const metodosUsados = new Set<string>();
   const pagos: PagoVenta[] = [];
@@ -238,15 +240,29 @@ export async function POST(req: NextRequest) {
 
   const stockPorProducto = await stockPuntoVenta(ctx, productoIds);
 
+  const reglas = await Promocion.find({ estado: "activa", sucursales: ctx.sucursalId }).lean();
+  const agrupados = new Map<string, number>();
+  for (const i of items) {
+    if (!Number.isFinite(Number(i.cantidad)) || Number(i.cantidad) <= 0) return badRequest("Cantidad inválida.");
+    agrupados.set(String(i.productoId), (agrupados.get(String(i.productoId)) ?? 0) + Number(i.cantidad));
+  }
+  const itemsUnicos = [...agrupados].map(([productoId, cantidad]) => ({ productoId, cantidad }));
+  const precio = calcularPromociones(itemsUnicos.map((i) => {
+    const p = productoMap.get(i.productoId);
+    return { ...i, precio: p?.precioVenta ?? 0, unidad: p?.unidad ?? "pieza", categoria: p?.categoria, area: p?.area };
+  }), JSON.parse(JSON.stringify(reglas)) as ReglaPromocion[], todayCorte(zonaHoraria));
+  const lineaPrecio = new Map(precio.lineas.map((p) => [p.productoId, p]));
   const ventaItems = [];
   let total = 0;
 
-  for (const item of items) {
+  for (const item of itemsUnicos) {
     const producto = productoMap.get(item.productoId);
     const cantidad = Number(item.cantidad);
     if (!producto || !cantidad || cantidad <= 0) {
       return badRequest("Producto inválido o cantidad inválida en la venta");
     }
+
+    if ((producto.unidad === "pieza" && !Number.isInteger(cantidad)) || Math.abs(cantidad * 1000 - Math.round(cantidad * 1000)) > 0.00001) return badRequest("Usa piezas enteras o kilos con hasta tres decimales.");
 
     // La existencia ya NO bloquea la venta. El producto está físicamente en el
     // mostrador y el cliente lo tiene en la mano: negarse a cobrarlo porque el
@@ -254,7 +270,8 @@ export async function POST(req: NextRequest) {
     // descuadre. Se cobra, la existencia queda en negativo (que es la señal de
     // que hay que ajustar) y compras recibe el aviso.
 
-    const subtotal = cantidad * producto.precioVenta;
+    const calculo = lineaPrecio.get(item.productoId)!;
+    const subtotal = calculo.total;
     total += subtotal;
     ventaItems.push({
       productoId: producto._id,
@@ -262,11 +279,16 @@ export async function POST(req: NextRequest) {
       nombreProducto: producto.nombre,
       unidad: producto.unidad,
       cantidad,
-      precioUnitario: producto.precioVenta,
+      precioUnitario: subtotal / cantidad,
+      precioLista: producto.precioVenta,
+      descuento: calculo.descuento,
+      promocionId: calculo.promocionId || null,
+      promocionNombre: calculo.promocionNombre,
       subtotal,
     });
   }
 
+  if (total > 0 && pagos.length === 0) return badRequest("Debes capturar al menos una forma de pago");
   const sumaPagos = pagos.reduce((sum, p) => sum + p.monto, 0);
   if (Math.abs(sumaPagos - total) > 0.01) {
     return badRequest(`La suma de las formas de pago (${sumaPagos.toFixed(2)}) no coincide con el total (${total.toFixed(2)})`);
@@ -308,7 +330,9 @@ export async function POST(req: NextRequest) {
       fecha: fechaVenta,
       corte: todayCorte(zonaHoraria),
       items: ventaItems,
-      total,
+      total: Number(total.toFixed(2)),
+      subtotalSinDescuento: precio.bruto,
+      descuento: precio.descuento,
       pagos,
       montoRecibido: pagoEfectivo ? montoRecibido : null,
       cambio: pagoEfectivo && montoRecibido != null ? Number((montoRecibido - pagoEfectivo.monto).toFixed(2)) : null,

@@ -1,3 +1,4 @@
+import { ArqueosReporte } from "@/components/matriz/ArqueosReporte";
 import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { connectDB } from "@/lib/db";
@@ -84,6 +85,7 @@ export default async function MatrizDashboard() {
         </Link>
       </div>
 
+      <ArqueosReporte />
       <div className="mb-6">
         <VentasChart />
       </div>

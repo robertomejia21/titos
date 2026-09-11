@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   await connectDB();
   await asegurarRolesSemilla();
 
-  const roles = await RolModel.find({}).sort({ ambito: 1, nombre: 1 }).lean();
+  const roles = await RolModel.find({ retirado: { $ne: true } }).sort({ ambito: 1, nombre: 1 }).lean();
   return NextResponse.json(roles.map((r) => ({ ...r, _id: String(r._id) })));
 }
 

@@ -1,3 +1,4 @@
+import { validarFiscalProducto } from "@/lib/fiscalProducto";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Producto from "@/models/Producto";
@@ -32,6 +33,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   for (const key of updatable) {
     if (key in body) update[key] = body[key];
   }
+  if ("fiscal" in body) {
+    try { update.fiscal = validarFiscalProducto(body.fiscal); } catch (e) { return NextResponse.json({ error: (e as Error).message }, { status: 400 }); }
+  }
+  if ("area" in body) update.area = typeof body.area === "string" ? body.area.trim().slice(0, 100) : "";
   if ("alias" in body) {
     update.alias = Array.isArray(body.alias) ? body.alias.map((a: string) => String(a).trim()).filter(Boolean) : [];
   }

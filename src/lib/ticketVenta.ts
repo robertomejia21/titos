@@ -37,6 +37,9 @@ export type ItemTicket = {
   unidad: string;
   precioUnitario: number;
   subtotal: number;
+  precioLista?: number;
+  descuento?: number;
+  promocionNombre?: string;
 };
 
 export type VentaTicket = {
@@ -151,9 +154,10 @@ function cuerpoTicket(
       [
         `<div>${escaparHTML(i.nombreProducto)}</div>`,
         fila(
-          `<span class="tenue">${cantidadTexto(i)} x ${pesos(i.precioUnitario)}</span>`,
+          `<span class="tenue">${cantidadTexto(i)} x ${pesos(i.precioLista ?? i.precioUnitario)}</span>`,
           pesos(i.subtotal)
         ),
+        i.descuento ? fila(`Descuento: ${escaparHTML(i.promocionNombre || "Promoción")}`, `−${pesos(i.descuento)}`) : "",
       ].join("")
     )
     .join("");
