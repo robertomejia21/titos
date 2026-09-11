@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ReporteProductosPage() {
   const session = await getSession();
   return <div>
-    <PageHeader title="Comparación por producto" description="Ventas por SKU y sucursal en el periodo seleccionado" icon={BarChart3} />
+    <PageHeader title="Kardex Global" description="Ventas por SKU y sucursal en el periodo seleccionado" icon={BarChart3} />
     {session && tienePermiso(session, "reportes.ventas") ? <Link href="/matriz/reportes/ventas" className="mb-4 inline-block text-sm text-titos-green-700 underline">Ver historial de tickets</Link> : null}
     <ReporteProductos />
   </div>;

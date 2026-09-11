@@ -30,6 +30,10 @@ import { buscarSupervisorPorNip } from "../src/lib/supervisores";
 import { POST as altaProducto } from "../src/app/api/productos/route";
 import { PATCH as editarProducto } from "../src/app/api/productos/[id]/route";
 import { FISCAL_INICIAL } from "../src/lib/fiscalProducto";
+import { POST as abrirCaja } from "../src/app/api/caja/abrir/route";
+import { PATCH as configurar } from "../src/app/api/configuracion/route";
+import { GET as corteDiario } from "../src/app/api/cortes/diario/route";
+import { escaparCorte } from "../src/lib/corteDiario";
 
 async function main() {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
@@ -117,6 +121,32 @@ async function main() {
     assert.equal((await gratuita.json()).total, 0);
     await Promocion.updateMany({ nombre: "Sin cobro de prueba" }, { estado: "archivado" });
     await Promocion.updateMany({ nombre: base.nombre }, { estado: "activa" });
+    const gerenteB = await User.create({ nombre: "Gerente B", email: "b@titos.local", role: "sucursal", sucursalId: b._id, rolId: gerenteRol._id, passwordHash: await hashPassword("Pruebas-locales-2026") });
+    const tokenB = await signSession(payload(gerenteB));
+    assert.equal((await configurar(req("/api/configuracion", "PATCH", { fondoCajaMxn: 1250 }, gerenteToken))).status, 401);
+    assert.equal((await configurar(req("/api/configuracion", "PATCH", { fondoCajaMxn: -1 }))).status, 400);
+    assert.equal((await configurar(req("/api/configuracion", "PATCH", { fondoCajaMxn: 1250 }))).status, 200);
+    assert.equal((await abrirCaja(req("/api/caja/abrir", "POST", { efectivoInicial: 1000 }, tokenB))).status, 409);
+    const aperturaBody = { efectivoInicial: 1250, clienteOperacionId: "fondo-prueba-B" };
+    const apertura = await abrirCaja(req("/api/caja/abrir", "POST", aperturaBody, tokenB));
+    assert.equal(apertura.status, 201);
+    assert.equal((await apertura.json()).efectivoInicial, 1250);
+    assert.equal((await abrirCaja(req("/api/caja/abrir", "POST", aperturaBody, tokenB))).status, 200);
+    assert.equal((await abrirCaja(req("/api/caja/abrir", "POST", aperturaBody, gerenteToken))).status, 403);
+    assert.equal((await Caja.findById(caja._id)).efectivoInicial, 1000, "Una caja abierta conserva su fondo");
+    await configurar(req("/api/configuracion", "PATCH", { fondoCajaMxn: 1000 }));
+    await Venta.create({ folio: "NOTA-PRUEBA-50", sucursalId: a._id, cajaSesionId: caja._id, usuarioId: gerente._id, corte: day, total: 50, esVentas2: true, pagos: [{ metodoPago: "efectivo", monto: 50 }] });
+    const con = await corteDiario(req(`/api/cortes/diario?dia=${day}&notas=con`));
+    assert.equal(con.status, 200);
+    const htmlCon = await con.text();
+    assert.ok(htmlCon.includes("$180.00")); assert.ok(htmlCon.includes("NOTA-PRUEBA-50")); assert.ok(htmlCon.includes("Desglose fiscal pendiente"));
+    const sin = await (await corteDiario(req(`/api/cortes/diario?dia=${day}&notas=sin`))).text();
+    assert.ok(sin.includes("$130.00")); assert.ok(!sin.includes("NOTA-PRUEBA-50"));
+    assert.equal((await corteDiario(req(`/api/cortes/diario?dia=${day}`, "GET", undefined, gerenteToken))).status, 200);
+    assert.equal((await corteDiario(req("/api/cortes/diario?dia=2026-02-30"))).status, 400);
+    assert.equal((await corteDiario(req(`/api/cortes/diario?dia=${day}&sucursalId=invalido`))).status, 400);
+    assert.equal(escaparCorte('<script>"&'), "&lt;script&gt;&quot;&amp;");
+    console.log("OK: fondo central, permisos, importe manipulado y desactualizado, apertura idempotente y aislada, corte con/sin notas y validación de fecha.");
     console.log("OK: catálogo consolidado idempotente, gerente solo lectura global y NIP local, arqueos sin duplicación/signos, promociones combinadas/kilos/prioridad y cobro real con idempotencia.");
     if (process.argv.includes("--serve")) {
       server = spawn("npm", ["run", "dev", "--", "--port", "3100"], { stdio: "inherit", env: { ...process.env } });

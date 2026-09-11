@@ -361,7 +361,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   // --- Caja: apertura, retiro de efectivo y corte ---
   const [sesion, setSesion] = useState<SesionCaja | null | undefined>(undefined);
-  const [efectivoInicialInput, setEfectivoInicialInput] = useState("");
+  const [efectivoInicialInput, setEfectivoInicialInput] = useState("1000");
+  const aperturaOperacion = useRef<string | null>(null);
   const [efectivoInicialUsdInput, setEfectivoInicialUsdInput] = useState("");
   const [abriendoCaja, setAbriendoCaja] = useState(false);
   const [errorCaja, setErrorCaja] = useState<string | null>(null);
@@ -532,7 +533,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
     fetch("/api/configuracion")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("http-error"))))
-      .then((data: { tipoCambio?: number; dolares?: Partial<ReglasDolares>; nipSupervisorConfigurado?: boolean }) => {
+      .then((data: { tipoCambio?: number; fondoCajaMxn?: number; dolares?: Partial<ReglasDolares>; nipSupervisorConfigurado?: boolean }) => {
+        setEfectivoInicialInput(String(data.fondoCajaMxn ?? 1000));
         const valor = Number(data.tipoCambio) || 0;
         const reglas: ReglasDolares = {
           aceptaPagos: data.dolares?.aceptaPagos !== false,
@@ -1460,28 +1462,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setVentaCompletada(null);
   }
 
-  function abrirCajaOffline(clienteOperacionId: string, efectivoInicial: number, efectivoInicialUsd: number) {
-    agregarACola({
-      id: generarIdLocal(),
-      tipo: "abrir_caja",
-      creadaEn: new Date().toISOString(),
-      payload: { clienteOperacionId, efectivoInicial, efectivoInicialUsd },
-    });
-    setPendientes(leerCola().length);
-    const sesionLocal: SesionCaja = {
-      _id: `local-${generarIdLocal()}`,
-      efectivoInicial,
-      efectivoInicialUsd,
-      fechaApertura: new Date().toISOString(),
-      offline: true,
-    };
-    setSesion(sesionLocal);
-    guardarSesionCache(sesionLocal);
-    setEfectivoInicialInput("");
-    setEfectivoInicialUsdInput("");
-  }
-
   async function abrirCaja() {
+    if (abriendoCaja) return;
     setErrorCaja(null);
     const efectivoInicial = Number(efectivoInicialInput);
     if (!Number.isFinite(efectivoInicial) || efectivoInicial < 0) {
@@ -1496,10 +1478,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
     // El mismo id viaja al servidor y a la cola: si la respuesta se pierde, el
     // reintento devuelve la sesión que ya se abrió en vez de abrir otra.
-    const clienteOperacionId = generarIdLocal();
+    const clienteOperacionId = aperturaOperacion.current ?? (aperturaOperacion.current = generarIdLocal());
 
     if (!isOnline) {
-      abrirCajaOffline(clienteOperacionId, efectivoInicial, efectivoInicialUsd);
+      setErrorCaja("Conecta la caja para confirmar el fondo autorizado por administración antes de abrir.");
       return;
     }
 
@@ -1512,16 +1494,17 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (typeof data.fondoCajaMxn === "number") setEfectivoInicialInput(String(data.fondoCajaMxn));
         setErrorCaja(data.error || "No se pudo abrir la caja");
         return;
       }
       const data = await res.json();
       setSesion(data);
       guardarSesionCache(data);
-      setEfectivoInicialInput("");
+      aperturaOperacion.current = null;
       setEfectivoInicialUsdInput("");
     } catch {
-      abrirCajaOffline(clienteOperacionId, efectivoInicial, efectivoInicialUsd);
+      setErrorCaja("No se pudo confirmar la apertura. Recupera la conexión y reintenta; se conserva el identificador para no abrir dos veces.");
     } finally {
       setAbriendoCaja(false);
     }
@@ -1732,8 +1715,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             {badgeConexion}
           </div>
           <p className="mb-4 text-sm text-black/50">
-            Antes de registrar ventas, captura el efectivo con el que inicias esta caja.
-            {!isOnline ? " Puedes abrirla sin conexión: se sincronizará en cuanto vuelva la señal." : ""}
+            El fondo en pesos es el mismo para todas las cajas y lo define administración. La apertura necesita conexión para confirmar el importe vigente.
           </p>
           <FormField label="Efectivo inicial (pesos)" className="mb-3">
             <Input
@@ -1742,7 +1724,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               step="0.01"
               autoFocus
               value={efectivoInicialInput}
-              onChange={(e) => setEfectivoInicialInput(e.target.value)}
+              readOnly
+              aria-label="Fondo autorizado en pesos"
               onKeyDown={(e) => {
                 if (e.key === "Enter") abrirCaja();
               }}

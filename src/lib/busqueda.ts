@@ -30,7 +30,7 @@ export const OPCIONES_BUSQUEDA: ResultadoBusqueda[] = [
   { label: "Solicitudes de producto nuevo", href: "/matriz/ordenes-compra?tab=solicitudes", grupo: "Compras" },
   { label: "Pedidos pendientes por nivelar", href: "/matriz/pedidos?tab=pendiente", grupo: "Inventario" },
   { label: "Pedidos listos para surtir", href: "/matriz/pedidos?tab=nivelado", grupo: "Inventario" },
-  { label: "Comparación de ventas por producto", href: "/matriz/reportes/productos", grupo: "Reportes", palabras: "rotacion variante presentacion mas menos vendido" },
+  { label: "Kardex Global", href: "/matriz/reportes/productos", grupo: "Reportes", palabras: "comparacion ventas producto rotacion variante presentacion mas menos vendido" },
 ];
 
 export function opcionesBusqueda(consulta: string, role: string, puedeAbrir: (ruta: string) => boolean) {

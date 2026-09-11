@@ -73,7 +73,7 @@ const MATRIZ_NAV: NavCategory[] = [
     icon: FileText,
     items: [
       { href: "/matriz/reportes", label: "Reportes", icon: BarChart3, exact: true },
-      { href: "/matriz/reportes/productos", label: "Comparación por producto", icon: BarChart3 },
+      { href: "/matriz/reportes/productos", label: "Kardex Global", icon: BarChart3 },
       { href: "/matriz/reportes/ventas", label: "Ventas por sucursal", icon: TrendingUp },
       { href: "/matriz/cancelaciones", label: "Cancelaciones", icon: Ban },
       { href: "/matriz/cortes", label: "Corte global", icon: ClipboardCheck },

@@ -54,6 +54,7 @@ const ConfiguracionSchema = new Schema(
     diasLaborales: { type: [String], enum: DIAS_SEMANA, default: ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"] },
     horaCorte: { type: String, default: "16:00" },
     tipoCambio: { type: Number, default: 17 },
+    fondoCajaMxn: { type: Number, default: 1000, min: 0, max: 1000000 },
     // Quién y cuándo movió el tipo de cambio por última vez. El punto de venta
     // lo muestra junto al importe en dólares: un tipo de cambio de hace tres
     // semanas regala mercancía y nadie se entera hasta el corte.
