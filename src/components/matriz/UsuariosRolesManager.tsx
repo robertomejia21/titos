@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert } from "lucide-react";
+import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PUESTOS } from "@/lib/puestos";
@@ -47,6 +47,12 @@ function rolMostrado(u: Usuario) {
   if (u.role === "matriz") return "Administrador de matriz (heredado)";
   return u.sucursalRol === "ventas" ? "Cajero (heredado)" : "Administrador de sucursal (heredado)";
 }
+
+const normalizarBusqueda = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+const coincideBusqueda = (texto: string, consulta: string) => normalizarBusqueda(consulta).trim().split(/\s+/).every((parte) => normalizarBusqueda(texto).includes(parte));
+const compararTexto = (a: string, b: string) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true });
+const claveRolUsuario = (u: Usuario) => u.rol?._id ?? `heredado:${u.role}:${u.role === "sucursal" ? u.sucursalRol : "admin"}`;
+const ubicacionUsuario = (u: Usuario) => u.role === "matriz" ? "Matriz" : u.sucursal?.nombre ?? "Sin sucursal";
 
 // ---------------------------------------------------------------- Usuarios ---
 
@@ -506,6 +512,36 @@ export function UsuariosRolesManager() {
   const [roles, setRoles] = useState<Rol[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
+  const [estado, setEstado] = useState("todos");
+  const [filtroRol, setFiltroRol] = useState("");
+  const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [orden, setOrden] = useState("nombre-asc");
+  const [busquedaRol, setBusquedaRol] = useState("");
+  const [ambitoRol, setAmbitoRol] = useState("");
+  const [estadoRol, setEstadoRol] = useState("todos");
+  const [ordenRol, setOrdenRol] = useState("nombre-asc");
+
+  const rolesHeredados = [...new Map(usuarios.filter((u) => !u.rol).map((u) => [claveRolUsuario(u), rolMostrado(u)])).entries()];
+  const usuariosVisibles = useMemo(() => usuarios.filter((u) =>
+    (estado === "todos" || u.activo === (estado === "activos")) &&
+    (!filtroRol || claveRolUsuario(u) === filtroRol) &&
+    (!filtroSucursal || (filtroSucursal === "matriz" ? u.role === "matriz" : u.role === "sucursal" && u.sucursal?._id === filtroSucursal)) &&
+    coincideBusqueda(`${u.nombre} ${u.email} ${rolMostrado(u)} ${ubicacionUsuario(u)}`, busqueda)
+  ).sort((a, b) => {
+    if (orden === "activos") return Number(b.activo) - Number(a.activo) || compararTexto(a.nombre, b.nombre);
+    const campoA = orden === "sucursal" ? ubicacionUsuario(a) : orden === "rol" ? rolMostrado(a) : orden === "correo" ? a.email : a.nombre;
+    const campoB = orden === "sucursal" ? ubicacionUsuario(b) : orden === "rol" ? rolMostrado(b) : orden === "correo" ? b.email : b.nombre;
+    return (compararTexto(campoA, campoB) || compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (orden === "nombre-desc" ? -1 : 1);
+  }), [usuarios, estado, filtroRol, filtroSucursal, busqueda, orden]);
+  const rolesVisibles = useMemo(() => roles.filter((r) =>
+    (!ambitoRol || r.ambito === ambitoRol) &&
+    (estadoRol === "todos" || r.activo === (estadoRol === "activos")) &&
+    coincideBusqueda(`${r.nombre} ${r.descripcion} ${r.permisos.map((p) => PERMISOS.find((permiso) => permiso.clave === p)?.etiqueta ?? "").join(" ")}`, busquedaRol)
+  ).sort((a, b) => (compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (ordenRol === "nombre-desc" ? -1 : 1)), [roles, ambitoRol, estadoRol, busquedaRol, ordenRol]);
+  const limpiarUsuarios = () => { setBusqueda(""); setEstado("todos"); setFiltroRol(""); setFiltroSucursal(""); setOrden("nombre-asc"); };
+  const limpiarRoles = () => { setBusquedaRol(""); setAmbitoRol(""); setEstadoRol("todos"); setOrdenRol("nombre-asc"); };
+
 
   const [usuarioModal, setUsuarioModal] = useState<Usuario | null>(null);
   const [creandoUsuario, setCreandoUsuario] = useState(false);
@@ -557,10 +593,28 @@ export function UsuariosRolesManager() {
             asignado conservan exactamente los accesos que ya tenían.
           </p>
 
+          <div className="mb-4 space-y-3">
+            <FormField label="Buscar usuario">
+              <Input type="search" aria-label="Buscar usuario" icon={Search} placeholder="Nombre, correo, puesto o sucursal" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} list="sugerencias-usuarios" autoComplete="off" className="border-black/50" />
+              <datalist id="sugerencias-usuarios">{usuariosVisibles.slice(0, 20).map((u) => <option key={u._id} value={u.email}>{u.nombre} · {u.activo ? "Activo" : "Inactivo"} · {rolMostrado(u)}</option>)}</datalist>
+            </FormField>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <FormField label="Estado"><Select aria-label="Estado del usuario" className="border-black/50" value={estado} onChange={(e) => setEstado(e.target.value)}><option value="todos">Todos ({usuarios.length})</option><option value="activos">Activos ({usuarios.filter((u) => u.activo).length})</option><option value="inactivos">Inactivos ({usuarios.filter((u) => !u.activo).length})</option></Select></FormField>
+              <FormField label="Puesto / rol"><Select aria-label="Filtrar por puesto" className="border-black/50" value={filtroRol} onChange={(e) => setFiltroRol(e.target.value)}><option value="">Todos los puestos</option>{roles.map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}{rolesHeredados.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</Select></FormField>
+              <FormField label="Ubicación"><Select aria-label="Filtrar por ubicación" className="border-black/50" value={filtroSucursal} onChange={(e) => setFiltroSucursal(e.target.value)}><option value="">Todas las ubicaciones</option><option value="matriz">Matriz (administración)</option>{sucursales.map((s) => <option key={s._id} value={s._id}>{s.nombre}</option>)}</Select></FormField>
+              <FormField label="Ordenar"><Select aria-label="Ordenar usuarios" className="border-black/50" value={orden} onChange={(e) => setOrden(e.target.value)}><option value="nombre-asc">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option><option value="correo">Correo: A–Z</option><option value="sucursal">Ubicación: A–Z</option><option value="rol">Puesto: A–Z</option><option value="activos">Activos primero</option></Select></FormField>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p role="status" className="text-sm text-black/70">{cargando ? "Cargando usuarios…" : `${usuariosVisibles.length} de ${usuarios.length} usuarios`}</p>
+              <Button variant="ghost" onClick={limpiarUsuarios} disabled={!busqueda && estado === "todos" && !filtroRol && !filtroSucursal && orden === "nombre-asc"}>Limpiar filtros</Button>
+            </div>
+          </div>
           {cargando ? (
             <p className="text-sm text-black/50">Cargando...</p>
           ) : usuarios.length === 0 ? (
             <EmptyState message="Todavía no hay usuarios." />
+          ) : usuariosVisibles.length === 0 ? (
+            <EmptyState message="No hay usuarios que coincidan. Cambia la búsqueda o limpia los filtros." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -570,16 +624,17 @@ export function UsuariosRolesManager() {
                     <th className="py-2 pr-3">Correo</th>
                     <th className="py-2 pr-3">Dónde</th>
                     <th className="py-2 pr-3">Rol</th>
+                    <th className="py-2 pr-3">Estado</th>
                     <th className="py-2 pr-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {usuarios.map((u) => (
-                    <tr key={u._id} className={`border-b border-black/5 ${!u.activo ? "opacity-50" : ""}`}>
+                  {usuariosVisibles.map((u) => (
+                    <tr key={u._id} className="border-b border-black/5">
                       <td className="py-2 pr-3 font-medium">
                         {u.nombre}
                         {u.propio ? <span className="ml-1 text-xs text-titos-green-700">(tú)</span> : null}
-                        {!u.activo ? <span className="ml-1 text-xs text-black/40">(inactivo)</span> : null}
+
                       </td>
                       <td className="py-2 pr-3 text-black/60">{u.email}</td>
                       <td className="py-2 pr-3 text-black/60">
@@ -594,6 +649,7 @@ export function UsuariosRolesManager() {
                           {rolMostrado(u)}
                         </span>
                       </td>
+                      <td className="py-2 pr-3"><span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span></td>
                       <td className="py-2 pr-3 text-right">
                         <Button variant="ghost" onClick={() => setUsuarioModal(u)}>
                           Editar
@@ -617,11 +673,22 @@ export function UsuariosRolesManager() {
             escribiendo la dirección a mano: el servidor lo valida igual.
           </p>
 
+          <div className="mb-4 space-y-3">
+            <FormField label="Buscar rol"><Input type="search" aria-label="Buscar rol" icon={Search} className="border-black/50" placeholder="Nombre, descripción o permiso" value={busquedaRol} onChange={(e) => setBusquedaRol(e.target.value)} /></FormField>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FormField label="Ámbito"><Select aria-label="Ámbito del rol" className="border-black/50" value={ambitoRol} onChange={(e) => setAmbitoRol(e.target.value)}><option value="">Todos los ámbitos</option><option value="matriz">Matriz</option><option value="sucursal">Sucursal</option></Select></FormField>
+              <FormField label="Estado"><Select aria-label="Estado del rol" className="border-black/50" value={estadoRol} onChange={(e) => setEstadoRol(e.target.value)}><option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></Select></FormField>
+              <FormField label="Ordenar"><Select aria-label="Ordenar roles" className="border-black/50" value={ordenRol} onChange={(e) => setOrdenRol(e.target.value)}><option value="nombre-asc">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option></Select></FormField>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" className="text-sm text-black/70">{cargando ? "Cargando roles…" : `${rolesVisibles.length} de ${roles.length} roles`}</p><Button variant="ghost" onClick={limpiarRoles} disabled={!busquedaRol && !ambitoRol && estadoRol === "todos" && ordenRol === "nombre-asc"}>Limpiar filtros</Button></div>
+          </div>
           {cargando ? (
             <p className="text-sm text-black/50">Cargando...</p>
+          ) : rolesVisibles.length === 0 ? (
+            <EmptyState message="No hay roles que coincidan. Cambia la búsqueda o limpia los filtros." />
           ) : (
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {roles.map((r) => (
+              {rolesVisibles.map((r) => (
                 <button
                   key={r._id}
                   type="button"
@@ -630,6 +697,7 @@ export function UsuariosRolesManager() {
                 >
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-titos-green-900">{r.nombre}</span>
+                    {!r.activo ? <span className="text-sm text-black/70">Inactivo</span> : null}
                     <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/50">
                       {ETIQUETA_AMBITO[r.ambito]}
                     </span>
