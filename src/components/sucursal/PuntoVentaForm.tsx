@@ -36,7 +36,7 @@ import { imprimirTicketVenta } from "@/lib/ticketVenta";
 import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
-import { formatFechaHora, formatHora, formatFechaLarga } from "@/lib/zonasHorarias";
+import { fechaEnZona, formatFechaHora, formatHora, formatFechaLarga } from "@/lib/zonasHorarias";
 import {
   leerProductosCache,
   guardarProductosCache,
@@ -53,11 +53,15 @@ import {
   type PagoPayload,
 } from "@/lib/offlinePos";
 
+import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
+
 type Producto = {
   _id: string;
   sku: string;
   nombre: string;
   alias?: string[];
+  categoria?: string;
+  area?: string;
   unidad: "pieza" | "kg";
   precioVenta: number;
   requierePesaje: boolean;
@@ -295,6 +299,20 @@ function SelectorTipoTarjeta({
 
 export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: string }) {
   const zonaHoraria = useZonaHoraria();
+  const [promociones, setPromociones] = useState<ReglaPromocion[]>([]);
+  const [promocionesListas, setPromocionesListas] = useState(false);
+  const operacionPromocion = useRef<string | null>(null);
+  const cobroSinConfirmar = useRef<string | null>(null);
+  useEffect(() => {
+    let cerrado = false;
+    async function cargar() {
+      try { const r = await fetch("/api/promociones/pos"); if (!r.ok) return;
+        const data = await r.json(); if (!cerrado) { setPromociones(data); setPromocionesListas(true); }
+      } catch { /* La caja muestra el estado sin confirmar antes de cobrar. */ }
+    }
+    void cargar(); const timer = setInterval(cargar, 30000);
+    return () => { cerrado = true; clearInterval(timer); };
+  }, []);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [inventario, setInventario] = useState<Map<string, number>>(new Map());
   const [codigo, setCodigo] = useState("");
@@ -691,10 +709,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     modalAtajos,
   ]);
 
-  const total = useMemo(
-    () => carrito.reduce((sum, l) => sum + (Number(l.cantidad) || 0) * l.precioUnitario, 0),
-    [carrito]
-  );
+  const itemsParaPrecio = useMemo(() => carrito.map((l) => {
+    const producto = productos.find((p) => p._id === l.productoId);
+    return { productoId: l.productoId, cantidad: Number(l.cantidad) || 0, precio: l.precioUnitario, unidad: l.unidad, categoria: producto?.categoria, area: producto?.area };
+  }), [carrito, productos]);
+  const precioPromocion = calcularPromociones(itemsParaPrecio, promociones, fechaEnZona(new Date(), zonaHoraria));
+  const total = precioPromocion.total;
+  const descuentosPorProducto = new Map(precioPromocion.lineas.map((l) => [l.productoId, l]));
 
 
   const totalDolares = tipoCambio > 0 ? total / tipoCambio : null;
@@ -901,7 +922,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   ]);
 
   const puedeCobrar =
-    carritoValido && Math.abs(restante) < 0.01 && sumaPagos > 0 && !errorCredito && !errorPago;
+    carritoValido && Math.abs(restante) < 0.01 && (sumaPagos > 0 || (total === 0 && precioPromocion.descuento > 0)) && !errorCredito && !errorPago;
 
   /** Rellena un renglón del pago mixto con lo que falte por asignar. */
   function completarCon(metodo: MetodoPago) {
@@ -1175,6 +1196,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }
 
   function limpiarCarritoYPago() {
+    operacionPromocion.current = null;
+    cobroSinConfirmar.current = null;
     setCarrito([]);
     setMontoEfectivo("");
     setMontoTarjeta("");
@@ -1320,6 +1343,20 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   async function cobrar() {
     if (!puedeCobrar || cobroEnCurso.current) return;
     setError(null);
+    if (!promocionesListas || (!isOnline && promociones.length > 0)) {
+      setError("Conecta la caja a internet para confirmar las promociones antes de cobrar."); return;
+    }
+    const ventanaTicket = isOnline ? abrirVentanaTicket() : null;
+    if (isOnline) {
+      cobroEnCurso.current = true;
+      try {
+        const r = await fetch("/api/promociones/pos"); if (!r.ok) throw new Error();
+        const actuales: ReglaPromocion[] = await r.json(); setPromociones(actuales);
+        const actualizado = calcularPromociones(itemsParaPrecio, actuales, fechaEnZona(new Date(), zonaHoraria));
+        if (Math.abs(actualizado.total - total) > 0.001) { cerrarVentanaTicket(ventanaTicket); setError("Las promociones cambiaron. Revisa el nuevo total y confirma el cobro."); return; }
+      } catch { cerrarVentanaTicket(ventanaTicket); setError("No se pudieron confirmar las promociones. Revisa la conexión antes de cobrar."); return; }
+      finally { cobroEnCurso.current = false; }
+    }
 
     const pagos: PagoPayload[] = pagosVenta.map((p) => ({
       metodoPago: p.metodoPago,
@@ -1335,12 +1372,18 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // Se genera una sola vez por intento de cobro y viaja igual en el
       // reintento y en la cola sin conexión: es lo que impide el cobro doble
       // cuando la red se corta después de que el servidor ya guardó la venta.
-      clienteOperacionId: generarIdLocal(),
+      clienteOperacionId: operacionPromocion.current ?? (operacionPromocion.current = generarIdLocal()),
       items: carrito.map((l) => ({ productoId: l.productoId, cantidad: Number(l.cantidad) })),
       pagos,
       montoRecibido: nEfectivo > 0 ? efectivoRecibidoNum : undefined,
       clienteId: clienteId || undefined,
     };
+
+    if (cobroSinConfirmar.current && cobroSinConfirmar.current !== JSON.stringify(payload)) {
+      cerrarVentanaTicket(ventanaTicket);
+      setError("Hay un cobro pendiente de confirmar. Revisa el historial antes de iniciar otra venta. Para reintentar, conserva los mismos productos, cantidades y forma de pago.");
+      return;
+    }
 
     if (!isOnline) {
       // El crédito nunca se encola: sin servidor no hay forma de saber si el
@@ -1360,12 +1403,16 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     }
 
     cobroEnCurso.current = true;
-    const ventanaTicket = abrirVentanaTicket();
     setProcesando(true);
+    cobroSinConfirmar.current = JSON.stringify(payload);
     try {
       const res = await enviarVenta(payload);
 
       if (!res.ok) {
+        if (res.status >= 400 && res.status < 500) {
+          cobroSinConfirmar.current = null;
+          operacionPromocion.current = null;
+        }
         const data = await res.json().catch(() => ({}));
         cerrarVentanaTicket(ventanaTicket);
         setError(data.error || "No se pudo registrar la venta");
@@ -1384,9 +1431,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // Se perdió la conexión y los reintentos tampoco pasaron: la venta no se
       // pierde, se encola. Si resultó que el servidor sí la había guardado, al
       // sincronizar el `clienteOperacionId` evita que se duplique.
-      if (nCredito > 0) {
+      if (nCredito > 0 || precioPromocion.descuento > 0) {
         cerrarVentanaTicket(ventanaTicket);
-        setError("Se perdió la conexión y la venta es a crédito. Vuelve a intentarla cuando regrese el servicio.");
+        setError("Se perdió la conexión. Revisa el historial antes de repetir el cobro; al reintentar se conserva el identificador de esta venta.");
         return;
       }
       try { registrarVentaOffline(payload, ventanaTicket); }
@@ -1866,8 +1913,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-right text-black/70">{formatMoney(l.precioUnitario)}</td>
-                      <td className="px-2 py-1.5 text-right text-black/40">$0.00</td>
-                      <td className="px-2 py-1.5 text-right font-semibold">{formatMoney(cantidad * l.precioUnitario)}</td>
+                      <td className="px-2 py-1.5 text-right text-black/70" title={descuentosPorProducto.get(l.productoId)?.promocionNombre}>{formatMoney(descuentosPorProducto.get(l.productoId)?.descuento ?? 0)}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold">{formatMoney(descuentosPorProducto.get(l.productoId)?.total ?? cantidad * l.precioUnitario)}</td>
                       <td className="px-2 py-1.5 text-right">
                         <button
                           onClick={() => quitarLinea(l.productoId)}
@@ -1921,11 +1968,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             <div className="space-y-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="font-semibold uppercase text-sky-700">Subtotal</span>
-                <span className="font-bold text-sky-700">{formatMoney(total)}</span>
+                <span className="font-bold text-sky-700">{formatMoney(precioPromocion.bruto)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-semibold uppercase text-black/50">Descuento</span>
-                <span className="font-bold text-black/50">{formatMoney(0)}</span>
+                <span className="font-bold text-black/70">{formatMoney(precioPromocion.descuento)}</span>
               </div>
             </div>
 
@@ -2394,7 +2441,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               Cancelar
             </Button>
             <Button onClick={cobrar} disabled={!puedeCobrar || procesando}>
-              {procesando ? "Procesando..." : "Cobrar"}
+              {procesando ? "Procesando..." : total === 0 ? "Registrar sin cobro" : "Cobrar"}
             </Button>
           </div>
         </Modal>

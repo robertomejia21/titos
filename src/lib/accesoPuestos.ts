@@ -2,6 +2,8 @@ import { permisoDeRuta, tienePermiso } from "./permisos";
 import type { SessionPayload } from "./auth";
 
 export function accesoApiPuesto(s: SessionPayload, pathname: string, method: string): boolean {
+  if (s.role === "sucursal" && tienePermiso(s, "reportes.globales") && ["GET", "HEAD"].includes(method) &&
+    (pathname === "/api/sucursales" || pathname === "/api/cortes" || /^\/api\/reportes\/(productos|historial-ventas|arqueos)(\/pdf)?$/.test(pathname))) return true;
   if (!s.perfilDocumentoId) return true;
   const tiene = (...permisos: string[]) => permisos.some((p) => tienePermiso(s, p));
   const get = method === "GET" || method === "HEAD";
@@ -12,6 +14,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (recurso === "usuarios" || recurso === "roles") return tiene("usuarios.administrar");
   if (recurso === "configuracion") return tiene("configuracion.editar") || (get && tiene("pos.vender"));
   if (recurso === "reportes") {
+    if (parte[2] === "arqueos") return get && tiene("cortes.ver");
     if (parte[2] === "productos") return get && tiene("reportes.productos");
     if (["ventas", "historial-ventas"].includes(parte[2])) return get && tiene("reportes.ventas");
     return get && tiene("reportes.ver");
@@ -28,6 +31,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (["empleados", "terminales", "vales"].includes(recurso)) return tiene("catalogos.administrar") || (get && recurso !== "empleados" && tiene("pos.vender"));
   if (recurso === "inventario") return parte[2] === "entrada" && method === "POST" && tiene("inventario.administrar");
   if (recurso === "inventario-sucursal") return get && tiene("pos.vender", "inventario.administrar");
+  if (recurso === "promociones" && parte[2] === "pos") return get && tiene("pos.vender");
   if (recurso === "promociones") return tiene("precios.actualizar");
   if (recurso === "actualizacion-precios") return tiene("precios.actualizar");
   if (recurso === "bitacora") return get && tiene("bitacora.ver");

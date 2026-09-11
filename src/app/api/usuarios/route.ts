@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       .populate("sucursalId", "nombre")
       .sort({ role: 1, nombre: 1 })
       .lean(),
-    RolModel.find({}).sort({ ambito: 1, nombre: 1 }).lean(),
+    RolModel.find({ retirado: { $ne: true } }).sort({ ambito: 1, nombre: 1 }).lean(),
     Sucursal.find({}).select("nombre esMatriz").sort({ nombre: 1 }).lean(),
   ]);
 
@@ -106,8 +106,9 @@ export async function POST(req: NextRequest) {
   // Un rol de sucursal no puede asignarse a un usuario de matriz ni al revés:
   // sus permisos no aplican del otro lado.
   if (rolId) {
-    const rol = await RolModel.findById(rolId).select("nombre perfilDocumentoId ambito activo esSupervisor").lean();
+    const rol = await RolModel.findById(rolId).select("nombre perfilDocumentoId ambito activo retirado esSupervisor").lean();
     if (!rol) return badRequest("El rol no existe");
+    if (rol.retirado) return badRequest("Este rol fue sustituido. Elige un puesto del catálogo actual.");
     if (!rol.activo) return badRequest("Ese rol está desactivado");
     if (rol.ambito !== role) return badRequest("El rol elegido no corresponde al tipo de usuario");
     if (requiereNipCaja(rol)) {

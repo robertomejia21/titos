@@ -29,6 +29,7 @@ export type Permiso = {
 };
 
 export const PERMISOS: Permiso[] = [
+  { clave: "reportes.globales", etiqueta: "Consultar reportes de todas las sucursales (solo lectura)", grupo: "Supervisión", ambito: "sucursal", ayuda: "No permite modificar otras tiendas. Se puede desmarcar si la persona no necesita consultas globales." },
   { clave: "reportes.productos", etiqueta: "Comparación y detalle de ventas por producto", grupo: "Reportes específicos", ambito: "matriz" },
   { clave: "reportes.ventas", etiqueta: "Ventas por sucursal", grupo: "Reportes específicos", ambito: "matriz" },
   { clave: "cortes.ver", etiqueta: "Consultar cortes globales", grupo: "Reportes específicos", ambito: "matriz" },
@@ -122,6 +123,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/matriz/bitacora": "bitacora.ver",
   "/matriz/usuarios": "usuarios.administrar",
 
+  "/sucursal/reportes": "reportes.globales",
   "/sucursal/productos": "pos.vender",
   "/sucursal/clientes": "clientes.administrar",
   "/sucursal/ventas": "ventas.historial",
@@ -151,7 +153,7 @@ export function permisoDeRuta(pathname: string): string | null {
 
 const PERMISOS_MATRIZ_COMPLETO = permisosDeAmbito("matriz").map((p) => p.clave);
 
-const PERMISOS_SUCURSAL_ADMIN = permisosDeAmbito("sucursal").map((p) => p.clave);
+const PERMISOS_SUCURSAL_ADMIN = permisosDeAmbito("sucursal").filter((p) => p.clave !== "reportes.globales").map((p) => p.clave);
 
 /** El perfil "ventas" solo veía el punto de venta y el historial. */
 const PERMISOS_SUCURSAL_VENTAS = ["pos.vender", "pos.cancelar", "caja.retirar", "ventas.historial"];
@@ -238,5 +240,6 @@ export function tienePermiso(
     "cortes.ver": "reportes.ver",
     "proveedores.administrar": "catalogos.administrar",
   };
+  if (["reportes.productos", "reportes.ventas", "cortes.ver"].includes(clave) && permisos.includes("reportes.globales")) return true;
   return permisos.includes(clave) || !!(grupos[clave] && permisos.includes(grupos[clave]));
 }

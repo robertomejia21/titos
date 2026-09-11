@@ -1,3 +1,4 @@
+import { tienePermiso } from "@/lib/permisos";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import CajaSesion from "@/models/CajaSesion";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const filtro: Record<string, unknown> = { estado: "cerrada" };
 
-  if (session.role === "matriz") {
+  if (session.role === "matriz" || tienePermiso(session, "reportes.globales")) {
     const sucursalId = url.searchParams.get("sucursalId");
     if (sucursalId) filtro.sucursalId = sucursalId;
   } else if (session.sucursalId) {

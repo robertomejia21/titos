@@ -5,6 +5,14 @@ const ProductoSchema = new Schema(
     sku: { type: String, required: true, unique: true, trim: true },
     nombre: { type: String, required: true, trim: true },
     alias: { type: [String], default: [] }, // nombres alternativos para localizar el producto en búsquedas
+    fiscal: { type: new Schema({
+      iva: { type: String, enum: ["pendiente", "exento", "0", "8", "16"] },
+      iepsTipo: { type: String, enum: ["pendiente", "no_aplica", "porcentaje", "cuota"] },
+      iepsValor: Number,
+      claveProdServ: String,
+      precioImpuestos: { type: String, enum: ["pendiente", "sin_impuestos", "incluidos"] },
+    }, { _id: false }), default: undefined },
+    area: { type: String, trim: true, default: "" },
     linea: { type: String, trim: true, default: "" },
     categoria: { type: String, required: true, trim: true },
     anaquel: { type: String, trim: true, default: "" }, // ubicación física donde se acomoda en el CEDIS matriz

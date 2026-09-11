@@ -5,6 +5,8 @@ import { Button, Card, Input, Select, EmptyState, Pagination, Modal, FormGrid, F
 import { Package, Barcode, Tag, Tags, Scale, DollarSign, Boxes, AlertTriangle, ArrowUpToLine, MapPin, X } from "lucide-react";
 import { ProductoProveedoresModal } from "@/components/matriz/ProductoProveedoresModal";
 
+import { FISCAL_INICIAL, type FiscalProducto } from "@/lib/fiscalProducto";
+
 const PAGE_SIZE = 20;
 
 type Producto = {
@@ -14,6 +16,8 @@ type Producto = {
   alias: string[];
   linea: string;
   categoria: string;
+  area?: string;
+  fiscal?: FiscalProducto;
   anaquel: string;
   unidad: "pieza" | "kg";
   requierePesaje: boolean;
@@ -33,6 +37,7 @@ const emptyForm = {
   nombre: "",
   linea: "",
   categoria: "",
+  area: "",
   anaquel: "",
   unidad: "pieza" as "pieza" | "kg",
   requierePesaje: false,
@@ -49,6 +54,7 @@ function formDesdeProducto(p: Producto) {
     nombre: p.nombre,
     linea: p.linea,
     categoria: p.categoria,
+    area: p.area ?? "",
     anaquel: p.anaquel ?? "",
     unidad: p.unidad,
     requierePesaje: p.requierePesaje,
@@ -75,6 +81,7 @@ function ProductoFormModal({
 }) {
   const editando = producto != null;
   const [form, setForm] = useState(producto ? formDesdeProducto(producto) : emptyForm);
+  const [fiscal, setFiscal] = useState<FiscalProducto>(producto?.fiscal ?? { ...FISCAL_INICIAL, precioImpuestos: producto ? "pendiente" : "sin_impuestos" });
   const [alias, setAlias] = useState<string[]>(producto?.alias ?? []);
   const [aliasInput, setAliasInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -100,6 +107,7 @@ function ProductoFormModal({
 
     const body = {
       ...form,
+      fiscal,
       alias,
       precioCompra: Number(form.precioCompra) || 0,
       precioVenta: Number(form.precioVenta) || 0,
@@ -178,6 +186,9 @@ function ProductoFormModal({
               ))}
             </Select>
           </FormField>
+          <FormField label="Área comercial (para promociones)">
+            <Input aria-label="Área comercial" maxLength={100} value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="Ej. Abarrotes, carnicería o frutas" />
+          </FormField>
           <FormField label="Anaquel (ubicación en CEDIS matriz)">
             <Input
               icon={MapPin}
@@ -209,6 +220,17 @@ function ProductoFormModal({
           </FormField>
         </FormGrid>
 
+        <section className="space-y-3 rounded-lg border border-amber-700 bg-amber-50 p-4">
+          <h3 className="font-semibold">Datos fiscales del producto</h3>
+          <p className="text-sm text-amber-950">Registro en preparación: estos campos todavía no cambian los cobros ni el timbrado. Falta confirmar el ejemplo de impuestos y conectar el cálculo.</p>
+          <FormGrid>
+            <FormField label="IVA"><Select aria-label="IVA del producto" value={fiscal.iva} onChange={(e) => setFiscal({ ...fiscal, iva: e.target.value as FiscalProducto["iva"] })}><option value="pendiente">Pendiente de confirmar</option><option value="exento">Exento</option><option value="0">0%</option><option value="8">8%</option><option value="16">16%</option></Select></FormField>
+            <FormField label="Precio e impuestos"><Select aria-label="Precio e impuestos" value={fiscal.precioImpuestos} onChange={(e) => setFiscal({ ...fiscal, precioImpuestos: e.target.value as FiscalProducto["precioImpuestos"] })}><option value="pendiente">Pendiente de confirmar</option><option value="sin_impuestos">Precio sin impuestos (se agregan)</option><option value="incluidos">Precio con impuestos incluidos</option></Select></FormField>
+            <FormField label="IEPS"><Select aria-label="Tipo de IEPS" value={fiscal.iepsTipo} onChange={(e) => setFiscal({ ...fiscal, iepsTipo: e.target.value as FiscalProducto["iepsTipo"] })}><option value="pendiente">Pendiente de confirmar</option><option value="no_aplica">No aplica</option><option value="porcentaje">Porcentaje (%)</option><option value="cuota">Cuota por unidad ($)</option></Select></FormField>
+            <FormField label={fiscal.iepsTipo === "cuota" ? "Cuota IEPS por pieza o kg" : "Tasa IEPS (%)"}><Input aria-label="Valor de IEPS" type="number" min="0" step="0.0001" disabled={["pendiente", "no_aplica"].includes(fiscal.iepsTipo)} value={fiscal.iepsValor} onChange={(e) => setFiscal({ ...fiscal, iepsValor: Number(e.target.value) })} /></FormField>
+            <FormField label="Clave de producto SAT"><Input aria-label="Clave de producto SAT" inputMode="numeric" maxLength={8} value={fiscal.claveProdServ} onChange={(e) => setFiscal({ ...fiscal, claveProdServ: e.target.value })} placeholder="8 dígitos; vacío si está pendiente" /></FormField>
+          </FormGrid>
+        </section>
         <FormField label="Alias (otros nombres por los que se conoce el producto)">
           <div className="flex gap-2">
             <Input

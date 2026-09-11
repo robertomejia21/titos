@@ -1,3 +1,4 @@
+import { tienePermiso } from "@/lib/permisos";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { requireSession, unauthorized, forbidden, notFound } from "@/lib/apiAuth";
@@ -21,7 +22,7 @@ function truncar(texto: string, max: number) {
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
-  if (session.role !== "matriz") return forbidden();
+  if ((session.role !== "matriz" && !tienePermiso(session, "reportes.globales"))) return forbidden();
 
   const url = new URL(req.url);
   const filtro = filtroDesdeUrl(url);

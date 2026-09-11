@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const [promociones, productos, sucursales] = await Promise.all([
     Promocion.find().sort({ updatedAt: -1 }).lean(),
-    Producto.find({ activo: true }).select("nombre sku categoria unidad").sort({ nombre: 1 }).lean(),
+    Producto.find({ activo: true }).select("nombre sku categoria area unidad").sort({ nombre: 1 }).lean(),
     Sucursal.find({ activo: true }).select("nombre").sort({ nombre: 1 }).lean(),
   ]);
   return NextResponse.json({ promociones, productos, sucursales });

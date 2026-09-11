@@ -137,6 +137,7 @@ const MATRIZ_NAV: NavCategory[] = [
 ];
 
 const SUCURSAL_NAV: NavItem[] = [
+  { href: "/sucursal/reportes", label: "Reportes globales", icon: BarChart3 },
   { href: "/sucursal", label: "Punto de venta", icon: ShoppingCart },
   { href: "/sucursal/productos", label: "Productos", icon: Package },
   { href: "/sucursal/clientes", label: "Clientes", icon: Users },
