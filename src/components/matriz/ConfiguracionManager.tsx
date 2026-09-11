@@ -126,6 +126,7 @@ export function ConfiguracionManager() {
   const [diasLaborales, setDiasLaborales] = useState<string[]>([]);
   const [horaCorte, setHoraCorte] = useState("16:00");
   const [tipoCambio, setTipoCambio] = useState("17");
+  const [fondoCajaMxn, setFondoCajaMxn] = useState("1000");
   // Sello de la última vez que se movió: un tipo de cambio viejo regala
   // mercancía y no se nota hasta el corte.
   const [tipoCambioActualizadoEn, setTipoCambioActualizadoEn] = useState<string | null>(null);
@@ -191,6 +192,7 @@ export function ConfiguracionManager() {
     setDiasLaborales(data.diasLaborales ?? []);
     setHoraCorte(data.horaCorte ?? "16:00");
     setTipoCambio(String(data.tipoCambio ?? 17));
+    setFondoCajaMxn(String(data.fondoCajaMxn ?? 1000));
     setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
     setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
     setTasaIvaFactura(String(data.tasaIvaFactura ?? 0));
@@ -229,6 +231,7 @@ export function ConfiguracionManager() {
         diasLaborales,
         horaCorte,
         tipoCambio: Number(tipoCambio),
+        fondoCajaMxn: Number(fondoCajaMxn),
         tasaIvaFactura: Number(tasaIvaFactura),
         dolares: {
           aceptaPagos: aceptaDolares,
@@ -508,6 +511,10 @@ export function ConfiguracionManager() {
           <p className="text-sm text-black/50">Cargando...</p>
         ) : (
           <FormGrid>
+            <FormField label="Fondo de apertura de caja (MXN)">
+              <Input aria-label="Fondo de apertura de caja" type="number" min="0" max="1000000" step="0.01" value={fondoCajaMxn} onChange={(e) => setFondoCajaMxn(e.target.value)} />
+              <p className="mt-1 text-sm text-black/70">Mismo fondo para todas las cajas. Se aplica a nuevas aperturas; las cajas abiertas conservan su fondo. Solo administración puede cambiarlo.</p>
+            </FormField>
             <FormField label="Días laborales">
               <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-black/10 p-3">
                 {DIAS_SEMANA.map((dia) => (

@@ -3,7 +3,7 @@ import type { SessionPayload } from "./auth";
 
 export function accesoApiPuesto(s: SessionPayload, pathname: string, method: string): boolean {
   if (s.role === "sucursal" && tienePermiso(s, "reportes.globales") && ["GET", "HEAD"].includes(method) &&
-    (pathname === "/api/sucursales" || pathname === "/api/cortes" || /^\/api\/reportes\/(productos|historial-ventas|arqueos)(\/pdf)?$/.test(pathname))) return true;
+    (pathname === "/api/sucursales" || pathname === "/api/cortes" || pathname === "/api/cortes/diario" || /^\/api\/reportes\/(productos|historial-ventas|arqueos)(\/pdf)?$/.test(pathname))) return true;
   if (!s.perfilDocumentoId) return true;
   const tiene = (...permisos: string[]) => permisos.some((p) => tienePermiso(s, p));
   const get = method === "GET" || method === "HEAD";

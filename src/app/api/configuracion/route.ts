@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
   if (session.role !== "matriz") {
     return NextResponse.json({
       tipoCambio: config.tipoCambio ?? 17,
+      fondoCajaMxn: config.fondoCajaMxn ?? 1000,
       // Se manda cuándo se actualizó para que el punto de venta pueda avisar
       // que el tipo de cambio ya tiene días sin moverse.
       tipoCambioActualizadoEn: config.tipoCambioActualizadoEn ?? null,
@@ -60,6 +61,11 @@ export async function PATCH(req: NextRequest) {
   if (!body) return badRequest("Cuerpo inválido");
 
   const update: Record<string, unknown> = {};
+  if ("fondoCajaMxn" in body) {
+    const fondo = body.fondoCajaMxn;
+    if (typeof fondo !== "number" || !Number.isFinite(fondo) || fondo < 0 || fondo > 1000000 || Math.abs(fondo * 100 - Math.round(fondo * 100)) > 0.00001) return badRequest("El fondo debe ser de 0 a 1,000,000 de pesos, con hasta dos decimales.");
+    update.fondoCajaMxn = fondo;
+  }
   if ("diasLaborales" in body) {
     if (!Array.isArray(body.diasLaborales) || body.diasLaborales.some((d: unknown) => !DIAS_SEMANA.includes(d as typeof DIAS_SEMANA[number]))) {
       return badRequest("Días laborales inválidos");

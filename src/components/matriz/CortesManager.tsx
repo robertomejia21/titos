@@ -80,6 +80,8 @@ export function CortesManager() {
   const [sucursalId, setSucursalId] = useState("");
   const [desde, setDesde] = useState(hoyISO());
   const [hasta, setHasta] = useState(hoyISO());
+  const [diaImpresion, setDiaImpresion] = useState(hoyISO());
+  const [notasImpresion, setNotasImpresion] = useState("con");
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -140,6 +142,14 @@ export function CortesManager() {
   return (
     <div className="space-y-5">
       <Card>
+        <h2 className="mb-2 font-semibold text-titos-green-900">Imprimir corte por día</h2>
+        <p className="mb-3 text-sm text-black/70">Versión operativa con ventas, notas, retiros, abonos y cierres. El desglose fiscal de IVA e IEPS sigue pendiente.</p>
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <FormField label="Día de impresión"><Input aria-label="Día de impresión" type="date" value={diaImpresion} onChange={e => setDiaImpresion(e.target.value)} /></FormField>
+          <FormField label="Notas de venta"><Select aria-label="Notas de venta en el corte" value={notasImpresion} onChange={e => setNotasImpresion(e.target.value)}><option value="con">Con notas de venta</option><option value="sin">Sin notas de venta</option></Select></FormField>
+          <div className="flex items-end"><a className="rounded-lg bg-titos-green-700 px-4 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2" target="_blank" rel="noopener noreferrer" href={`/api/cortes/diario?${new URLSearchParams({ dia: diaImpresion, notas: notasImpresion, ...(sucursalId ? { sucursalId } : {}) })}`}>Abrir corte para imprimir</a></div>
+        </div>
+        <p className="mb-3 text-sm text-black/70">Se imprime la sucursal seleccionada abajo, o todas. La impresión usa un solo día, independientemente del rango de consulta.</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <FormField label="Sucursal">
             <Select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)}>
