@@ -15,6 +15,7 @@ export function regexBusqueda(consulta: string) {
 }
 
 export const OPCIONES_BUSQUEDA: ResultadoBusqueda[] = [
+  { label: "Borradores de promociones", href: "/matriz/promociones", grupo: "Productos", palabras: "descuentos porcentaje pesos programar" },
   { label: "Tipo de cambio", href: "/matriz/configuracion#tipo-cambio", grupo: "Configuración", palabras: "pesos dolar dólares cotizacion" },
   { label: "Límites de pagos en dólares", href: "/matriz/configuracion#limites-dolares", grupo: "Configuración", palabras: "porcentaje monto denominacion billete" },
   { label: "Días laborales y hora de corte", href: "/matriz/configuracion#horarios", grupo: "Configuración", palabras: "horario pedidos" },

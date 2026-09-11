@@ -84,7 +84,10 @@ const MATRIZ_NAV: NavCategory[] = [
   {
     label: "Productos",
     icon: Package,
-    items: [{ href: "/matriz/productos", label: "Productos", icon: Package }],
+    items: [
+      { href: "/matriz/productos", label: "Productos", icon: Package },
+      { href: "/matriz/promociones", label: "Promociones", icon: Tag },
+    ],
   },
   {
     label: "Servicios",
