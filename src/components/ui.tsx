@@ -208,6 +208,10 @@ export function Pagination({
           Siguiente
         </button>
       </div>
+      <details className="w-full text-xs text-titos-green-900">
+        <summary className="list-item min-h-11 py-3 focus-visible:outline">Ayuda de navegación</summary>
+        <div>Usa Anterior y Siguiente para recorrer los registros de esta lista.</div>
+      </details>
     </div>
   );
 }
