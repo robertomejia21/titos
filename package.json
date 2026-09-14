@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
