@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DaVinci · Semana 10 · Avances Mercados Titos</title>
+    <link rel="icon" href="img/logo-davinci.png" />
+    <style>
+      /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
+      :root {
+        --naranja: #f58634;
+        --naranja-claro: #ffa365;
+        --naranja-suave: #fff1e6;
+        --carbon: #373435;
+        --carbon-medio: #575253;
+        --carbon-suave: #f4f2f2;
+        --blanco: #ffffff;
+        --gris-linea: rgba(55, 52, 53, 0.12);
+        --gris-texto: rgba(55, 52, 53, 0.62);
+        --verde: #2f9e5f;
+        --sombra: 0 18px 50px rgba(55, 52, 53, 0.16);
+        --radio: 18px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: var(--carbon);
+        background: var(--blanco);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+      p { margin: 0; }
+
+      /* ── Barra de progreso de lectura ───────────────────────────────── */
+      .progreso {
+        position: fixed;
+        inset: 0 auto auto 0;
+        height: 4px;
+        width: 0;
+        background: linear-gradient(90deg, var(--naranja), var(--naranja-claro));
+        z-index: 100;
+        transition: width 0.1s linear;
+      }
+
+      /* ── Navegación superior ────────────────────────────────────────── */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 32px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .nav img { height: 34px; width: auto; display: block; }
+      .nav-marca { display: flex; align-items: center; gap: 12px; }
+      .nav-marca span {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .nav-marca small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--gris-texto);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      /* ── Selector de semana ─────────────────────────────────────────── */
+      .semanas {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--carbon-suave);
+        border: 1px solid var(--gris-linea);
+      }
+      .semanas a {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .semanas a.actual { background: var(--carbon); color: #fff; }
+      .semanas .indice {
+        display: grid;
+        place-items: center;
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas .indice:hover { background: var(--naranja); color: #fff; }
+
+      .nav-links { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+      .nav-links a {
+        padding: 7px 13px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+        white-space: nowrap;
+      }
+      .nav-links a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .nav-links a.activo { background: var(--naranja); color: #fff; }
+
+      /* ── Portada ────────────────────────────────────────────────────── */
+      .portada {
+        position: relative;
+        overflow: hidden;
+        padding: 90px 32px 80px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .portada::before,
+      .portada::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .portada::before {
+        width: 460px; height: 460px;
+        top: -220px; right: -140px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.42), transparent 68%);
+      }
+      .portada::after {
+        width: 380px; height: 380px;
+        bottom: -200px; left: -120px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.26), transparent 68%);
+      }
+      .portada > * { position: relative; z-index: 1; }
+      .portada .escudo {
+        display: inline-grid;
+        place-items: center;
+        width: 96px; height: 96px;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: var(--sombra);
+        margin-bottom: 26px;
+      }
+      .portada .escudo img { width: 60px; height: auto; display: block; }
+      .portada h1 { font-size: clamp(32px, 5.2vw, 54px); font-weight: 800; }
+      .portada h1 em { font-style: normal; color: var(--naranja-claro); }
+      .portada .bajada {
+        max-width: 640px;
+        margin: 18px auto 0;
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.76);
+      }
+      .etiqueta {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 999px;
+        background: rgba(245, 134, 52, 0.18);
+        border: 1px solid rgba(245, 134, 52, 0.42);
+        color: var(--naranja-claro);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 22px;
+      }
+
+      .metricas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        max-width: 880px;
+        margin: 44px auto 0;
+      }
+      .metrica {
+        padding: 20px 16px;
+        border-radius: var(--radio);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .metrica strong {
+        display: block;
+        font-size: 30px;
+        font-weight: 800;
+        color: var(--naranja-claro);
+        line-height: 1.1;
+      }
+      .metrica span {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.66);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Secciones ──────────────────────────────────────────────────── */
+      .seccion { padding: 76px 32px; max-width: 1180px; margin: 0 auto; }
+      .seccion.alterna { background: var(--carbon-suave); max-width: none; }
+      .seccion.alterna > .interior { max-width: 1180px; margin: 0 auto; }
+
+      .encabezado { margin-bottom: 38px; max-width: 720px; }
+      .numero {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        color: var(--naranja);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .encabezado h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
+      .encabezado p { margin-top: 12px; font-size: 16px; color: var(--gris-texto); }
+
+      /* ── Tarjetas de funcionalidad ──────────────────────────────────── */
+      .tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+        margin-bottom: 36px;
+      }
+      .tarjeta {
+        padding: 24px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .tarjeta:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--sombra);
+        border-color: rgba(245, 134, 52, 0.4);
+      }
+      .tarjeta .icono {
+        display: grid;
+        place-items: center;
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        background: var(--naranja-suave);
+        color: var(--naranja);
+        margin-bottom: 14px;
+      }
+      .tarjeta h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+      .tarjeta p { font-size: 14.5px; color: var(--gris-texto); }
+
+      /* ── Visor de capturas ──────────────────────────────────────────── */
+      .visor {
+        border-radius: var(--radio);
+        overflow: hidden;
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+        box-shadow: var(--sombra);
+      }
+      .pestanas {
+        display: flex;
+        gap: 4px;
+        padding: 10px 12px;
+        background: var(--carbon);
+        overflow-x: auto;
+      }
+      .pestanas button {
+        flex: 0 0 auto;
+        padding: 8px 15px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.68);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .pestanas button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      .pestanas button[aria-selected="true"] { background: var(--naranja); color: #fff; }
+
+      .lamina { display: none; }
+      .lamina.visible { display: block; }
+      .lamina figure { margin: 0; }
+      .lamina img {
+        display: block;
+        width: 100%;
+        height: auto;
+        cursor: zoom-in;
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .lamina figcaption {
+        padding: 16px 22px;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+        background: #fff;
+      }
+      .lamina figcaption strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Flujo de préstamos ─────────────────────────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+
+      /* ── Reglas destacadas ──────────────────────────────────────────── */
+      .reglas { display: grid; gap: 12px; margin-top: 28px; }
+      .regla {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 17px 20px;
+        border-radius: 14px;
+        background: var(--naranja-suave);
+        border-left: 4px solid var(--naranja);
+      }
+      .regla svg { flex: 0 0 auto; margin-top: 2px; color: var(--naranja); }
+      .regla p { font-size: 14.5px; }
+      .regla strong { font-weight: 700; }
+
+      /* ── Lightbox ───────────────────────────────────────────────────── */
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        background: rgba(55, 52, 53, 0.93);
+        cursor: zoom-out;
+      }
+      .lightbox.abierto { display: flex; }
+      .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+      }
+      .lightbox .cerrar {
+        position: absolute;
+        top: 20px; right: 26px;
+        width: 42px; height: 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+      }
+      .lightbox .cerrar:hover { background: var(--naranja); }
+
+      /* ── Cierre ─────────────────────────────────────────────────────── */
+      .cierre {
+        padding: 70px 32px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .cierre h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; }
+      .cierre p { margin-top: 14px; color: rgba(255, 255, 255, 0.7); }
+      .cierre img { height: 44px; width: auto; margin-bottom: 24px; filter: brightness(0) invert(1); }
+      .pie {
+        padding: 22px 32px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--gris-texto);
+        border-top: 1px solid var(--gris-linea);
+      }
+
+      .revelar {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+      .revelar.visible { opacity: 1; transform: none; }
+
+      @media (max-width: 720px) {
+        /* La barra se apila y cada grupo de enlaces se desliza por su cuenta:
+           con varias semanas ya no cabe todo en el ancho de un teléfono. */
+        .nav { padding: 12px 18px; flex-wrap: wrap; gap: 12px; }
+        .semanas,
+        .nav-links {
+          max-width: 100%;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .semanas::-webkit-scrollbar,
+        .nav-links::-webkit-scrollbar { display: none; }
+        .semanas a,
+        .nav-links a { white-space: nowrap; }
+        .nav-links { width: 100%; margin-left: 0; }
+        .seccion { padding: 52px 18px; }
+        .portada { padding: 60px 18px 56px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .revelar { opacity: 1; transform: none; transition: none; }
+      }
+    </style>
+    <style>
+      /* ── Comparativa antes / ahora ──────────────────────────────────── */
+      .comparativa {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        margin-top: 26px;
+      }
+      .caso {
+        padding: 26px 28px;
+        border-radius: var(--radio);
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+      }
+      .caso.antes { background: var(--carbon-suave); }
+      .caso.despues { border-color: rgba(245, 134, 52, 0.4); }
+      .caso .rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--gris-texto);
+      }
+      .caso.despues .rotulo { color: var(--naranja); }
+      .caso .detalle { margin-top: 16px; font-size: 14.5px; color: var(--gris-texto); }
+      .caso .detalle strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Bloque oscuro de notas ─────────────────────────────────────── */
+      .pendientes {
+        display: grid;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 22px 24px;
+        border-radius: var(--radio);
+        background: var(--carbon);
+        color: #fff;
+      }
+      .pendientes h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--naranja-claro);
+      }
+      .pendientes ul { margin: 0; padding-left: 20px; }
+      .pendientes li {
+        font-size: 14.5px;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 7px;
+      }
+      .pendientes li:last-child { margin-bottom: 0; }
+      .pendientes li strong { color: #fff; font-weight: 700; }
+
+      .nota-pie {
+        margin-top: 18px;
+        font-size: 13.5px;
+        color: var(--gris-texto);
+        font-style: italic;
+      }
+
+      .boton-semana {
+        display: inline-block;
+        margin-top: 26px;
+        padding: 12px 26px;
+        border-radius: 999px;
+        background: var(--naranja);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+      }
+      .boton-semana:hover { background: var(--naranja-claro); }
+
+      /* ── Tickets de muestra (exclusivo de esta entrega) ─────────────── */
+      .ticket-demo {
+        display: grid;
+        gap: 22px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        margin-top: 26px;
+        justify-items: center;
+      }
+      .ticket {
+        width: 100%;
+        max-width: 300px;
+        padding: 20px 18px;
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        border-radius: 6px;
+        box-shadow: var(--sombra);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--carbon);
+      }
+      .ticket p { margin: 0; }
+      .t-centro { text-align: center; }
+      .t-titulo { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; }
+      .t-suc { font-size: 13.5px; font-weight: 700; margin-top: 2px; }
+      .t-ast { color: var(--naranja); font-size: 18px; font-weight: 800; }
+      .t-sep { border-top: 1px dashed rgba(55, 52, 53, 0.35); margin: 8px 0; height: 0; }
+      .t-fila { display: flex; justify-content: space-between; gap: 10px; }
+      .t-fuerte { font-weight: 800; font-size: 14px; }
+      .t-tenue { color: var(--gris-texto); font-size: 11.5px; }
+      .ticket-pie {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+      }
+      .ticket-pie strong { color: var(--carbon); font-weight: 700; }
+
+      /* La barra superior es fija: sin este margen, el enlace del menú deja
+         el título de la sección escondido detrás de ella. */
+      .seccion { scroll-margin-top: 92px; }
+      /* ── Tabla de costos (comparación de proveedores) ───────────────── */
+      .costos {
+        width: 100%;
+        margin-top: 24px;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        border-radius: var(--radio);
+        overflow: hidden;
+      }
+      .costos caption {
+        caption-side: bottom;
+        padding: 12px 4px 0;
+        text-align: left;
+        font-size: 13px;
+        color: var(--gris-texto);
+      }
+      .costos th,
+      .costos td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--gris-linea); }
+      .costos thead th {
+        background: var(--carbon-suave);
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--carbon-medio);
+      }
+      .costos td:not(:first-child),
+      .costos thead th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+      .costos tbody tr:last-child td { border-bottom: 0; }
+      .costos tbody th { font-weight: 600; }
+      .tabla-scroll { overflow-x: auto; }
+    </style>
+  </head>
+
+  <body>
+    <div class="progreso" id="progreso"></div>
+
+    <nav class="nav">
+      <div class="nav-marca">
+        <img src="img/logo-davinci.png" alt="DaVinci" />
+        <span>DaVinci<small>Avances Mercados Titos</small></span>
+      </div>
+      <div class="semanas">
+        <a class="indice" href="index.html" title="Todas las semanas" aria-label="Todas las semanas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </a>
+        <a href="semana-5.html">Semana 5</a>
+        <a href="semana-6.html">Semana 6</a>
+        <a href="semana-7.html">Semana 7</a>
+        <a href="semana-8.html">Semana 8</a>
+        <a href="semana-9.html">Semana 9</a>
+        <a class="actual" href="semana-10.html">Semana 10</a>
+      </div>
+      <div class="nav-links">
+        <a href="#resumen">Resumen</a>
+        <a href="#promociones">Promociones</a>
+        <a href="#arqueo">Arqueo</a>
+        <a href="#kardex">Kardex</a>
+        <a href="#puestos">Puestos</a>
+        <a href="#caja">Caja</a>
+        <a href="#recepcion">Recepción</a>
+        <a href="#fiscal">Facturación</a>
+        <a href="#pendientes">Pendientes</a>
+      </div>
+    </nav>
+
+    <header class="portada">
+      <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
+      <div><span class="etiqueta">Semana 10 · Entrega de avances</span></div>
+      <h1>La caja ya sabe descontar</h1>
+      <p class="bajada">
+        Doce puntos, todos aplicados. El de fondo: el punto de venta calcula promociones —por
+        porcentaje, por pesos, 2x1 y 3x2— y las imprime desglosadas en el ticket. Junto a eso, el
+        supervisor ya puede arquear sin cerrar la caja, y los nueve puestos de su documento de
+        perfiles existen en el sistema con sus permisos y sus pendientes escritos.
+      </p>
+
+      <div class="metricas">
+        <div class="metrica"><strong>12</strong><span>Puntos atendidos</span></div>
+        <div class="metrica"><strong>7</strong><span>Revisiones automatizadas</span></div>
+        <div class="metrica"><strong>14</strong><span>Capturas del sistema real</span></div>
+        <div class="metrica"><strong>0</strong><span>Puntos en pausa</span></div>
+      </div>
+    </header>
+
+    <!-- ── Resumen ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="resumen">
+      <div class="encabezado revelar">
+        <span class="numero">01 · Resumen</span>
+        <h2>Los doce puntos de esta entrega</h2>
+        <p>
+          Todos quedaron aplicados sobre el sistema en operación, del 8 al 14 de septiembre. Abajo
+          el resumen de cada uno; más adelante los detallamos con capturas de su instalación.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1-.6-1.4V4a1 1 0 0 1 1-1h8a2 2 0 0 1 1.4.6l7.4 7.4a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <h3>Promociones que sí cobran</h3>
+          <p>Descuento por porcentaje, por pesos, 2x1, 3x2 y segundo a mitad. Se preparan como borrador y solo cobran cuando alguien las activa.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 14h3"/></svg>
+          </span>
+          <h3>Arqueo sin cerrar la caja</h3>
+          <p>El supervisor entra con su NIP, cuenta pesos y dólares y deja el conteo firmado. La caja sigue abierta y el turno no se interrumpe.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16"/><path d="M8 16V9M12 16v-4M16 16v-7M20 16v-3"/></svg>
+          </span>
+          <h3>Diferencias de arqueo a la vista</h3>
+          <p>Matriz ve en un solo tablero qué cajas quedaron con faltante o sobrante, quién contó y quién autorizó, sin mezclarlo con el corte final.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          </span>
+          <h3>Kardex Global</h3>
+          <p>Un producto, todas las sucursales, lado a lado. Qué se vendió más y qué menos, en piezas, en kilos o en pesos, con el periodo que se elija.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </span>
+          <h3>El buscador ahora encuentra productos</h3>
+          <p>El mismo cuadro del menú busca en el catálogo completo. Se teclea el nombre de un artículo y aparece, sin entrar a Productos.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+          </span>
+          <h3>Nueve puestos del documento</h3>
+          <p>Los perfiles de su PDF —Cajer@, Gerente, Compras, Almacenista, Contabilidad, Inventario— ya se eligen al dar de alta a una persona.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V7z"/><path d="M9.5 12.5 11 14l3.5-3.5"/></svg>
+          </span>
+          <h3>NIP personal solo donde hace falta</h3>
+          <p>Se pide a cajeros y supervisores de caja, que son quienes cobran y autorizan. Al almacenista o a compras ya no se les exige.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+          </span>
+          <h3>Usuarios y roles, ordenados</h3>
+          <p>Buscar por nombre, correo, puesto o sucursal, y combinarlo con estado y orden. Con ocho usuarios ayuda; con ochenta, es indispensable.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+          </span>
+          <h3>El fondo lo pone administración</h3>
+          <p>El cajero ya no teclea con cuánto abre: el importe viene de Configuración, igual para todas las cajas.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="7"/><path d="M6 17H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/></svg>
+          </span>
+          <h3>Corte Global diario imprimible</h3>
+          <p>Un día, todas las sucursales, en una hoja: ventas, notas, retiros, abonos, devoluciones y cierres. Con o sin notas de venta.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><path d="M10 12h4"/></svg>
+          </span>
+          <h3>Faltantes y excedentes al recibir</h3>
+          <p>Al capturar lo que llegó, el sistema dice de inmediato cuánto falta o cuánto sobra contra lo ordenado, y deja anotar por qué.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/></svg>
+          </span>
+          <h3>El ticket sale solo, y con costos en firme</h3>
+          <p>Al confirmar el cobro el ticket se imprime sin pasos extra. Y las cotizaciones de timbrado ya son precios publicados, no estimaciones.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Promociones ──────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="promociones">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">02 · El cambio de fondo</span>
+          <h2>Una promoción se prepara en frío y se activa cuando toca</h2>
+          <p>
+            Es la capacidad que faltaba para trabajar el precio: hasta esta semana, un descuento
+            solo existía si alguien lo capturaba a mano en cada venta.
+          </p>
+        </div>
+
+        <div class="comparativa revelar">
+          <div class="caso antes">
+            <p class="rotulo">Lo que pasaba</p>
+            <p class="detalle">
+              Para hacer una oferta había que <strong>cambiar el precio del producto</strong> en el
+              catálogo, esperar el fin de semana y volver a cambiarlo el lunes. Si alguien se
+              olvidaba, la tienda seguía vendiendo barato.
+            </p>
+            <p class="detalle">
+              Un 2x1 sencillamente no se podía: el sistema no sabía contar dos piezas y regalar una.
+              El cajero terminaba escribiendo el descuento a ojo, y esa venta ya no se podía auditar.
+            </p>
+          </div>
+
+          <div class="caso despues">
+            <p class="rotulo">Lo que pasa ahora</p>
+            <p class="detalle">
+              La promoción se arma con <strong>fechas, sucursales y productos</strong>, y se guarda
+              como borrador. No cobra nada hasta que alguien la marca como activa, y deja de cobrar
+              sola el día que vence.
+            </p>
+            <p class="detalle">
+              En caja el descuento se calcula solo, aparece en su propia columna y
+              <strong>se imprime en el ticket con el nombre de la promoción</strong>. Queda registro
+              de qué oferta hizo el descuento, no solo de que el total bajó.
+            </p>
+          </div>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="promo-lista" aria-selected="true">El módulo</button>
+            <button role="tab" data-tab="promo-porcentaje">Descuento por porcentaje</button>
+            <button role="tab" data-tab="promo-combinacion">2x1 y 3x2</button>
+          </div>
+
+          <div class="lamina visible" data-panel="promo-lista">
+            <figure>
+              <img src="img/s10-promociones-lista.png" alt="Módulo de promociones en matriz, con filtros por estado, sucursal y orden" />
+              <figcaption>
+                <strong>Empieza vacío, a propósito.</strong> El módulo se entrega sin promociones
+                cargadas: las suyas las arman ustedes. El aviso de arriba resume la regla que
+                gobierna todo el módulo —solo las activas cobran, y una combinación siempre descuenta
+                el artículo más barato— para que nadie tenga que deducirla.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="promo-porcentaje">
+            <figure>
+              <img src="img/s10-promocion-porcentaje.png" alt="Alta de una promoción con descuento por porcentaje" />
+              <figcaption>
+                <strong>Lo que define una promoción.</strong> Nombre, tipo de descuento, a qué
+                aplica —productos, categorías o áreas—, en qué unidad, en qué sucursales y entre qué
+                fechas. La prioridad decide cuál gana cuando dos promociones alcanzan al mismo
+                producto: <strong>un artículo nunca recibe dos descuentos</strong>.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="promo-combinacion">
+            <figure>
+              <img src="img/s10-promocion-combinacion.png" alt="Promoción de tipo combinación con cantidad que lleva, cantidad con beneficio y porcentaje" />
+              <figcaption>
+                <strong>Un solo formulario para toda la familia.</strong> No hay un botón de "2x1" y
+                otro de "3x2": se captura cuántas piezas lleva el cliente, cuántas van con beneficio
+                y de qué tamaño es ese beneficio. 2x1 es lleva 2 con 1 al 100%; segundo a mitad es
+                lleva 2 con 1 al 50%. La misma mecánica cubre las que inventen después.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>El precio se decide en el servidor, no en la caja</h4>
+            <p>Antes de cobrar, el punto de venta vuelve a preguntar las promociones vigentes. Si cambiaron entre que se armó el carrito y que se cobró, avisa y pide confirmar el nuevo total en vez de cobrar un precio viejo.</p>
+          </div>
+          <div class="regla">
+            <h4>Sin internet no se aplica una oferta a medias</h4>
+            <p>Si la caja no puede confirmar las promociones, no cobra adivinando. Es la misma lógica de siempre: mejor detenerse un segundo que dejar una venta con un descuento que nadie puede explicar después.</p>
+          </div>
+          <div class="regla">
+            <h4>El borrador no se cobra</h4>
+            <p>Se puede dejar preparada la promoción del Buen Fin con semanas de anticipación. Mientras esté en borrador o archivada, la caja la ignora por completo.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Arqueo ───────────────────────────────────────────────────── -->
+    <section class="seccion" id="arqueo">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Supervisión de caja</span>
+        <h2>Contar el efectivo a medio turno, sin cerrar nada</h2>
+        <p>
+          El arqueo es una revisión intermedia: sirve para detectar un faltante cuando todavía se
+          puede preguntar qué pasó, no al día siguiente.
+        </p>
+      </div>
+
+      <div class="comparativa revelar">
+        <div class="caso antes">
+          <p class="rotulo">Lo que pasaba</p>
+          <p class="detalle">
+            La única forma de saber cuánto debía haber en el cajón era <strong>cerrar la caja</strong>.
+            Eso corta el turno, obliga a abrir otra sesión y parte el corte del día en dos.
+          </p>
+          <p class="detalle">
+            En la práctica nadie revisaba a medio turno. El descuadre aparecía en el cierre, con el
+            cajero ya de salida y la mitad del día imposible de reconstruir.
+          </p>
+        </div>
+
+        <div class="caso despues">
+          <p class="rotulo">Lo que pasa ahora</p>
+          <p class="detalle">
+            El supervisor abre el arqueo desde el punto de venta, <strong>se identifica con su NIP
+            personal</strong> y el sistema le muestra cuánto debería haber, en pesos y en dólares.
+          </p>
+          <p class="detalle">
+            Captura lo que contó, anota lo que quiera y guarda. <strong>La caja no se cierra ni se
+            modifica</strong>: el arqueo queda como un registro aparte, con su nombre y su hora.
+          </p>
+        </div>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="arqueo-pos" aria-selected="true">El arqueo en la caja</button>
+          <button role="tab" data-tab="arqueo-reporte">Lo que ve matriz</button>
+        </div>
+
+        <div class="lamina visible" data-panel="arqueo-pos">
+          <figure>
+            <img src="img/s10-arqueo-supervisor.png" alt="Punto de venta con el modal de arqueo de caja pidiendo el NIP del supervisor" />
+            <figcaption>
+              <strong>Empieza por el NIP, no por el monto.</strong> Primero se identifica quién está
+              revisando; hasta entonces el sistema muestra el esperado. Así el conteo no se hace
+              "mirando el número que hay que alcanzar", y el arqueo queda firmado por una persona
+              concreta. La leyenda lo dice sin rodeos: la caja permanece abierta.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="arqueo-reporte">
+          <figure>
+            <img src="img/s10-arqueos-diferencias.png" alt="Reporte de diferencias en arqueos dentro del corte global de matriz" />
+            <figcaption>
+              <strong>Faltantes y sobrantes no se compensan.</strong> El reporte los suma por
+              separado: tres cajas con $200 de faltante y tres con $200 de sobrante no son "cero",
+              son seis cajas que hay que revisar. Se filtra por sucursal, por tipo de diferencia y
+              por responsable, y el aviso recuerda que el arqueo no sustituye al corte.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Kardex ───────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="kardex">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · Información de venta</span>
+          <h2>Qué se vende, dónde, y qué no se mueve</h2>
+          <p>
+            La comparación por producto entre sucursales, con el nombre que ustedes usan: Kardex
+            Global.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="kardex-tabla" aria-selected="true">Kardex Global</button>
+            <button role="tab" data-tab="kardex-buscador">Buscador del menú</button>
+          </div>
+
+          <div class="lamina visible" data-panel="kardex-tabla">
+            <figure>
+              <img src="img/s10-kardex-global.png" alt="Reporte Kardex Global con ventas por producto y sucursal" />
+              <figcaption>
+                <strong>Una fila por producto, una columna por tienda.</strong> Cada celda trae
+                cantidad e importe, y el renglón final cierra el periodo completo. Se compara por
+                piezas, por kilos o por pesos, y se puede dejar fuera —o mirar solamente— las notas
+                de venta. <strong>Cada presentación se cuenta por separado</strong>: el aceite de 1 L
+                y el de 500 ml no se suman como si fueran el mismo artículo.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="kardex-buscador">
+            <figure>
+              <img src="img/s10-menu-busqueda.png" alt="Buscador del menú mostrando productos del catálogo" />
+              <figcaption>
+                <strong>El buscador dejó de ser solo del menú.</strong> Con 5,321 productos en el
+                catálogo, teclear el nombre de uno y llegar directo ahorra más que recorrer
+                categorías. Encuentra pantallas y artículos a la vez, ignora acentos y mayúsculas, y
+                Enter entra al primer resultado.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Puestos ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="puestos">
+      <div class="encabezado revelar">
+        <span class="numero">05 · Quién puede hacer qué</span>
+        <h2>Los nueve perfiles de su documento, dentro del sistema</h2>
+        <p>
+          Tomamos el PDF de permisos de perfiles que nos compartieron y lo convertimos en puestos
+          asignables, respetando lo que el documento dice y marcando lo que todavía no cubre.
+        </p>
+      </div>
+
+      <div class="flujo revelar">
+        <div class="paso">
+          <span class="orden">1</span>
+          <h4>Se transcribió el documento</h4>
+          <p>Las nueve páginas, casilla por casilla, tal como están. Donde el PDF es ambiguo —un grupo cerrado, una casilla padre vacía con hijos marcados— se anotó la duda en vez de resolverla por nuestra cuenta.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">2</span>
+          <h4>Se tradujo a permisos reales</h4>
+          <p>Cada puesto recibe los permisos que el sistema sí sabe aplicar hoy. Ni uno de más: el nombre "Compras" no le abre por sí solo funciones que la página 6 no muestra marcadas.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">3</span>
+          <h4>Lo que falta queda escrito</h4>
+          <p>Cada puesto lleva su lista de funciones pendientes, visible al asignarlo. Nadie da por hecho un permiso que todavía no existe.</p>
+        </div>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="puesto-alta" aria-selected="true">Asignar un puesto</button>
+          <button role="tab" data-tab="puesto-filtros">Buscar entre usuarios</button>
+        </div>
+
+        <div class="lamina visible" data-panel="puesto-alta">
+          <figure>
+            <img src="img/s10-usuarios-puesto.png" alt="Alta de usuario con el puesto Compras, sus permisos y sus funciones pendientes" />
+            <figcaption>
+              <strong>Se ve lo que se concede antes de conceder.</strong> Al elegir el puesto se
+              despliegan los permisos que esa persona tendrá. Debajo, en ámbar, lo que ese perfil
+              <strong>no</strong> podrá hacer todavía y por qué. Es la diferencia entre asignar un
+              puesto y enterarse después de lo que no incluía.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="puesto-filtros">
+          <figure>
+            <img src="img/s10-usuarios-filtros.png" alt="Pantalla de usuarios y roles con búsqueda, filtros de estado, rol, sucursal y orden" />
+            <figcaption>
+              <strong>Buscar, filtrar y ordenar, combinados.</strong> Nombre, correo, puesto o
+              sucursal en el mismo cuadro, y encima los filtros de estado, rol y orden. Los usuarios
+              que ya existían conservan exactamente los accesos que tenían: nada se reasignó solo.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>El NIP personal se pide donde tiene sentido</h4>
+          <p>Cajeros y supervisores de caja llevan NIP de seis dígitos, porque cobran y autorizan. A un almacenista o a contabilidad ya no se les exige uno que nunca iban a usar.</p>
+        </div>
+        <div class="regla">
+          <h4>Dos personas no pueden tener el mismo NIP</h4>
+          <p>El sistema lo verifica al asignarlo y lo rechaza si ya está en uso. Un NIP repetido haría imposible saber quién autorizó una cancelación, que es justo para lo que sirve.</p>
+        </div>
+        <div class="regla">
+          <h4>Cada quien puede ver sus propios accesos</h4>
+          <p>Se agregó una pantalla "Mis accesos" donde cualquier usuario consulta los módulos de su puesto y las funciones que su perfil todavía no cubre, sin tener que preguntarle a administración.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Caja ─────────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="caja">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">06 · Caja y cortes</span>
+          <h2>El fondo lo fija administración y el día se imprime completo</h2>
+          <p>Dos cambios distintos que atacan el mismo problema: que los números del día cuadren sin depender de la memoria de nadie.</p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="caja-fondo" aria-selected="true">Fondo de apertura</button>
+            <button role="tab" data-tab="caja-corte">Corte por día</button>
+            <button role="tab" data-tab="caja-impreso">El documento impreso</button>
+          </div>
+
+          <div class="lamina visible" data-panel="caja-fondo">
+            <figure>
+              <img src="img/s10-config-fondo.png" alt="Configuración con el fondo de apertura de caja definido por administración" />
+              <figcaption>
+                <strong>Un solo fondo, decidido una vez.</strong> El cajero ya no teclea con cuánto
+                abre; el importe viene de aquí y es el mismo para todas las cajas. Las cajas que ya
+                estén abiertas conservan su fondo: cambiar el número no altera un turno en curso.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="caja-corte">
+            <figure>
+              <img src="img/s10-corte-diario.png" alt="Tarjeta para imprimir el corte global de un día, con o sin notas de venta" />
+              <figcaption>
+                <strong>Se elige el día, no un rango.</strong> Un corte que mezcla tres días no se
+                puede cuadrar contra el depósito del banco. Se escoge la fecha, si se incluyen las
+                notas de venta, y una sucursal o todas.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="caja-impreso">
+            <figure>
+              <img src="img/s10-corte-impreso.png" alt="Corte Global diario impreso, con el aviso de desglose fiscal pendiente" />
+              <figcaption>
+                <strong>Listo para papel o PDF.</strong> Por sucursal: aperturas y cierres con su
+                fondo y su diferencia, retiros, ventas, notas, formas de pago, devoluciones y abonos.
+                El aviso de arriba es deliberado: <strong>es un reporte operativo</strong>. Mientras
+                el IVA y el IEPS no estén integrados, preferimos decirlo en el documento a que
+                alguien lo use como respaldo fiscal.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Recepción ────────────────────────────────────────────────── -->
+    <section class="seccion" id="recepcion">
+      <div class="encabezado revelar">
+        <span class="numero">07 · Entrada de mercancía</span>
+        <h2>La diferencia se ve mientras se captura, no después</h2>
+        <p>
+          Quien recibe tiene la mercancía enfrente. Ese es el único momento en que se puede reclamar
+          al proveedor con el camión todavía en la puerta.
+        </p>
+      </div>
+
+      <div class="visor revelar" data-visor>
+
+        <div class="lamina visible" data-panel="recepcion-uno">
+          <figure>
+            <img src="img/s10-recepcion-faltante.png" alt="Recepción de una orden de compra mostrando faltante y excedente por renglón" />
+            <figcaption>
+              <strong>Faltante y excedente, renglón por renglón.</strong> En cuanto se teclea lo que
+              llegó aparece la diferencia contra lo ordenado, sin esperar a confirmar. Junto a cada
+              producto hay una nota libre para escribir el motivo —cajas rotas, entrega parcial,
+              el proveedor repone el jueves— y esa nota se guarda con la recepción. La cantidad
+              ordenada nunca se pisa: queda el registro de lo que se pidió y de lo que llegó.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Aplica en los dos caminos de entrada</h4>
+          <p>Tanto al recibir una orden de compra en matriz como al recibir un pedido en sucursal. Es la misma advertencia en los dos lados, para que nadie tenga que aprender dos formas de hacer lo mismo.</p>
+        </div>
+        <div class="regla">
+          <h4>El ticket sale al confirmar el cobro</h4>
+          <p>Se corrigió el punto en que el navegador bloqueaba la ventana del ticket cuando la venta tardaba en responder. Ahora la ventana se reserva en el momento del clic y el ticket se imprime sin pasos adicionales.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Facturación ──────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="fiscal">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">08 · Camino a la factura</span>
+          <h2>Empezamos por los datos, y por saber cuánto cuesta</h2>
+          <p>
+            Timbrar ante el SAT exige dos cosas que no dependen del código: que cada producto tenga
+            su régimen de impuestos y que haya un proveedor contratado. Avanzamos en las dos.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+
+          <div class="lamina visible" data-panel="fiscal-producto">
+            <figure>
+              <img src="img/s10-producto-fiscal.png" alt="Ficha de producto con el bloque de datos fiscales: IVA, IEPS y clave SAT" />
+              <figcaption>
+                <strong>"Pendiente de confirmar" es una respuesta válida.</strong> IVA, IEPS, clave
+                del SAT y si el precio ya trae impuestos incluidos. Cada campo arranca en pendiente
+                en lugar de en un valor plausible: con más de cinco mil productos, un 16% puesto por
+                omisión se volvería un error imposible de encontrar después. El recuadro ámbar avisa
+                que estos datos <strong>todavía no cambian ningún cobro</strong>.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="tabla-scroll revelar">
+          <table class="costos">
+            <caption>
+              Precios publicados por cada proveedor, consultados el 9 de septiembre de 2026. Pesos
+              mexicanos con IVA incluido, para doce meses de uso constante. No hay contratación: son
+              las cifras para decidir.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Facturas por mes</th>
+                <th scope="col">Facturama, primer año</th>
+                <th scope="col">Facturapi, al año</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">100</th><td>$2,200</td><td>$4,308</td></tr>
+              <tr><th scope="row">500</th><td>$4,600</td><td>$7,188</td></tr>
+              <tr><th scope="row">2,000</th><td>$13,600</td><td>$17,988</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Por qué cambiaron las cifras de la semana pasada</h4>
+            <p>Lo que teníamos eran rangos de mercado ("entre $0.50 y $2.50 por timbre"). Ahora son las tarifas publicadas por los dos proveedores, con la fórmula del cálculo escrita en la documentación para que cualquiera la pueda rehacer.</p>
+          </div>
+          <div class="regla">
+            <h4>Falta confirmar el alcance con varios RFC</h4>
+            <p>Facturama separa su servicio para un RFC del multiemisor; Facturapi anuncia el suyo como multi organización. Antes de contratar hay que confirmar con cada uno qué cubre para los RFC de Mercados Titos.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion" id="pendientes">
+      <div class="encabezado revelar">
+        <span class="numero">09 · Lo que falta</span>
+        <h2>Lo que esta entrega deja abierto</h2>
+      </div>
+
+      <div class="pendientes revelar">
+        <h4>Dicho de frente, para que nadie lo dé por hecho</h4>
+        <ul>
+          <li><strong>Los datos fiscales todavía no cobran.</strong> El IVA y el IEPS por producto se capturan y se guardan, pero ningún cobro los usa aún y el corte no los desglosa. Conectar el cálculo es el siguiente paso, y hay que confirmar antes con ustedes un ejemplo real de cómo debe verse.</li>
+          <li><strong>Cada puesto trae su lista de pendientes.</strong> Mermas, traslados entre tiendas, inventario físico por áreas, transformación de producto y devolución a proveedor son módulos que el documento contempla y el sistema todavía no tiene. Están escritos puesto por puesto, visibles al asignarlos.</li>
+          <li><strong>Las promociones empiezan vacías.</strong> El módulo está entregado y probado, pero sin promociones cargadas. Conviene armar la primera en borrador y activarla en una sola sucursal antes de soltarla a toda la cadena.</li>
+        </ul>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Dos pasos al desplegar</h4>
+          <p>Entrar una vez a <strong>Usuarios y roles</strong> para que se creen los puestos nuevos, y capturar en <strong>Configuración</strong> el fondo de apertura de caja que aplicará a todas las tiendas.</p>
+        </div>
+        <div class="regla">
+          <h4>Los roles anteriores no se borraron</h4>
+          <p>Los perfiles con los que venían operando se conservan para los usuarios que ya los tenían y para el historial; simplemente dejan de ofrecerse en las asignaciones nuevas. Nadie pierde accesos por este cambio.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cierre">
+      <img src="img/logo-davinci.png" alt="DaVinci" />
+      <h2>Doce de doce</h2>
+      <p>
+        Todo lo de esta semana está sobre el sistema en operación.<br />
+        Las capturas de esta presentación son de su instalación real, no de un demo.
+      </p>
+      <p><a class="boton-semana" href="semana-9.html">← Repasar la semana 9</a></p>
+    </section>
+
+    <footer class="pie">
+      DaVinci · Presentación de avances para Mercados Titos · Semana 10
+      <span id="fecha"></span>
+    </footer>
+
+    <div class="lightbox" id="lightbox">
+      <button class="cerrar" id="cerrarLightbox" aria-label="Cerrar">×</button>
+      <img id="lightboxImg" alt="" />
+    </div>
+
+    <script>
+      // ── Pestañas de cada visor ────────────────────────────────────────
+      document.querySelectorAll("[data-visor]").forEach((visor) => {
+        const botones = visor.querySelectorAll("[data-tab]");
+        const paneles = visor.querySelectorAll("[data-panel]");
+
+        botones.forEach((boton) => {
+          boton.addEventListener("click", () => {
+            botones.forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
+            paneles.forEach((p) =>
+              p.classList.toggle("visible", p.dataset.panel === boton.dataset.tab)
+            );
+          });
+        });
+      });
+
+      // ── Lightbox para ver la captura en grande ────────────────────────
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightboxImg");
+
+      function abrirLightbox(src, alt) {
+        lightboxImg.src = src;
+        lightboxImg.alt = alt;
+        lightbox.classList.add("abierto");
+        document.body.style.overflow = "hidden";
+      }
+      function cerrarLightbox() {
+        lightbox.classList.remove("abierto");
+        document.body.style.overflow = "";
+      }
+
+      document.querySelectorAll(".lamina img").forEach((img) => {
+        img.addEventListener("click", () => abrirLightbox(img.src, img.alt));
+      });
+      lightbox.addEventListener("click", cerrarLightbox);
+      document.getElementById("cerrarLightbox").addEventListener("click", cerrarLightbox);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") cerrarLightbox();
+      });
+
+      // ── Barra de progreso ─────────────────────────────────────────────
+      const progreso = document.getElementById("progreso");
+      function actualizarProgreso() {
+        const alto = document.documentElement.scrollHeight - window.innerHeight;
+        const avance = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+        progreso.style.width = avance + "%";
+      }
+      window.addEventListener("scroll", actualizarProgreso, { passive: true });
+      actualizarProgreso();
+
+      // ── Resaltado del enlace de la sección visible ────────────────────
+      const enlaces = [...document.querySelectorAll(".nav-links a")];
+      const secciones = enlaces
+        .map((a) => document.querySelector(a.getAttribute("href")))
+        .filter(Boolean);
+
+      const observadorNav = new IntersectionObserver(
+        (entradas) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            enlaces.forEach((a) =>
+              a.classList.toggle("activo", a.getAttribute("href") === "#" + entrada.target.id)
+            );
+          });
+        },
+        { rootMargin: "-45% 0px -50% 0px" }
+      );
+      secciones.forEach((s) => observadorNav.observe(s));
+
+      // ── Aparición progresiva al hacer scroll ──────────────────────────
+      const observadorRevelar = new IntersectionObserver(
+        (entradas, obs) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            entrada.target.classList.add("visible");
+            obs.unobserve(entrada.target);
+          });
+        },
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll(".revelar").forEach((el, i) => {
+        el.style.transitionDelay = (i % 4) * 60 + "ms";
+        observadorRevelar.observe(el);
+      });
+
+      // ── Navegación con flechas entre secciones ────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if (lightbox.classList.contains("abierto")) return;
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+
+        const actual = secciones.findIndex((s) => s.getBoundingClientRect().top > -80);
+        const destino = e.key === "ArrowDown" ? actual : actual - 2;
+        if (secciones[destino]) {
+          e.preventDefault();
+          secciones[destino].scrollIntoView({ behavior: "smooth" });
+        }
+      });
+
+      document.getElementById("fecha").textContent =
+        " · " + new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    </script>
+  </body>
+</html>

@@ -542,6 +542,137 @@ const ACCIONES = {
     await page.getByText("Activar protocolo").first().scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
   },
+
+  // ── Semana 10 ───────────────────────────────────────────────────────
+  // Todas llenan formularios sin enviarlos: ninguna guarda en la base.
+
+  /** Kardex Global con un rango amplio, para que la tabla traiga movimiento. */
+  async kardexGlobal(page) {
+    const desde = page.locator("label", { hasText: /^Desde/ }).locator("input").first();
+    await desde.fill("2026-01-01").catch(() => {});
+    await page.getByRole("button", { name: /Aplicar filtros/i }).click();
+    await page.getByText(/Importe de productos/i).first().waitFor({ timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  },
+
+  /** Alta de promoción con descuento por porcentaje. No se guarda. */
+  async promocionPorcentaje(page) {
+    await page.getByRole("button", { name: /Nueva promoción/i }).click();
+    await page.getByText(/Nueva promoción/i).first().waitFor({ timeout: 8000 });
+    await page.getByPlaceholder(/Ej\. Descuento de fin de semana/i).fill("Fin de semana en abarrotes").catch(() => {});
+    await page.waitForTimeout(900);
+  },
+
+  /** La misma alta, cambiada a combinación (2x1, 3x2, segundo a mitad). */
+  async promocionCombinacion(page) {
+    await page.getByRole("button", { name: /Nueva promoción/i }).click();
+    await page.getByText(/Nueva promoción/i).first().waitFor({ timeout: 8000 });
+    await page.getByPlaceholder(/Ej\. Descuento de fin de semana/i).fill("3x2 en refrescos").catch(() => {});
+    const tipo = page.locator("label", { hasText: /Tipo de descuento/ }).locator("select").first();
+    await tipo.selectOption("combinacion").catch(() => {});
+    await page.getByText(/Cantidad total que lleva/i).first().waitFor({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(900);
+  },
+
+  /** Tarjeta que imprime el Corte Global de un día. */
+  async corteDiario(page) {
+    await ACCIONES.llevarArriba(page, /Imprimir corte por día/i);
+    await page.waitForTimeout(400);
+  },
+
+  /** Reporte de diferencias de arqueo, arriba del corte global. */
+  async arqueosDiferencias(page) {
+    await ACCIONES.llevarArriba(page, /Diferencias en arqueos/i);
+    await page.waitForTimeout(600);
+  },
+
+  /** Usuarios filtrados por texto: el filtro combina con estado, rol y orden. */
+  async filtrosUsuarios(page) {
+    const buscador = page.getByPlaceholder(/Nombre, correo/i).first();
+    await buscador.fill("a").catch(() => {});
+    await page.waitForTimeout(800);
+  },
+
+  /**
+   * Alta de usuario con uno de los nueve puestos del documento: se despliegan
+   * los permisos efectivos y las funciones que quedan pendientes.
+   */
+  async puestoConPendientes(page) {
+    await page.getByRole("button", { name: /Nuevo usuario/i }).click();
+    await page.getByText(/Puesto \/ rol/i).first().waitFor({ timeout: 8000 });
+    const selectRol = page.locator("select").filter({ hasText: /Elige el puesto/ }).first();
+    for (const puesto of ["Compras", "Cajero", "Inventario"]) {
+      await selectRol.selectOption({ label: puesto });
+      if (await page.getByText(/Funciones pendientes/i).first().isVisible().catch(() => false)) break;
+    }
+    await page.getByText(/Permisos del puesto seleccionado/i).first().waitFor({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(900);
+  },
+
+  /** Fondo de apertura que administración fija para todas las cajas. */
+  async fondoCajaCentral(page) {
+    await ACCIONES.llevarArriba(page, /Fondo de apertura de caja/i);
+    await page.waitForTimeout(400);
+  },
+
+  /** El buscador del menú ahora también encuentra productos del catálogo. */
+  async busquedaProductos(page) {
+    const termino = await terminoDeBusqueda(page);
+    const buscador = page.getByPlaceholder(/Buscar opciones o productos/i);
+    await buscador.fill(termino || "promo");
+    // El catálogo se consulta con 250 ms de espera; se deja llegar la respuesta.
+    await page.waitForTimeout(2000);
+  },
+
+  /** Ficha de producto con el bloque fiscal en preparación. */
+  async productoFiscal(page) {
+    await page.getByRole("button", { name: /Editar/i }).first().click();
+    await page.getByText(/Datos fiscales del producto/i).first().waitFor({ timeout: 8000 });
+    await ACCIONES.llevarArriba(page, /Datos fiscales del producto/i);
+    await page.waitForTimeout(600);
+  },
+
+  /** Arqueo del supervisor: pide su NIP y la caja no se cierra. */
+  async arqueoSupervisor(page) {
+    await page.getByRole("button", { name: /^Arqueo$/ }).click();
+    await page.getByText(/Revisión del supervisor/i).first().waitFor({ timeout: 8000 });
+    await page.waitForTimeout(800);
+  },
+
+  /**
+   * Recepción de una orden ya solicitada, capturando menos de lo ordenado.
+   * Solo se escribe en el formulario: NO se confirma la recepción.
+   */
+  async recepcionFaltante(page) {
+    // La recepción vive en la pestaña de órdenes, no en "Por ordenar".
+    await page.getByRole("button", { name: /^Órdenes de compra$/ }).click().catch(() => {});
+    await page.waitForTimeout(1200);
+
+    const fila = page.locator("tr", { hasText: /solicitada/i }).first();
+    await fila.getByRole("button", { name: /Ver \/ Editar/i }).click();
+    await page.getByText(/Captura lo que llegó/i).first().waitFor({ timeout: 8000 });
+
+    // La primera línea se recibe incompleta y la segunda de más, para que la
+    // captura muestre el faltante y el excedente juntos. La cantidad ordenada
+    // se lee del propio renglón: la tabla del fondo tiene la misma estructura.
+    const recibidos = page.locator('input[aria-label^="Cantidad recibida de"]');
+    const total = await recibidos.count();
+
+    for (let i = 0; i < total; i++) {
+      const renglon = recibidos.nth(i).locator("xpath=ancestor::tr[1]");
+      const texto = await renglon.locator("td").nth(1).textContent();
+      const ordenada = Number(String(texto ?? "").replace(/[^\d.]/g, "")) || 0;
+      if (!ordenada) continue;
+      // Solo las dos primeras líneas se tocan; el resto queda en blanco.
+      if (i === 0) await recibidos.nth(0).fill(String(Math.max(0, Math.round(ordenada / 2))));
+      else if (i === 1) await recibidos.nth(1).fill(String(ordenada + 2));
+      else break;
+    }
+
+    await page.locator('textarea[aria-label^="Nota de recepción de"]').nth(0)
+      .fill("Llegaron menos cajas de las ordenadas; el proveedor repone el jueves.").catch(() => {});
+    await page.waitForTimeout(1000);
+  },
 };
 
 /** Pantallas a capturar: [archivo, ruta, cuenta, accion?, semana] */
@@ -615,6 +746,23 @@ const PANTALLAS = [
   ["s9-dashboard-agotados", "/matriz", "matriz", null, 9],
   ["s9-sucursal-alta", "/matriz/sucursales", "matriz", "altaSucursal", 9],
   ["s9-devolucion-folio", "/matriz/mostrador/devoluciones", "matriz", "devolucionPorNumero", 9],
+
+  ["s10-kardex-global", "/matriz/reportes/productos", "matriz", "kardexGlobal", 10],
+  ["s10-promociones-lista", "/matriz/promociones", "matriz", null, 10],
+  ["s10-promocion-porcentaje", "/matriz/promociones", "matriz", "promocionPorcentaje", 10],
+  ["s10-promocion-combinacion", "/matriz/promociones", "matriz", "promocionCombinacion", 10],
+  ["s10-arqueos-diferencias", "/matriz/cortes", "matriz", "arqueosDiferencias", 10],
+  ["s10-arqueo-supervisor", "/matriz/mostrador", "matriz", "arqueoSupervisor", 10],
+  ["s10-corte-diario", "/matriz/cortes", "matriz", "corteDiario", 10],
+  // El corte impreso se abre por su URL: es el documento que sale a papel/PDF.
+  ["s10-corte-impreso", "/api/cortes/diario?dia=2026-08-04&notas=con", "matriz", null, 10],
+  ["s10-config-fondo", "/matriz/configuracion", "matriz", "fondoCajaCentral", 10],
+  ["s10-usuarios-filtros", "/matriz/usuarios", "matriz", "filtrosUsuarios", 10],
+  ["s10-usuarios-puesto", "/matriz/usuarios", "matriz", "puestoConPendientes", 10],
+  ["s10-accesos-puesto", "/matriz/accesos", "matriz", null, 10],
+  ["s10-producto-fiscal", "/matriz/productos", "matriz", "productoFiscal", 10],
+  ["s10-menu-busqueda", "/matriz/productos", "matriz", "busquedaProductos", 10],
+  ["s10-recepcion-faltante", "/matriz/ordenes-compra", "matriz", "recepcionFaltante", 10],
 ];
 
 /** --semana=6 limita la corrida a esa entrega y deja intacto el histórico. */

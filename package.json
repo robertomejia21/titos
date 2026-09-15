@@ -12,6 +12,7 @@
     "clear:productos": "tsx scripts/clear-productos.ts",
     "import:sucursal": "tsx scripts/importar-inventario-sucursal.ts",
     "presentacion:capturas": "node scripts/capturar-presentacion.mjs",
+    "presentacion:validar": "node scripts/validar-presentacion.mjs",
     "check:ticket": "tsx scripts/check-ticket.ts",
     "check:arqueo": "tsx scripts/check-arqueo.ts",
     "check:peticiones": "tsx scripts/check-peticiones.ts",
