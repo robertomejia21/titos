@@ -364,7 +364,7 @@ function OrdenModal({
   const [error, setError] = useState<string | null>(null);
 
   const editable = orden.estado === "borrador";
-  const total = items.reduce((sum, i) => sum + montoLinea(i), 0);
+  const total = orden.recepcionCostos?.total ?? items.reduce((sum, i) => sum + montoLinea(i), 0);
 
   function actualizarItem(productoId: string, campo: "cantidadOrdenada" | "precioUnitario", value: string) {
     setItems((prev) =>
@@ -540,11 +540,11 @@ function OrdenModal({
                       className="w-24"
                     />
                   ) : (
-                    formatMoney(item.precioUnitario)
+                    formatMoney(orden.recepcionCostos?.detalle.find(i=>i.productoId===item.productoId)?.costo ?? item.precioUnitario)
                   )}
                 </td>
                 <td className="py-1.5 pr-2">
-                  {formatMoney(montoLinea(item))}
+                  {formatMoney(orden.recepcionCostos?.detalle.find(i=>i.productoId===item.productoId)?.subtotal ?? montoLinea(item))}
                   {item.cantidadRecibida !== null && item.cantidadRecibida !== item.cantidadOrdenada ? (
                     <span className="ml-1 text-xs text-amber-600">(ajustado)</span>
                   ) : null}
