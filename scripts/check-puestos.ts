@@ -26,7 +26,8 @@ async function main() {
     await connectDB();
     await asegurarRolesSemilla();
     await asegurarRolesSemilla();
-    assert.equal(await Rol.countDocuments({ perfilDocumentoId: { $exists: true } }), 9);
+    assert.equal(await Rol.countDocuments({ retirado: { $ne: true } }), 7);
+    assert.equal(await Rol.countDocuments({ perfilDocumentoId: { $in: ["pos-administrador", "web-administrador", "web-gerentes"] }, retirado: { $ne: true } }), 0);
     await Sucursal.create({ nombre: "Tienda prueba", direccion: "Privada" });
     await Producto.create({ sku: "TEST", nombre: "Prueba", categoria: "Prueba", unidad: "pieza", precioCompra: 5, precioVenta: 10 });
     const admin = await User.create({ nombre: "Admin", email: "admin@prueba.local", role: "matriz", passwordHash: "no-login" });
@@ -34,10 +35,16 @@ async function main() {
     const req = (path: string, token: string, method = "GET", body?: unknown) => new NextRequest(`http://localhost${path}`, { method, headers: { cookie: `titos_session=${token}`, "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
     for (const p of PUESTOS) {
       const rol = await Rol.findOne({ perfilDocumentoId: p.perfilDocumentoId });
+      if (["pos-administrador", "web-administrador", "web-gerentes"].includes(p.perfilDocumentoId)) continue;
+      assert.ok(rol, `Puesto asignable: ${p.perfilDocumentoId}`);
       const user = await User.create({ nombre: p.nombre, email: `${p.perfilDocumentoId}@prueba.local`, role: p.ambito, rolId: rol._id, passwordHash: "no-login" });
       const claims = { userId: String(user._id), nombre: user.nombre, email: user.email, role: p.ambito, sucursalId: null };
       const session = (await sesionVigente(claims))!;
-      assert.deepEqual(session.permisos, p.permisos);
+      if (p.perfilDocumentoId === "pos-gerente") {
+        assert.ok(tienePermiso(session, "reportes.globales"));
+        assert.ok(tienePermiso(session, "pos.vender"));
+        assert.equal(tienePermiso(session, "usuarios.administrar"), false);
+      } else assert.deepEqual(session.permisos, p.permisos);
       assert.equal(session.perfilDocumentoId, p.perfilDocumentoId);
       assert.equal(accesoApiPuesto(session, "/api/usuarios", "POST"), p.perfilDocumentoId === "web-administrador");
       assert.equal(accesoApiPuesto(session, "/api/configuracion", "PATCH"), p.perfilDocumentoId === "web-administrador");
@@ -69,7 +76,7 @@ async function main() {
         assert.equal(accesoPaginaPuesto((await sesionVigente(claims))!, "/matriz/productos"), false);
       }
     }
-    console.log("OK: nueve puestos, alta con rol/NIP, permisos reales, bloqueo de API, reportes, privacidad y revocación de sesiones.");
+    console.log("OK: siete puestos consolidados sin duplicados, alta con rol, permisos efectivos, bloqueo de API, reportes, privacidad y revocación de sesiones.");
   } finally { await mongoose.disconnect(); await mongo.stop(); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });
