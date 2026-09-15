@@ -31,16 +31,18 @@ export async function GET(req: NextRequest) {
     const zona = sucursal.zonaHoraria || ZONA_HORARIA_DEFAULT;
     const rango = { $gte: inicioDelDiaEnZona(dia,zona), $lte: finDelDiaEnZona(dia,zona) };
     const base = { sucursalId: sucursal._id };
-    const [ventas, cierres, retiros, abonos, devoluciones] = await Promise.all([
-      Venta.find({ ...base, corte: dia, estado: "completada", ...(notas === "sin" ? { esVentas2: { $ne: true } } : {}) }).select("folio total descuento esVentas2 pagos").sort({ fecha: 1, _id: 1 }).limit(20001).lean(),
+    const [ventas, cierres, retiros, abonos, devoluciones, pendientes] = await Promise.all([
+      Venta.find({ ...base, corte: dia, estado: "completada", ...(notas === "sin" ? { esVentas2: { $ne: true } } : {}) }).select("folio total descuento esVentas2 pagos clienteNombre").sort({ fecha: 1, _id: 1 }).limit(20001).lean(),
       Caja.find({ ...base, estado: "cerrada", fechaCierre: rango }).populate("usuarioAperturaId", "nombre").sort({ fechaCierre: 1 }).limit(1001).lean(),
       Retiro.find({ ...base, fecha: rango }).select("folio fecha monto moneda motivo").sort({ fecha: 1 }).limit(10001).lean(),
       Abono.find({ ...base, corte: dia }).select("monto metodoPago").limit(10001).lean(),
       Devolucion.find({ ...base, estado: "pagada", cortePago: dia }).populate("ventaId", "esVentas2").select("folio total montoEfectivo montoCredito ventaId").limit(10001).lean(),
+      Caja.find({ ...base, fechaApertura: { $lte: rango.$lte }, $or: [{ estado: "abierta" }, { fechaCierre: { $gt: rango.$lte } }] }).populate("usuarioAperturaId", "nombre").sort({fechaApertura: 1}).limit(1001).lean(),
     ]);
-    if (ventas.length > 20000 || cierres.length > 1000 || retiros.length > 10000 || abonos.length > 10000 || devoluciones.length > 10000) return badRequest("El día supera el límite del reporte; no se imprimen totales incompletos. Contacta a administración.");
+    if (ventas.length > 20000 || cierres.length > 1000 || pendientes.length > 1000 || retiros.length > 10000 || abonos.length > 10000 || devoluciones.length > 10000) return badRequest("El día supera el límite del reporte; no se imprimen totales incompletos. Contacta a administración.");
     grupos.push({
       nombre: sucursal.nombre, zona, ventas: ventas as unknown as VentaCorteDiario[],
+      pendientes: pendientes.map(c => ({ responsable: (c.usuarioAperturaId as {nombre?: string} | null)?.nombre ?? "No registrado", apertura: formatFechaHora(c.fechaApertura,zona) })),
       cierres: cierres.map(c => ({ responsable: (c.usuarioAperturaId as { nombre?: string } | null)?.nombre ?? "No registrado", fecha: formatFechaHora(c.fechaCierre,zona), fondo:c.efectivoInicial ?? 0, fondoUsd:c.efectivoInicialUsd ?? 0, esperado:c.efectivoEsperado ?? 0, contado:c.efectivoContado ?? 0, diferencia:c.diferencia ?? 0, esperadoUsd:c.efectivoEsperadoUsd ?? 0, contadoUsd:c.efectivoContadoUsd ?? 0, diferenciaUsd:c.diferenciaUsd ?? 0 })),
       retiros: retiros.map(r => ({ folio:r.folio, fecha:formatFechaHora(r.fecha,zona), monto:r.monto, moneda:r.moneda ?? "MXN", motivo:r.motivo ?? "" })),
       abonos: abonos as unknown as GrupoCorteDiario["abonos"],

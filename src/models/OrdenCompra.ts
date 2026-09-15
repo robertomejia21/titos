@@ -26,6 +26,7 @@ const OrdenCompraSchema = new Schema(
     fechaSolicitud: { type: Date, default: null },
     recibidoPorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     fechaRecepcion: { type: Date, default: null },
+    recepcionCostos: { type: Schema.Types.Mixed, default: null },
     fechaCancelacion: { type: Date, default: null },
   },
   { timestamps: true }

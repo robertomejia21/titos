@@ -11,6 +11,7 @@ import {
 } from "@/lib/configuracion";
 import { hayNipsDeSupervisor } from "@/lib/supervisores";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
+import { validarReglasOperacion, REGLAS_OPERACION } from "@/lib/reglasOperacion";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       tipoCambio: config.tipoCambio ?? 17,
       fondoCajaMxn: config.fondoCajaMxn ?? 1000,
+      reglasOperacion: config.reglasOperacion ?? REGLAS_OPERACION,
       // Se manda cuándo se actualizó para que el punto de venta pueda avisar
       // que el tipo de cambio ya tiene días sin moverse.
       tipoCambioActualizadoEn: config.tipoCambioActualizadoEn ?? null,
@@ -61,6 +63,10 @@ export async function PATCH(req: NextRequest) {
   if (!body) return badRequest("Cuerpo inválido");
 
   const update: Record<string, unknown> = {};
+  if ("reglasOperacion" in body) {
+    try { update.reglasOperacion = validarReglasOperacion(body.reglasOperacion); }
+    catch (error) { return badRequest((error as Error).message); }
+  }
   if ("fondoCajaMxn" in body) {
     const fondo = body.fondoCajaMxn;
     if (typeof fondo !== "number" || !Number.isFinite(fondo) || fondo < 0 || fondo > 1000000 || Math.abs(fondo * 100 - Math.round(fondo * 100)) > 0.00001) return badRequest("El fondo debe ser de 0 a 1,000,000 de pesos, con hasta dos decimales.");

@@ -82,6 +82,7 @@ const VentaSchema = new Schema(
     usuarioId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     fecha: { type: Date, default: Date.now },
     corte: { type: String, required: true }, // YYYY-MM-DD, útil para cortes de caja futuros
+    correccionesDia: {type:[new Schema({anterior:String,nuevo:String,motivo:String,usuarioId:{type:Schema.Types.ObjectId,ref:"User"},fecha:{type:Date,default:Date.now}},{_id:false})],default:[]},
     items: { type: [VentaItemSchema], default: [] },
     total: { type: Number, required: true },
     subtotalSinDescuento: Number,

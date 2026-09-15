@@ -1819,6 +1819,16 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           </div>
         </div>
 
+        {fechaEnZona(new Date(sesion.fechaApertura), zonaHoraria) < fechaEnZona(new Date(), zonaHoraria) && (
+          <div role="alert" className="m-3 rounded-lg border border-amber-600 bg-amber-50 p-4 text-amber-950">
+            <strong>Hay un turno pendiente de cerrar</strong>
+            <p>Esta caja se abrió el {formatFecha(sesion.fechaApertura, zonaHoraria)}. Revisa el efectivo y realiza el corte del turno pendiente.</p>
+            <button type="button" className="mt-2 rounded border border-amber-800 px-3 py-2 font-semibold focus-visible:outline-2" onClick={() => {
+              setEfectivoContado(""); setNotasCorte(""); setCorteCerrado(null); setModalCorte(true); cargarResumenCorte();
+            }}>Revisar corte pendiente</button>
+          </div>
+        )}
+
         {/* Búsqueda */}
         <div className="flex flex-col gap-2 border-b border-black/5 px-3 py-3 md:flex-row md:items-center">
           <div className="flex flex-1 items-center gap-3">

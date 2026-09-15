@@ -1,4 +1,5 @@
 import Promocion from "@/models/Promocion";
+import { fechaEnZona } from "@/lib/zonasHorarias";
 import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
@@ -218,6 +219,10 @@ export async function POST(req: NextRequest) {
   // El cliente es opcional en una venta de contado, pero obligatorio (y validado
   // contra su límite y sus vencidos) cuando parte del pago va a crédito.
   const zonaHoraria = await zonaHorariaDeSucursal(ctx.sucursalId);
+  const reglasOperacion = (await obtenerConfiguracion()).reglasOperacion;
+  if (reglasOperacion?.turnoAnterior === "bloquear" && todayCorte(zonaHoraria) > fechaEnZona(sesionCaja.fechaApertura,zonaHoraria)) {
+    return conflict("Hay un turno de un día anterior pendiente de cerrar. Realiza el corte antes de registrar otra venta.");
+  }
 
   const cliente = clienteIdBody ? await Cliente.findById(clienteIdBody) : null;
   if (clienteIdBody) {
