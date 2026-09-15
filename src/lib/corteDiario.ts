@@ -1,6 +1,7 @@
-export type VentaCorteDiario = { folio: string; total: number; descuento?: number; esVentas2?: boolean; pagos: { metodoPago: string; monto: number; montoUsd?: number; terminalAlias?: string }[] };
+export type VentaCorteDiario = { folio: string; total: number; descuento?: number; esVentas2?: boolean; clienteNombre?: string; pagos: { metodoPago: string; monto: number; montoUsd?: number; terminalId?: unknown; terminalAlias?: string; tarjetaTipo?: string | null }[] };
 export type GrupoCorteDiario = {
   nombre: string; zona: string; ventas: VentaCorteDiario[];
+  pendientes?: { responsable: string; apertura: string }[];
   cierres: { responsable: string; fecha: string; fondo: number; fondoUsd: number; esperado: number; contado: number; diferencia: number; esperadoUsd: number; contadoUsd: number; diferenciaUsd: number }[];
   retiros: { folio: string; fecha: string; monto: number; moneda: string; motivo: string }[];
   abonos: { monto: number; metodoPago: string }[];
@@ -17,6 +18,13 @@ export function resumenVentasDiario(ventas: VentaCorteDiario[]) {
   return { cantidad: ventas.length, total: sumar(ventas.map(v => v.total)), descuento: sumar(ventas.map(v => v.descuento ?? 0)), metodos, dolares: sumar(pagos.map(p => p.montoUsd ?? 0)) };
 }
 
+export function detalleTarjetasDiario(ventas: VentaCorteDiario[]) {
+  return ventas.flatMap(v => v.pagos.filter(p => p.metodoPago === "tarjeta").map(p => ({
+    folio: v.folio, terminal: p.terminalAlias || "Sin terminal registrada",
+    tipo: p.tarjetaTipo || "Sin tipo registrado", monto: p.monto,
+  })));
+}
+
 export function corteDiarioHtml(dia: string, incluirNotas: boolean, grupos: GrupoCorteDiario[]) {
   const e = escaparCorte;
   const modo = incluirNotas ? "Con notas de venta" : "Sin notas de venta";
@@ -28,6 +36,7 @@ export function corteDiarioHtml(dia: string, incluirNotas: boolean, grupos: Grup
   const secciones = grupos.map(g => {
     const r = resumenVentasDiario(g.ventas);
     return `<section><h2>${e(g.nombre)}</h2><p>Fecha: ${e(dia)} · Horario local: ${e(g.zona)}</p>
+      ${(g.pendientes?.length ?? 0) > 0 ? `<div class="aviso"><b>Turnos pendientes de cerrar para el día consultado</b>${tabla(["Responsable", "Apertura"],g.pendientes!.map(c=>[c.responsable,c.apertura]))}<p>Estos turnos seguían abiertos al terminar el día consultado. Sus ventas del día sí se incluyen; su cierre puede haberse realizado después.</p></div>` : ""}
       <h3>Apertura / cierre</h3><p>Cajas cerradas durante el día. El fondo y las diferencias conservan todas las operaciones de cada turno, incluso al excluir notas del resumen de ventas.</p>
       ${tabla(["Responsable de apertura", "Cierre", "Fondo MXN", "Esperado MXN", "Contado MXN", "Diferencia MXN"], g.cierres.map(c => [c.responsable,c.fecha,dinero(c.fondo),dinero(c.esperado),dinero(c.contado),dinero(c.diferencia)]))}
       ${tabla(["Cierre", "Fondo USD", "Esperado USD", "Contado USD", "Diferencia USD"], g.cierres.map(c => [c.fecha,dinero(c.fondoUsd),dinero(c.esperadoUsd),dinero(c.contadoUsd),dinero(c.diferenciaUsd)]))}
@@ -36,6 +45,9 @@ export function corteDiarioHtml(dia: string, incluirNotas: boolean, grupos: Grup
       <h3>Ventas del día, sin notas</h3>${ventasTabla(g.ventas.filter(v=>!v.esVentas2))}
       ${incluirNotas ? `<h3>Notas de venta del día</h3>${ventasTabla(g.ventas.filter(v=>v.esVentas2))}` : ""}
       <h3>Resumen por forma de pago</h3>${tabla(["Método", "Importe equivalente MXN"],r.metodos.map(p=>[p.metodo,dinero(p.monto)]))}
+      <h3>Cobros con tarjeta por terminal</h3>${tabla(["Folio de venta", "Terminal", "Tipo de tarjeta", "Importe MXN"],detalleTarjetasDiario(g.ventas).map(p=>[p.folio,p.terminal,p.tipo,dinero(p.monto)]))}
+      <h3>Ventas a crédito del día</h3>${tabla(["Folio", "Cliente", "Importe a crédito MXN"],g.ventas.filter(v=>v.pagos.some(p=>p.metodoPago==="credito")).map(v=>[v.folio,v.clienteNombre || "Sin cliente registrado",dinero(sumar(v.pagos.filter(p=>p.metodoPago==="credito").map(p=>p.monto)))]))}
+      <p>El crédito ya está incluido en las ventas seleccionadas. Es una cuenta por cobrar y no representa entrada de efectivo.</p>
       <p>Dólares recibidos en estas ventas: ${dinero(r.dolares)} USD. Su equivalente en pesos ya está incluido en el resumen.</p>
       <h3>Devoluciones pagadas del día</h3>${tabla(["Folio", "Efectivo MXN", "Ajuste a crédito MXN", "Total MXN"],g.devoluciones.map(d=>[d.folio,dinero(d.montoEfectivo),dinero(d.montoCredito),dinero(d.total)]))}
       <h3>Abonos a cuentas del día</h3>${tabla(["Forma de pago", "Importe MXN"],g.abonos.map(a=>[a.metodoPago,dinero(a.monto)]))}

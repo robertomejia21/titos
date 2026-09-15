@@ -55,6 +55,12 @@ const ConfiguracionSchema = new Schema(
     horaCorte: { type: String, default: "16:00" },
     tipoCambio: { type: Number, default: 17 },
     fondoCajaMxn: { type: Number, default: 1000, min: 0, max: 1000000 },
+    reglasOperacion: {
+      costosCompra: {type: String, enum: ["pendiente", "sin_impuestos", "incluidos"], default: "pendiente"},
+      baseIvaCompra: {type: String, enum: ["pendiente", "costo", "costo_ieps"], default: "pendiente"},
+      turnoAnterior: {type: String, enum: ["advertir", "bloquear"], default: "advertir"},
+      permitirCorreccionDia: {type: Boolean, default: false},
+    },
     // Quién y cuándo movió el tipo de cambio por última vez. El punto de venta
     // lo muestra junto al importe en dólares: un tipo de cambio de hace tres
     // semanas regala mercancía y nadie se entera hasta el corte.

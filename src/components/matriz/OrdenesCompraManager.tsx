@@ -5,6 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
+import { costoRecepcion, type RecepcionCostos } from "@/lib/costosRecepcion";
+import { REGLAS_OPERACION, type ReglasOperacion } from "@/lib/reglasOperacion";
+import type { FiscalProducto } from "@/lib/fiscalProducto";
+import { escaparCorte } from "@/lib/corteDiario";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
 import { imprimirHTML } from "@/lib/print";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
@@ -21,7 +25,7 @@ type Categoria = { _id: string; nombre: string };
 
 type Empleado = { _id: string; nombre: string; puesto: string; whatsapp: string };
 
-type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number };
+type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number; fiscal?: FiscalProducto };
 
 type CostoProveedor = { proveedorId: string; nombre: string; costoUnitario: number; esPrincipal: boolean };
 
@@ -58,6 +62,7 @@ type OrdenItem = {
 type EstadoOrden = "borrador" | "solicitada" | "recibida" | "cancelada";
 
 type Orden = {
+  recepcionCostos?: RecepcionCostos | null;
   _id: string;
   folio: string;
   proveedorId: { _id: string; nombre: string; whatsapp?: string } | string;
@@ -102,6 +107,7 @@ function montoLinea(item: OrdenItem) {
 }
 
 function totalOrden(orden: Orden) {
+  if (orden.recepcionCostos) return orden.recepcionCostos.total;
   return orden.items.reduce((sum, i) => sum + montoLinea(i), 0);
 }
 
@@ -123,6 +129,11 @@ function resumenWhatsAppOrden(orden: Orden) {
 }
 
 function htmlImprimibleOrden(orden: Orden) {
+  if (orden.recepcionCostos) {
+    const r = orden.recepcionCostos;
+    const e = escaparCorte;
+    return `<h1>Recepción de mercancía · Mercados Titos</h1><p>Orden: ${e(orden.folio)} · Fecha: ${e(fechaRelevante(orden))}</p><p>Proveedor: ${e(nombreProveedor(orden))}</p><p>Moneda: ${e(r.moneda)} · Tipo de cambio del proveedor: ${e(r.tipoCambio)}</p><p>Observaciones: ${e(r.observaciones)}</p><table><thead><tr><th>Clave / producto</th><th>Unidad</th><th>Cantidad</th><th>Costo</th><th>IVA</th><th>IEPS</th><th>Total</th></tr></thead><tbody>${r.detalle.map(i=>`<tr><td>${e(i.sku)} ${e(i.nombre)}</td><td>${e(i.unidad)}</td><td>${e(i.cantidad)}</td><td>${formatMoney(i.costo)}</td><td>${formatMoney(i.iva)}</td><td>${formatMoney(i.ieps)}</td><td>${formatMoney(i.total)}</td></tr>`).join("")}</tbody></table><p>Subtotal: ${formatMoney(r.subtotal)}<br>IVA: ${formatMoney(r.iva)}<br>IEPS: ${formatMoney(r.ieps)}<br>Servicio: ${formatMoney(r.servicio)}<br>Descuento: -${formatMoney(r.descuento)}<br><strong>Total ${e(r.moneda)}: ${formatMoney(r.total)}</strong></p><p>Comprobante interno de recepción, sin timbrado fiscal.</p>`;
+  }
   const filas = orden.items
     .map(
       (i) => `
@@ -328,6 +339,26 @@ function OrdenModal({
     Object.fromEntries(orden.items.map((i) => [i.productoId, String(i.cantidadOrdenada)]))
   );
   const [notas, setNotas] = useState<Record<string, string>>({});
+  const [moneda, setMoneda] = useState("MXN");
+  const [tipoCambioProveedor, setTipoCambioProveedor] = useState("1");
+  const [servicio, setServicio] = useState("0");
+  const [descuentoRecepcion, setDescuentoRecepcion] = useState("0");
+  const [observacionesRecepcion, setObservacionesRecepcion] = useState("");
+  const [reglasCompra,setReglasCompra] = useState<ReglasOperacion>({...REGLAS_OPERACION});
+  useEffect(()=>{let vigente=true;fetch("/api/configuracion").then(r=>r.ok?r.json():null).then(d=>{if(vigente&&d?.reglasOperacion)setReglasCompra(d.reglasOperacion);}).catch(()=>{});return()=>{vigente=false;};},[]);
+  let resumenRecepcion: {subtotal:number;iva:number;ieps:number;total:number}|null=null;
+  let avisoRecepcion="";
+  if (orden.estado === "solicitada") {
+    try {
+      const detalle=items.map(i=>{
+        const p=productos.find(p=>p._id===i.productoId);
+        if(!p?.fiscal)throw new Error(`Faltan impuestos para ${i.nombreProducto}. Compras debe configurarlos.`);
+        return costoRecepcion(Number(recepcion[i.productoId]),i.precioUnitario,p.fiscal,reglasCompra);
+      });
+      const suma=(campo:"subtotal"|"iva"|"ieps"|"total")=>detalle.reduce((s,i)=>s+Math.round(i[campo]*100),0)/100;
+      resumenRecepcion={subtotal:suma("subtotal"),iva:suma("iva"),ieps:suma("ieps"),total:Math.round((suma("total")+Number(servicio)-Number(descuentoRecepcion))*100)/100};
+    } catch(error) {avisoRecepcion=(error as Error).message;}
+  }
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -402,7 +433,7 @@ function OrdenModal({
       if (items.some((i) => !recepcion[i.productoId]?.trim())) throw new Error("Captura la cantidad recibida de cada producto; usa cero si no llegó.");
       const res = await fetch(`/api/ordenes-compra/${orden._id}/recibir`, {
         method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({items: items.map((i) => ({productoId: i.productoId,
+        body: JSON.stringify({financiero:{moneda,tipoCambio:Number(tipoCambioProveedor),servicio:Number(servicio),descuento:Number(descuentoRecepcion),observaciones:observacionesRecepcion},items: items.map((i) => ({productoId: i.productoId,costoUnitario:i.precioUnitario,
           cantidadRecibida: Number(recepcion[i.productoId]), notaRecepcion: notas[i.productoId] ?? ""}))}),
       });
       const data = await res.json();
@@ -425,7 +456,7 @@ function OrdenModal({
       title={`${nombreProveedor(orden)} · ${orden.folio}`}
       footer={
         <>
-          <Button variant="ghost" onClick={() => imprimirHTML(`Orden ${orden.folio}`, htmlImprimibleOrden(orden))}>
+          <Button variant="ghost" onClick={() => imprimirHTML(`Orden ${orden.folio}`, (orden.recepcionCostos ? `<p>Recepción ${escaparCorte(orden.recepcionCostos.folio)} · ${escaparCorte(orden.recepcionCostos.sucursalNombre)}</p>` : "") + htmlImprimibleOrden(orden))}>
             Imprimir
           </Button>
           {editable ? (
@@ -498,11 +529,12 @@ function OrdenModal({
                   )}
                 </td>
                 <td className="py-1.5 pr-2">
-                  {editable ? (
+                  {editable || orden.estado === "solicitada" ? (
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
+                      aria-label={`Costo de ${item.nombreProducto}`}
                       value={item.precioUnitario}
                       onChange={(e) => actualizarItem(item.productoId, "precioUnitario", e.target.value)}
                       className="w-24"
@@ -564,6 +596,27 @@ function OrdenModal({
           </tfoot>
         </table>
       </div>
+
+      {orden.recepcionCostos && <section className="mt-4 rounded border border-black/20 p-3">
+        <h3 className="font-semibold">Recepción {orden.recepcionCostos.folio} · {orden.recepcionCostos.sucursalNombre}</h3>
+        <p>Moneda: {orden.recepcionCostos.moneda} · Tipo de cambio: {orden.recepcionCostos.tipoCambio}</p>
+        <p>Subtotal: {formatMoney(orden.recepcionCostos.subtotal)} · IVA: {formatMoney(orden.recepcionCostos.iva)} · IEPS: {formatMoney(orden.recepcionCostos.ieps)}</p>
+        <p>Servicio: {formatMoney(orden.recepcionCostos.servicio)} · Descuento: {formatMoney(orden.recepcionCostos.descuento)}</p>
+        <strong>Total: {formatMoney(orden.recepcionCostos.total)} {orden.recepcionCostos.moneda}</strong>
+        <p className="whitespace-pre-wrap">{orden.recepcionCostos.observaciones}</p>
+      </section>}
+      {orden.estado === "solicitada" && <section className="mt-4 space-y-3 rounded border border-black/20 p-3">
+        <h3 className="font-semibold">Costos de recepción</h3>
+        {resumenRecepcion && <p aria-live="polite">Subtotal: {formatMoney(resumenRecepcion.subtotal)} · IVA: {formatMoney(resumenRecepcion.iva)} · IEPS: {formatMoney(resumenRecepcion.ieps)} · Total: {formatMoney(resumenRecepcion.total)} {moneda}</p>}
+        {avisoRecepcion && <p role="status" className="text-amber-900">{avisoRecepcion}</p>}
+        <p className="text-sm">Captura los costos en la moneda del proveedor. Los impuestos se toman del catálogo de productos y de las reglas en Configuración; no se pueden cambiar aquí.</p>
+        <label className="block">Moneda del proveedor<select className="ml-2 rounded border p-2" value={moneda} onChange={e=>setMoneda(e.target.value)}><option value="MXN">Pesos</option><option value="USD">Dólares</option></select></label>
+        {moneda === "USD" && <label className="block">Tipo de cambio del proveedor (MXN por USD)<Input type="number" min="0.0001" step="any" value={tipoCambioProveedor} onChange={e=>setTipoCambioProveedor(e.target.value)} /></label>}
+        <label className="block">Costo de servicio sin impuestos<Input type="number" min="0" step="0.01" value={servicio} onChange={e=>setServicio(e.target.value)} /></label>
+        <label className="block">Descuento sin impuestos<Input type="number" min="0" step="0.01" value={descuentoRecepcion} onChange={e=>setDescuentoRecepcion(e.target.value)} /></label>
+        <label className="block">Observaciones para contrarrecibo<textarea className="block w-full rounded border p-2" maxLength={2000} value={observacionesRecepcion} onChange={e=>setObservacionesRecepcion(e.target.value)} /></label>
+        <p className="text-sm">Al confirmar se guardan los importes y las reglas usadas. Si faltan impuestos en el catálogo o reglas en Configuración, se pedirá completarlos antes de registrar la entrada.</p>
+      </section>}
 
       {editable ? (
         <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-black/2 p-3">

@@ -1,4 +1,5 @@
 "use client";
+import { REGLAS_OPERACION, type ReglasOperacion } from "@/lib/reglasOperacion";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -127,6 +128,12 @@ export function ConfiguracionManager() {
   const [horaCorte, setHoraCorte] = useState("16:00");
   const [tipoCambio, setTipoCambio] = useState("17");
   const [fondoCajaMxn, setFondoCajaMxn] = useState("1000");
+  const [reglasOperacion, setReglasOperacion] = useState<ReglasOperacion>({...REGLAS_OPERACION});
+  const [folioCorregir,setFolioCorregir] = useState("");
+  const [diaCorregir,setDiaCorregir] = useState("");
+  const [motivoCorregir,setMotivoCorregir] = useState("");
+  const [resultadoCorreccion,setResultadoCorreccion] = useState("");
+  const [corrigiendo,setCorrigiendo] = useState(false);
   // Sello de la última vez que se movió: un tipo de cambio viejo regala
   // mercancía y no se nota hasta el corte.
   const [tipoCambioActualizadoEn, setTipoCambioActualizadoEn] = useState<string | null>(null);
@@ -193,6 +200,7 @@ export function ConfiguracionManager() {
     setHoraCorte(data.horaCorte ?? "16:00");
     setTipoCambio(String(data.tipoCambio ?? 17));
     setFondoCajaMxn(String(data.fondoCajaMxn ?? 1000));
+    setReglasOperacion({...REGLAS_OPERACION, ...data.reglasOperacion});
     setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
     setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
     setTasaIvaFactura(String(data.tasaIvaFactura ?? 0));
@@ -232,6 +240,7 @@ export function ConfiguracionManager() {
         horaCorte,
         tipoCambio: Number(tipoCambio),
         fondoCajaMxn: Number(fondoCajaMxn),
+        reglasOperacion,
         tasaIvaFactura: Number(tasaIvaFactura),
         dolares: {
           aceptaPagos: aceptaDolares,
@@ -595,6 +604,42 @@ export function ConfiguracionManager() {
             </FormField>
           </FormGrid>
         )}
+
+        {!cargandoConfig && <section className="mt-5 space-y-4 border-t border-black/10 pt-4" aria-labelledby="reglas-operacion">
+          <h3 id="reglas-operacion" className="font-semibold text-titos-green-900">Compras, cortes y devoluciones</h3>
+          <p className="text-sm text-black/70">Estas reglas se guardan con los ajustes generales. Los documentos ya registrados conservan sus importes.</p>
+          <label className="block text-sm">Costos de compra
+            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.costosCompra} onChange={e=>setReglasOperacion({...reglasOperacion,costosCompra:e.target.value as ReglasOperacion["costosCompra"]})}>
+              <option value="pendiente">Pendiente de definir</option><option value="sin_impuestos">Capturar costo sin impuestos</option><option value="incluidos">Capturar costo con impuestos incluidos</option>
+            </select>
+          </label>
+          <label className="block text-sm">Base para calcular IVA en compras
+            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.baseIvaCompra} onChange={e=>setReglasOperacion({...reglasOperacion,baseIvaCompra:e.target.value as ReglasOperacion["baseIvaCompra"]})}>
+              <option value="pendiente">Pendiente de confirmar con contabilidad</option><option value="costo">Solo costo del producto</option><option value="costo_ieps">Costo más IEPS</option>
+            </select>
+          </label>
+          <p className="text-sm text-black/70">La tasa de cada producto proviene del catálogo. Servicio y descuento son ajustes separados sin impuestos. Estas opciones corresponden a compras; no activan impuestos en el punto de venta.</p>
+          <label className="block text-sm">Si existe un turno de un día anterior sin cerrar
+            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.turnoAnterior} onChange={e=>setReglasOperacion({...reglasOperacion,turnoAnterior:e.target.value as ReglasOperacion["turnoAnterior"]})}>
+              <option value="advertir">Mostrar aviso y permitir continuar</option><option value="bloquear">Exigir cerrar el turno antes de vender en línea</option>
+            </select>
+          </label>
+          <label className="flex gap-2 text-sm"><input type="checkbox" checked={reglasOperacion.permitirCorreccionDia} onChange={e=>setReglasOperacion({...reglasOperacion,permitirCorreccionDia:e.target.checked})} />Permitir a administración corregir el día de reporte de una venta</label>
+          <p className="text-sm text-black/70">Conserva la fecha original, el dinero y el corte de caja. Guarda el motivo, usuario y fecha del cambio. No admite ventas con factura vigente. Primero guarda los ajustes para habilitarlo.</p>
+          {reglasOperacion.permitirCorreccionDia && <div className="space-y-2 rounded border border-amber-700 bg-amber-50 p-3">
+            <label className="block">Folio completo de venta<Input value={folioCorregir} onChange={e=>setFolioCorregir(e.target.value)} /></label>
+            <label className="block">Nuevo día de reporte<Input type="date" value={diaCorregir} onChange={e=>setDiaCorregir(e.target.value)} /></label>
+            <label className="block">Motivo de la corrección<textarea className="block w-full rounded border p-2" minLength={10} maxLength={1000} value={motivoCorregir} onChange={e=>setMotivoCorregir(e.target.value)} /></label>
+            <p className="text-sm">Esta corrección cambia los reportes de ambos días. No agrega efectivo para pagar devoluciones ni recalcula cajas cerradas.</p>
+            <Button disabled={corrigiendo || !folioCorregir || !diaCorregir || motivoCorregir.trim().length<10} onClick={async()=>{
+              setCorrigiendo(true);setResultadoCorreccion("");
+              try { const r=await fetch("/api/ventas/corregir-dia",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folio:folioCorregir,dia:diaCorregir,motivo:motivoCorregir})});const data=await r.json();setResultadoCorreccion(r.ok ? `${data.folio}: ${data.diaAnterior} → ${data.diaNuevo}. ${data.mensaje}` : data.error); }
+              catch {setResultadoCorreccion("No se pudo confirmar el resultado. Revisa la venta antes de reintentar.");} finally {setCorrigiendo(false);}
+            }}>{corrigiendo ? "Guardando corrección..." : "Corregir día y guardar motivo"}</Button>
+            {resultadoCorreccion && <p role="status">{resultadoCorreccion}</p>}
+          </div>}
+          <p className="text-sm text-black/70">Una devolución se registra el día del reembolso. Las notas de crédito fiscales siguen pendientes de integración con facturación y timbrado.</p>
+        </section>}
 
         {/* Cuánto de una venta se puede liquidar en billete verde. Va aquí,
             pegado al tipo de cambio, porque los dos se revisan juntos: quien
