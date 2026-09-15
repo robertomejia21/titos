@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
-import type { RecepcionCostos } from "@/lib/costosRecepcion";
+import { costoRecepcion, type RecepcionCostos } from "@/lib/costosRecepcion";
+import { REGLAS_OPERACION, type ReglasOperacion } from "@/lib/reglasOperacion";
+import type { FiscalProducto } from "@/lib/fiscalProducto";
 import { escaparCorte } from "@/lib/corteDiario";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
 import { imprimirHTML } from "@/lib/print";
@@ -23,7 +25,7 @@ type Categoria = { _id: string; nombre: string };
 
 type Empleado = { _id: string; nombre: string; puesto: string; whatsapp: string };
 
-type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number };
+type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number; fiscal?: FiscalProducto };
 
 type CostoProveedor = { proveedorId: string; nombre: string; costoUnitario: number; esPrincipal: boolean };
 
@@ -342,6 +344,21 @@ function OrdenModal({
   const [servicio, setServicio] = useState("0");
   const [descuentoRecepcion, setDescuentoRecepcion] = useState("0");
   const [observacionesRecepcion, setObservacionesRecepcion] = useState("");
+  const [reglasCompra,setReglasCompra] = useState<ReglasOperacion>({...REGLAS_OPERACION});
+  useEffect(()=>{let vigente=true;fetch("/api/configuracion").then(r=>r.ok?r.json():null).then(d=>{if(vigente&&d?.reglasOperacion)setReglasCompra(d.reglasOperacion);}).catch(()=>{});return()=>{vigente=false;};},[]);
+  let resumenRecepcion: {subtotal:number;iva:number;ieps:number;total:number}|null=null;
+  let avisoRecepcion="";
+  if (orden.estado === "solicitada") {
+    try {
+      const detalle=items.map(i=>{
+        const p=productos.find(p=>p._id===i.productoId);
+        if(!p?.fiscal)throw new Error(`Faltan impuestos para ${i.nombreProducto}. Compras debe configurarlos.`);
+        return costoRecepcion(Number(recepcion[i.productoId]),i.precioUnitario,p.fiscal,reglasCompra);
+      });
+      const suma=(campo:"subtotal"|"iva"|"ieps"|"total")=>detalle.reduce((s,i)=>s+Math.round(i[campo]*100),0)/100;
+      resumenRecepcion={subtotal:suma("subtotal"),iva:suma("iva"),ieps:suma("ieps"),total:Math.round((suma("total")+Number(servicio)-Number(descuentoRecepcion))*100)/100};
+    } catch(error) {avisoRecepcion=(error as Error).message;}
+  }
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -590,6 +607,8 @@ function OrdenModal({
       </section>}
       {orden.estado === "solicitada" && <section className="mt-4 space-y-3 rounded border border-black/20 p-3">
         <h3 className="font-semibold">Costos de recepción</h3>
+        {resumenRecepcion && <p aria-live="polite">Subtotal: {formatMoney(resumenRecepcion.subtotal)} · IVA: {formatMoney(resumenRecepcion.iva)} · IEPS: {formatMoney(resumenRecepcion.ieps)} · Total: {formatMoney(resumenRecepcion.total)} {moneda}</p>}
+        {avisoRecepcion && <p role="status" className="text-amber-900">{avisoRecepcion}</p>}
         <p className="text-sm">Captura los costos en la moneda del proveedor. Los impuestos se toman del catálogo de productos y de las reglas en Configuración; no se pueden cambiar aquí.</p>
         <label className="block">Moneda del proveedor<select className="ml-2 rounded border p-2" value={moneda} onChange={e=>setMoneda(e.target.value)}><option value="MXN">Pesos</option><option value="USD">Dólares</option></select></label>
         {moneda === "USD" && <label className="block">Tipo de cambio del proveedor (MXN por USD)<Input type="number" min="0.0001" step="any" value={tipoCambioProveedor} onChange={e=>setTipoCambioProveedor(e.target.value)} /></label>}
