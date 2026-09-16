@@ -198,6 +198,7 @@ export function Sidebar({
   sucursalNombre,
   sucursalRol = "admin",
   permisos = [],
+  permisosIndividuales = false,
 }: {
   role: "matriz" | "sucursal";
   nombre: string;
@@ -205,6 +206,7 @@ export function Sidebar({
   sucursalRol?: "admin" | "ventas";
   /** Permisos efectivos de la sesión; el menú solo muestra lo que se puede abrir. */
   permisos?: string[];
+  permisosIndividuales?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -213,10 +215,12 @@ export function Sidebar({
   // Una entrada se muestra si su ruta no exige permiso, o si la sesión lo tiene.
   const visible = useCallback(
     (href: string) => {
+      if (permisosIndividuales && href === "/matriz") return tienePermiso({ permisos, permisosIndividuales }, "reportes.ver");
+      if (permisosIndividuales && href === "/sucursal") return tienePermiso({ permisos, permisosIndividuales }, "pos.vender");
       const permiso = permisoDeRuta(href);
-      return !permiso || tienePermiso({ permisos }, permiso);
+      return !permiso || tienePermiso({ permisos, permisosIndividuales }, permiso);
     },
-    [permisos]
+    [permisos, permisosIndividuales]
   );
 
   const [busqueda, setBusqueda] = useState("");

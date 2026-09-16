@@ -1,7 +1,7 @@
-type RolCaja = { nombre?: string; perfilDocumentoId?: string | null; esSupervisor?: boolean };
+type RolCaja = { nombre?: string; codigoSistema?: string | null; perfilDocumentoId?: string | null; esSupervisor?: boolean };
 
-export function requiereNipCaja(rol?: RolCaja | null, legado?: { role?: string; sucursalRol?: string }) {
-  if (!rol) return legado?.role === "sucursal" && legado.sucursalRol === "ventas";
-  return !!rol.esSupervisor || rol.perfilDocumentoId === "pos-cajero" ||
-    ["caja", "cajero", "cajera", "cajer@", "supervisor", "supervisor de caja", "supervisora de caja"].includes((rol.nombre ?? "").trim().toLowerCase());
+export function requiereNipCaja(rol?: RolCaja | null, _legado?: { role?: string; sucursalRol?: string }) {
+  void _legado;
+  // El código conserva la identidad del gerente aunque se cambie su nombre.
+  return rol?.codigoSistema === "gerente-tienda" || rol?.perfilDocumentoId === "pos-gerente";
 }

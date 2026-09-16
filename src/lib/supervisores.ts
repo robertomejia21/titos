@@ -19,7 +19,7 @@ export type SupervisorAutorizante = { id: string; nombre: string };
 
 /** Ids de los roles marcados como de supervisor / encargado de turno. */
 async function idsRolesSupervisor(): Promise<unknown[]> {
-  const roles = await RolModel.find({ esSupervisor: true, activo: true }).select("_id").lean();
+  const roles = await RolModel.find({ activo: true, $or: [{ codigoSistema: "gerente-tienda" }, { perfilDocumentoId: "pos-gerente" }] }).select("_id").lean();
   return roles.map((r) => r._id);
 }
 

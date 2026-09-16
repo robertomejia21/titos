@@ -24,7 +24,7 @@ async function main() {
     const suc = await Sucursal.create({ nombre: "Sucursal prueba arqueo" });
     const otra = await Sucursal.create({ nombre: "Otra sucursal prueba" });
     const user = await User.create({ nombre: "Cajero prueba", email: "sucursal@titos.local", passwordHash: await hashPassword("Pruebas-locales-2026"), role: "sucursal", sucursalId: suc._id });
-    const rol = await Rol.create({ nombre: "Supervisor prueba", ambito: "sucursal", esSupervisor: true });
+    const rol = await Rol.create({ nombre: "Supervisor prueba", codigoSistema: "gerente-tienda", ambito: "sucursal", esSupervisor: true });
     const supervisor = await User.create({ nombre: "Supervisor prueba", email: "supervisor@titos.local", passwordHash: await hashPassword("Pruebas-locales-2026"), role: "sucursal", sucursalId: suc._id, rolId: rol._id, nipOperacionHash: await hashPassword("654321") });
     await User.create({ nombre: "Supervisor ajeno", email: "otro@titos.local", passwordHash: "no-login", role: "sucursal", sucursalId: otra._id, rolId: rol._id, nipOperacionHash: await hashPassword("123456") });
     const caja = await Caja.create({ sucursalId: suc._id, usuarioAperturaId: user._id, efectivoInicial: 100, efectivoInicialUsd: 20 });
@@ -35,7 +35,9 @@ async function main() {
     async function llamar(body: unknown, credencial = token) { return POST(new NextRequest("http://localhost/api/caja/arqueo", { method: "POST", headers: { cookie: `titos_session=${credencial}`, "Content-Type": "application/json" }, body: JSON.stringify(body) })); }
     async function consultar() { const res = await llamar({ accion: "consultar", nip: "654321" }); assert.equal(res.status, 200); return res.json(); }
     assert.equal((await llamar({ accion: "consultar", nip: "654321" }, "")).status, 401);
-    assert.equal((await llamar({ accion: "consultar", nip: "654321" }, await signSession({ ...sesion, permisos: ["productos.ver"] }))).status, 403);
+    await User.updateOne({ _id: user._id }, { permisosIndividuales: [] });
+    assert.equal((await llamar({ accion: "consultar", nip: "654321" })).status, 401);
+    await User.updateOne({ _id: user._id }, { permisosIndividuales: null });
     assert.equal((await llamar({ accion: "consultar", nip: "000000" })).status, 403);
     assert.equal((await llamar({ accion: "consultar", nip: "123456" })).status, 403);
     const duplicado = await User.create({ nombre: "NIP repetido", email: "duplicado@titos.local", passwordHash: "no-login", role: "sucursal", sucursalId: suc._id, rolId: rol._id, nipOperacionHash: await hashPassword("654321") });

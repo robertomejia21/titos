@@ -1,3 +1,4 @@
+import { departamentoValido } from "@/lib/departamentos";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import RolModel from "@/models/Rol";
@@ -46,7 +47,8 @@ export async function POST(req: NextRequest) {
   // Marcar un rol como de supervisor es lo que hace que crear usuarios con él
   // exija el NIP, así que el propio marcado va detrás del mismo NIP: si no, se
   // podría fabricar un rol de supervisor sin candado y asignarlo libremente.
-  const esSupervisor = body?.esSupervisor === true;
+  const esSupervisor = false;
+  if (body?.esSupervisor === true) return badRequest("Solo el puesto Gerente de tienda utiliza NIP y autoriza operaciones.");
 
   await connectDB();
 
@@ -57,9 +59,11 @@ export async function POST(req: NextRequest) {
     if (!autorizacion.ok) return badRequest(autorizacion.error);
   }
 
+  if (!(await departamentoValido(body?.departamentoId ?? null))) return badRequest("Elige un departamento activo.");
   try {
     const rol = await RolModel.create({
       nombre,
+      departamentoId: body?.departamentoId || null,
       descripcion: String(body?.descripcion ?? "").trim(),
       ambito,
       permisos,

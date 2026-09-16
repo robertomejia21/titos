@@ -1,8 +1,10 @@
+import { validarPermisosIndividuales, PermisosIndividualesError } from "@/lib/permisosIndividuales";
 import { NextRequest, NextResponse } from "next/server";
 import { requiereNipCaja } from "@/lib/nipCaja";
 import { connectDB } from "@/lib/db";
 import UserModel from "@/models/User";
 import RolModel from "@/models/Rol";
+import Departamento from "@/models/Departamento";
 import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, badRequest, conflict, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
@@ -26,15 +28,16 @@ export async function GET(req: NextRequest) {
   await connectDB();
   await asegurarRolesSemilla();
 
-  const [usuarios, roles, sucursales] = await Promise.all([
+  const [usuarios, roles, sucursales, departamentos] = await Promise.all([
     UserModel.find({})
-      .select("nombre email role sucursalRol sucursalId rolId activo nipOperacionHash")
-      .populate("rolId", "nombre ambito")
+      .select("nombre email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta")
+      .populate("rolId", "nombre ambito codigoSistema perfilDocumentoId departamentoId")
       .populate("sucursalId", "nombre")
       .sort({ role: 1, nombre: 1 })
       .lean(),
     RolModel.find({ retirado: { $ne: true } }).sort({ ambito: 1, nombre: 1 }).lean(),
     Sucursal.find({}).select("nombre esMatriz").sort({ nombre: 1 }).lean(),
+    Departamento.find({}).sort({ nombre: 1 }).lean(),
   ]);
 
   return NextResponse.json({
@@ -48,7 +51,9 @@ export async function GET(req: NextRequest) {
       rol: u.rolId && typeof u.rolId === "object" ? u.rolId : null,
       // El hash nunca sale; solo si ya tiene NIP, para que la pantalla sepa si
       // ofrece "asignar" o "cambiar".
-      tieneNipOperacion: !!u.nipOperacionHash,
+      tieneNipOperacion: requiereNipCaja(u.rolId) && !!u.nipOperacionHash,
+      permisosIndividuales: u.permisosIndividuales ?? null,
+      permisosSoloConsulta: u.permisosSoloConsulta ?? [],
       activo: u.activo,
       // El propio usuario no puede desactivarse ni cambiarse el rol a sí mismo.
       propio: String(u._id) === session.userId,
@@ -57,6 +62,8 @@ export async function GET(req: NextRequest) {
       _id: String(r._id),
       nombre: r.nombre,
       descripcion: r.descripcion,
+      codigoSistema: r.codigoSistema ?? null,
+      departamentoId: r.departamentoId ? String(r.departamentoId) : null,
       ambito: r.ambito,
       permisos: r.permisos ?? [],
       perfilDocumentoId: r.perfilDocumentoId ?? null,
@@ -66,6 +73,7 @@ export async function GET(req: NextRequest) {
       esSistema: r.esSistema,
       activo: r.activo,
     })),
+    departamentos: departamentos.map((d) => ({ _id: String(d._id), nombre: d.nombre, descripcion: d.descripcion, activo: d.activo })),
     sucursales: sucursales.map((s) => ({ _id: String(s._id), nombre: s.nombre, esMatriz: !!s.esMatriz })),
   });
 }
@@ -106,19 +114,19 @@ export async function POST(req: NextRequest) {
   // Un rol de sucursal no puede asignarse a un usuario de matriz ni al revés:
   // sus permisos no aplican del otro lado.
   if (rolId) {
-    const rol = await RolModel.findById(rolId).select("nombre perfilDocumentoId ambito activo retirado esSupervisor").lean();
+    const rol = await RolModel.findById(rolId).select("nombre codigoSistema perfilDocumentoId ambito activo retirado esSupervisor").lean();
     if (!rol) return badRequest("El rol no existe");
     if (rol.retirado) return badRequest("Este rol fue sustituido. Elige un puesto del catálogo actual.");
     if (!rol.activo) return badRequest("Ese rol está desactivado");
     if (rol.ambito !== role) return badRequest("El rol elegido no corresponde al tipo de usuario");
     if (requiereNipCaja(rol)) {
-      if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al cajero o supervisor de caja");
-    } else if (nipOperacion) return badRequest("El NIP personal es solo para cajeros y supervisores de caja");
+      if (!NIP_OPERACION_REGEX.test(nipOperacion)) return badRequest("Asigna un NIP personal de 6 dígitos al gerente de tienda");
+    } else if (nipOperacion) return badRequest("El NIP personal es solo para el gerente de tienda");
 
     // El supervisor es quien autoriza cancelaciones y retiros: crear uno exige
     // el NIP de 6 dígitos que matriz guarda en /matriz/configuracion, para que
     // no baste con tener acceso a esta pantalla.
-    if (rol.esSupervisor) {
+    if (requiereNipCaja(rol)) {
       const autorizacion = await verificarNipCreacionSupervisor(nipSupervisor);
       if (!autorizacion.ok) return badRequest(autorizacion.error);
 
@@ -131,6 +139,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const permisosUsuario = "permisosIndividuales" in body ? validarPermisosIndividuales(body, role as "matriz" | "sucursal") : {};
     const nipPersonal = nipOperacion ? await prepararNipPersonal(nipOperacion) : {};
     const usuario = await UserModel.create({
       nombre,
@@ -140,11 +149,13 @@ export async function POST(req: NextRequest) {
       sucursalId: role === "sucursal" ? sucursalId : null,
       rolId,
       ...nipPersonal,
+      ...permisosUsuario,
       activo: true,
     });
 
     return NextResponse.json({ _id: String(usuario._id) }, { status: 201 });
   } catch (error) {
+    if (error instanceof PermisosIndividualesError) return badRequest(error.message);
     if (error instanceof NipPersonalError) return badRequest(error.message);
     if (esNipDuplicado(error)) return conflict("Ese NIP ya está asignado a otra persona");
     throw error;

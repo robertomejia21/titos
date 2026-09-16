@@ -26,7 +26,7 @@ export default async function SucursalLayout({ children }: { children: React.Rea
           nombre={session.nombre}
           sucursalNombre={sucursalNombre}
           sucursalRol={sucursalRol}
-          permisos={permisosDeSesion(session)}
+          permisos={permisosDeSesion(session)} permisosIndividuales={session.permisosIndividuales}
         />
         <SucursalMain>{children}</SucursalMain>
       </div>

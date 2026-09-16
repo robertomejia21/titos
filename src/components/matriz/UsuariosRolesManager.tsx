@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
-import { PUESTOS } from "@/lib/puestos";
+import { PermisosUsuarioEditor } from "./PermisosUsuarioEditor";
+import { DepartamentosManager, type Departamento } from "./DepartamentosManager";
+import { expandirPermisosPuesto } from "@/lib/permisosIndividuales";
+import { permisosLegado } from "@/lib/permisos";
 import { requiereNipCaja } from "@/lib/nipCaja";
 
 type Rol = {
@@ -14,6 +17,8 @@ type Rol = {
   ambito: AmbitoRolPermiso;
   permisos: string[];
   perfilDocumentoId?: string | null;
+  codigoSistema?: string | null;
+  departamentoId?: string | null;
   /** Rol de mando: asignarlo exige el NIP de 6 dígitos de matriz. */
   esSupervisor: boolean;
   esSistema: boolean;
@@ -30,6 +35,8 @@ type Usuario = {
   rol: { _id: string; nombre: string; ambito: string } | null;
   /** Ya tiene NIP personal para autorizar cancelaciones y retiros. */
   tieneNipOperacion?: boolean;
+  permisosIndividuales?: string[] | null;
+  permisosSoloConsulta?: string[];
   activo: boolean;
   propio: boolean;
 };
@@ -60,12 +67,14 @@ function UsuarioModal({
   usuario,
   roles,
   sucursales,
+  departamentos,
   onClose,
   onGuardado,
 }: {
   usuario: Usuario | null;
   roles: Rol[];
   sucursales: Sucursal[];
+  departamentos: Departamento[];
   onClose: () => void;
   onGuardado: () => void;
 }) {
@@ -90,18 +99,25 @@ function UsuarioModal({
   // si además el rol está cambiando: guardar el teléfono de un supervisor que ya
   // lo era no tiene por qué pedirlo (es la misma regla que aplica el servidor).
   const rolElegido = roles.find((r) => r._id === rolId) ?? null;
-  const esEncargado = !!rolElegido?.esSupervisor;
+  const esEncargado = requiereNipCaja(rolElegido);
   const pideNipSupervisor = esEncargado && (!esEdicion || usuario!.rol?._id !== rolId);
   const yaTieneNip = esEdicion && !!usuario!.tieneNipOperacion;
   const usaNipCaja = requiereNipCaja(rolElegido, esEdicion && !rolId ? usuario : undefined);
   const nipOperacionObligatorio = usaNipCaja && !yaTieneNip;
+  const [permisosUsuario, setPermisosUsuario] = useState<string[] | null>(usuario?.permisosIndividuales ?? null);
+  const [soloConsulta, setSoloConsulta] = useState<string[]>(usuario?.permisosSoloConsulta ?? []);
+  const basePermisos = expandirPermisosPuesto(rolElegido?.permisos ?? (esEdicion ? permisosLegado(role, usuario?.sucursalRol) : []), role);
 
   async function guardar() {
     setError(null);
     setGuardando(true);
 
     const cuerpo: Record<string, unknown> = { nombre, email };
-    if (!usuario?.propio) cuerpo.rolId = rolId || null;
+    if (!usuario?.propio) {
+      cuerpo.rolId = rolId || null;
+      cuerpo.permisosIndividuales = permisosUsuario;
+      cuerpo.permisosSoloConsulta = soloConsulta;
+    }
     if (password) cuerpo.password = password;
     if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
     if (usaNipCaja && nipOperacion) cuerpo.nipOperacion = nipOperacion;
@@ -144,6 +160,7 @@ function UsuarioModal({
       onClose={onClose}
       title={esEdicion ? usuario!.nombre : "Nuevo usuario"}
       icon={UserCog}
+      size="lg"
       footer={
         <Button onClick={guardar} disabled={guardando || faltaCampo}>
           {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear usuario"}
@@ -168,7 +185,7 @@ function UsuarioModal({
                 onChange={(e) => {
                   setRole(e.target.value as "matriz" | "sucursal");
                   // El rol elegido deja de aplicar al cambiar de ámbito.
-                  setRolId("");
+                  setRolId(""); setPermisosUsuario(null); setSoloConsulta([]);
                 }}
               >
                 <option value="sucursal">De sucursal</option>
@@ -205,10 +222,13 @@ function UsuarioModal({
           <Select aria-label="Puesto / rol" icon={ShieldCheck} value={rolId} onChange={(e) => {
             setRolId(e.target.value);
             const elegido = roles.find((r) => r._id === e.target.value);
-            if (!esEdicion && elegido) setRole(elegido.ambito);
+            if (!esEdicion && elegido) {
+              if (role !== elegido.ambito) { setPermisosUsuario(null); setSoloConsulta([]); }
+              setRole(elegido.ambito);
+            }
           }} disabled={usuario?.propio}>
             <option value="" disabled={!esEdicion}>{esEdicion ? "Perfil heredado" : "Elige el puesto"}</option>
-            {rolesDisponibles.map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}
+            {rolesDisponibles.map((r) => <option key={r._id} value={r._id}>{r.nombre}{r.departamentoId ? ` · ${departamentos.find((d) => d._id === r.departamentoId)?.nombre ?? ""}` : ""}</option>)}
           </Select>
           <p className="mt-1 text-xs text-black/40">
             {usuario?.propio
@@ -219,18 +239,13 @@ function UsuarioModal({
           </p>
         </FormField>
 
-        {rolElegido ? <div className="rounded-lg border border-black/10 p-3">
-          <p className="font-medium text-titos-green-900">Permisos del puesto seleccionado</p>
-          <p className="mb-2 text-xs text-black/70">Se aplican automáticamente al asignar este rol. El administrador puede modificarlos en Roles.</p>
-          <div className="space-y-2">{PERMISOS.filter((p) => rolElegido.permisos.includes(p.clave)).map((p) => <label key={p.clave} className="flex items-start gap-2 text-sm text-black/80"><input type="checkbox" checked readOnly aria-label={p.etiqueta} /><span>{p.etiqueta}</span></label>)}</div>
-          {rolElegido.perfilDocumentoId ? <p className="mt-3 rounded bg-amber-50 p-2 text-sm text-amber-900"><strong>Funciones pendientes: </strong>{PUESTOS.find((p) => p.perfilDocumentoId === rolElegido.perfilDocumentoId)?.pendientes}</p> : null}
-        </div> : null}
+        <p className="text-sm text-black/75">{usaNipCaja ? "Este puesto utiliza NIP para autorizar operaciones de caja." : "Este puesto no requiere NIP personal. Ingresa con correo y contraseña."}</p>
 
           {usaNipCaja ? <FormField
             label={
               yaTieneNip
-                ? "Nuevo NIP personal (6 dígitos, opcional)"
-                : "NIP personal (6 dígitos)"
+                ? "Nuevo NIP de gerente (6 dígitos, opcional)"
+                : "NIP de gerente (6 dígitos)"
             }
           >
             <Input
@@ -244,8 +259,7 @@ function UsuarioModal({
               placeholder={yaTieneNip ? "Déjalo vacío para conservar el actual" : "••••••"}
             />
             <p className="mt-1 text-xs text-black/70">
-              Administración puede asignar y cambiar el NIP de cada cajero o supervisor de caja. No se comparte entre personas.
-              Solo los roles de supervisor pueden autorizar operaciones.
+              Administración puede asignar y cambiar el NIP del gerente de tienda. Cada gerente utiliza el suyo para autorizar operaciones de caja.
               {yaTieneNip ? " Ya tiene uno asignado." : ""}
             </p>
           </FormField> : null}
@@ -289,7 +303,8 @@ function UsuarioModal({
           </label>
         ) : null}
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <PermisosUsuarioEditor ambito={role} base={basePermisos} seleccion={permisosUsuario} consulta={soloConsulta} disabled={usuario?.propio} onChange={(permisos, consulta) => { setPermisosUsuario(permisos); setSoloConsulta(consulta); }} />
+        {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       </div>
     </Modal>
   );
@@ -297,14 +312,15 @@ function UsuarioModal({
 
 // ------------------------------------------------------------------- Roles ---
 
-function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () => void; onGuardado: () => void }) {
+function RolModal({ rol, departamentos, onClose, onGuardado }: { rol: Rol | null; departamentos: Departamento[]; onClose: () => void; onGuardado: () => void }) {
   const esEdicion = !!rol;
   const [nombre, setNombre] = useState(rol?.nombre ?? "");
   const [descripcion, setDescripcion] = useState(rol?.descripcion ?? "");
   const [ambito, setAmbito] = useState<AmbitoRolPermiso>(rol?.ambito ?? "sucursal");
   const [permisos, setPermisos] = useState<string[]>(rol?.permisos ?? []);
-  const [esSupervisor, setEsSupervisor] = useState(rol?.esSupervisor ?? false);
-  const [nipSupervisor, setNipSupervisor] = useState("");
+  const esSupervisor = rol?.esSupervisor ?? false;
+  const [departamentoId, setDepartamentoId] = useState(rol?.departamentoId ?? "");
+  const [nipSupervisor] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -335,6 +351,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
     const cuerpo: Record<string, unknown> = esEdicion
       ? { nombre, descripcion, permisos, esSupervisor }
       : { nombre, descripcion, ambito, permisos, esSupervisor };
+    cuerpo.departamentoId = departamentoId || null;
     if (pideNipSupervisor) cuerpo.nipCreacionSupervisor = nipSupervisor;
 
     const res = await fetch(esEdicion ? `/api/roles/${rol!._id}` : "/api/roles", {
@@ -372,7 +389,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
     <Modal
       open
       onClose={onClose}
-      title={esEdicion ? rol!.nombre : "Nuevo rol"}
+      title={esEdicion ? rol!.nombre : "Nuevo puesto"}
       icon={ShieldCheck}
       footer={
         confirmando ? (
@@ -396,7 +413,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
               onClick={guardar}
               disabled={guardando || !nombre || (pideNipSupervisor && nipSupervisor.length !== 6)}
             >
-              {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear rol"}
+              {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear puesto"}
             </Button>
           </>
         )
@@ -404,7 +421,7 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
     >
       <div className="space-y-3.5">
         <FormGrid>
-          <FormField label="Nombre del rol">
+          <FormField label="Nombre del puesto">
             <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Encargado de turno" />
           </FormField>
           <FormField label="Ámbito">
@@ -431,38 +448,14 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
           <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
         </FormField>
 
-        <div className="rounded-lg border border-black/10 p-3">
-          <label className="flex items-start gap-2 text-sm text-black/70">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={esSupervisor}
-              onChange={(e) => setEsSupervisor(e.target.checked)}
-            />
-            <span>
-              Es un rol de supervisor
-              <span className="block text-xs text-black/40">
-                Asignárselo a un usuario exigirá el NIP de 6 dígitos que matriz configura en Configuración.
-              </span>
-            </span>
-          </label>
-
-          {pideNipSupervisor ? (
-            <div className="mt-3">
-              <label className="mb-1 block text-xs text-black/50">NIP para crear supervisores (6 dígitos)</label>
-              <Input
-                icon={ShieldAlert}
-                type="password"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={nipSupervisor}
-                onChange={(e) => setNipSupervisor(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="••••••"
-              />
-            </div>
-          ) : null}
-        </div>
+        <FormField label="Departamento del puesto">
+          <Select aria-label="Departamento del puesto" value={departamentoId} onChange={(e) => setDepartamentoId(e.target.value)}>
+            <option value="">Sin departamento asignado</option>
+            {departamentos.filter((d) => d.activo || d._id === departamentoId).map((d) => <option key={d._id} value={d._id}>{d.nombre}{d.activo ? "" : " (inactivo)"}</option>)}
+          </Select>
+          <p className="mt-1 text-xs text-black/75">Crea o edita los departamentos en la pestaña Departamentos.</p>
+        </FormField>
+        <p className="text-sm text-black/75">{requiereNipCaja(rol) ? "Gerente de tienda: utiliza NIP para autorizar operaciones de caja." : "Este puesto no requiere NIP personal."}</p>
 
         <div>
           <p className="mb-2 text-sm font-medium text-black/70">
@@ -502,7 +495,10 @@ function RolModal({ rol, onClose, onGuardado }: { rol: Rol | null; onClose: () =
 // ----------------------------------------------------------------- Pantalla ---
 
 export function UsuariosRolesManager() {
-  const [tab, setTab] = useState<"usuarios" | "roles">("usuarios");
+  const [tab, setTab] = useState<"usuarios" | "roles" | "departamentos">("usuarios");
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
+  const [filtroDepartamento, setFiltroDepartamento] = useState("");
+  const [errorCarga, setErrorCarga] = useState("");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
@@ -530,12 +526,13 @@ export function UsuariosRolesManager() {
     return (compararTexto(campoA, campoB) || compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (orden === "nombre-desc" ? -1 : 1);
   }), [usuarios, estado, filtroRol, filtroSucursal, busqueda, orden]);
   const rolesVisibles = useMemo(() => roles.filter((r) =>
+    (!filtroDepartamento || (filtroDepartamento === "sin" ? !r.departamentoId : r.departamentoId === filtroDepartamento)) &&
     (!ambitoRol || r.ambito === ambitoRol) &&
     (estadoRol === "todos" || r.activo === (estadoRol === "activos")) &&
     coincideBusqueda(`${r.nombre} ${r.descripcion} ${r.permisos.map((p) => PERMISOS.find((permiso) => permiso.clave === p)?.etiqueta ?? "").join(" ")}`, busquedaRol)
-  ).sort((a, b) => (compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (ordenRol === "nombre-desc" ? -1 : 1)), [roles, ambitoRol, estadoRol, busquedaRol, ordenRol]);
+  ).sort((a, b) => (compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (ordenRol === "nombre-desc" ? -1 : 1)), [roles, filtroDepartamento, ambitoRol, estadoRol, busquedaRol, ordenRol]);
   const limpiarUsuarios = () => { setBusqueda(""); setEstado("todos"); setFiltroRol(""); setFiltroSucursal(""); setOrden("nombre-asc"); };
-  const limpiarRoles = () => { setBusquedaRol(""); setAmbitoRol(""); setEstadoRol("todos"); setOrdenRol("nombre-asc"); };
+  const limpiarRoles = () => { setFiltroDepartamento(""); setBusquedaRol(""); setAmbitoRol(""); setEstadoRol("todos"); setOrdenRol("nombre-asc"); };
 
 
   const [usuarioModal, setUsuarioModal] = useState<Usuario | null>(null);
@@ -545,13 +542,17 @@ export function UsuariosRolesManager() {
 
   async function cargar() {
     setCargando(true);
+    setErrorCarga("");
+    try {
     const res = await fetch("/api/usuarios");
     if (res.ok) {
       const data = await res.json();
+      setDepartamentos(data.departamentos ?? []);
       setUsuarios(data.usuarios ?? []);
       setRoles(data.roles ?? []);
       setSucursales(data.sucursales ?? []);
-    }
+    } else { setErrorCarga("No se pudo cargar la información. Vuelve a intentar."); }
+    } catch { setErrorCarga("No se pudo conectar. Vuelve a intentar."); }
     setCargando(false);
   }
 
@@ -563,7 +564,7 @@ export function UsuariosRolesManager() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-1.5">
-        {(["usuarios", "roles"] as const).map((valor) => (
+        {(["usuarios", "roles", "departamentos"] as const).map((valor) => (
           <button
             key={valor}
             type="button"
@@ -572,12 +573,13 @@ export function UsuariosRolesManager() {
               tab === valor ? "bg-titos-green-600 text-white" : "bg-black/5 text-black/60 hover:bg-black/10"
             }`}
           >
-            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : `Roles (${roles.length})`}
+            {valor === "usuarios" ? `Usuarios (${usuarios.length})` : valor === "roles" ? `Puestos (${roles.length})` : `Departamentos (${departamentos.length})`}
           </button>
         ))}
       </div>
 
-      {tab === "usuarios" ? (
+      {errorCarga ? <p role="alert" className="text-red-700">{errorCarga} <Button variant="ghost" onClick={cargar}>Reintentar</Button></p> : null}
+      {tab === "departamentos" ? <DepartamentosManager departamentos={departamentos} puestos={roles} onGuardado={cargar} /> : tab === "usuarios" ? (
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold text-titos-green-900">Usuarios del sistema</h2>
@@ -643,6 +645,7 @@ export function UsuariosRolesManager() {
                         >
                           {rolMostrado(u)}
                         </span>
+                        {u.permisosIndividuales !== null && u.permisosIndividuales !== undefined ? <p className="mt-1 text-xs text-black/75">Permisos personalizados</p> : null}
                       </td>
                       <td className="py-2 pr-3"><span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span></td>
                       <td className="py-2 pr-3 text-right">
@@ -660,22 +663,22 @@ export function UsuariosRolesManager() {
       ) : (
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-semibold text-titos-green-900">Roles y permisos</h2>
-            <Button onClick={() => setCreandoRol(true)}>+ Nuevo rol</Button>
+            <h2 className="font-semibold text-titos-green-900">Puestos y permisos</h2>
+            <Button onClick={() => setCreandoRol(true)}>+ Nuevo puesto</Button>
           </div>
           <p className="mb-4 text-sm text-black/50">
-            Un rol es un conjunto de permisos. Lo que un rol no incluye no aparece en el menú y tampoco se puede abrir
-            escribiendo la dirección a mano: el servidor lo valida igual.
+            Cada puesto puede pertenecer a un departamento y define permisos iniciales. Al crear o editar un usuario puedes personalizar sus funciones sin cambiar los accesos de sus compañeros.
           </p>
 
           <div className="mb-4 space-y-3">
             <FormField label="Buscar rol"><Input type="search" aria-label="Buscar rol" icon={Search} className="border-black/50" placeholder="Nombre, descripción o permiso" value={busquedaRol} onChange={(e) => setBusquedaRol(e.target.value)} /></FormField>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <FormField label="Departamento"><Select aria-label="Filtrar puestos por departamento" value={filtroDepartamento} onChange={(e) => setFiltroDepartamento(e.target.value)}><option value="">Todos los departamentos</option><option value="sin">Sin departamento</option>{departamentos.map((d) => <option key={d._id} value={d._id}>{d.nombre}</option>)}</Select></FormField>
               <FormField label="Ámbito"><Select aria-label="Ámbito del rol" className="border-black/50" value={ambitoRol} onChange={(e) => setAmbitoRol(e.target.value)}><option value="">Todos los ámbitos</option><option value="matriz">Matriz</option><option value="sucursal">Sucursal</option></Select></FormField>
               <FormField label="Estado"><Select aria-label="Estado del rol" className="border-black/50" value={estadoRol} onChange={(e) => setEstadoRol(e.target.value)}><option value="todos">Todos</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option></Select></FormField>
               <FormField label="Ordenar"><Select aria-label="Ordenar roles" className="border-black/50" value={ordenRol} onChange={(e) => setOrdenRol(e.target.value)}><option value="nombre-asc">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option></Select></FormField>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" className="text-sm text-black/70">{cargando ? "Cargando roles…" : `${rolesVisibles.length} de ${roles.length} roles`}</p><Button variant="ghost" onClick={limpiarRoles} disabled={!busquedaRol && !ambitoRol && estadoRol === "todos" && ordenRol === "nombre-asc"}>Limpiar filtros</Button></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" className="text-sm text-black/70">{cargando ? "Cargando roles…" : `${rolesVisibles.length} de ${roles.length} roles`}</p><Button variant="ghost" onClick={limpiarRoles} disabled={!filtroDepartamento && !busquedaRol && !ambitoRol && estadoRol === "todos" && ordenRol === "nombre-asc"}>Limpiar filtros</Button></div>
           </div>
           {cargando ? (
             <p className="text-sm text-black/50">Cargando...</p>
@@ -707,6 +710,7 @@ export function UsuariosRolesManager() {
                       </span>
                     ) : null}
                   </div>
+                  <p className="mb-1 text-sm text-black/75">Departamento: {departamentos.find((d) => d._id === r.departamentoId)?.nombre ?? "Sin asignar"}</p>
                   {r.descripcion ? <p className="mb-2 text-sm text-black/50">{r.descripcion}</p> : null}
                   <p className="text-xs text-black/40">
                     {r.permisos.length} de {permisosDeAmbito(r.ambito).length} permisos
@@ -728,6 +732,7 @@ export function UsuariosRolesManager() {
           usuario={usuarioModal}
           roles={roles}
           sucursales={sucursales}
+          departamentos={departamentos}
           onClose={() => {
             setCreandoUsuario(false);
             setUsuarioModal(null);
@@ -743,6 +748,7 @@ export function UsuariosRolesManager() {
       {creandoRol || rolModal ? (
         <RolModal
           rol={rolModal}
+          departamentos={departamentos}
           onClose={() => {
             setCreandoRol(false);
             setRolModal(null);

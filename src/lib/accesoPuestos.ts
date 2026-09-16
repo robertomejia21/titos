@@ -4,14 +4,14 @@ import type { SessionPayload } from "./auth";
 export function accesoApiPuesto(s: SessionPayload, pathname: string, method: string): boolean {
   if (s.role === "sucursal" && tienePermiso(s, "reportes.globales") && ["GET", "HEAD"].includes(method) &&
     (pathname === "/api/sucursales" || pathname === "/api/cortes" || pathname === "/api/cortes/diario" || /^\/api\/reportes\/(productos|historial-ventas|arqueos)(\/pdf)?$/.test(pathname))) return true;
-  if (!s.perfilDocumentoId) return true;
-  const tiene = (...permisos: string[]) => permisos.some((p) => tienePermiso(s, p));
+  if (!s.perfilDocumentoId && !s.permisosIndividuales) return true;
   const get = method === "GET" || method === "HEAD";
+  const tiene = (...permisos: string[]) => permisos.some((p) => tienePermiso(s, p) && (get || !s.permisosSoloConsulta?.includes(p)));
   const parte = pathname.split("/").filter(Boolean);
   const recurso = parte[1];
   if (recurso === "auth") return true;
   if (recurso === "busqueda") return get;
-  if (recurso === "usuarios" || recurso === "roles") return tiene("usuarios.administrar");
+  if (recurso === "usuarios" || recurso === "roles" || recurso === "departamentos") return tiene("usuarios.administrar");
   if (recurso === "configuracion") return tiene("configuracion.editar") || (get && tiene("pos.vender"));
   if (recurso === "reportes") {
     if (parte[2] === "arqueos") return get && tiene("cortes.ver");
@@ -20,26 +20,36 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
     return get && tiene("reportes.ver");
   }
   if (recurso === "cortes") return get && tiene("cortes.ver", "ventas.historial");
-  if (recurso === "productos") return tiene("productos.administrar") || (get && tiene("pos.vender", "inventario.administrar", "pedidos.surtir", "compras.administrar"));
+  if (recurso === "productos") return tiene("productos.administrar") || (get && tiene("pos.vender", "inventario.administrar", "pedidos.surtir", "compras.administrar", "precios.actualizar", "pedidos.crear", "pedidos.recibir"));
   if (recurso === "producto-proveedor") return tiene("productos.administrar");
   if (recurso === "proveedores") return tiene("proveedores.administrar") || (get && tiene("compras.administrar"));
   if (["lineas", "categorias"].includes(recurso)) return tiene("catalogos.administrar") || (get && tiene("productos.administrar", "inventario.administrar", "pos.vender", "precios.actualizar"));
+  if (recurso === "sucursal-usuarios") return tiene("sucursal.usuarios");
+  if (recurso === "prestamos") return tiene("prestamos.operar");
+  if (recurso === "whatsapp") return tiene("configuracion.editar");
   if (recurso === "sucursales") {
+    if (s.role === "sucursal" && parte[2] === s.sucursalId && method === "PATCH") return tiene("sucursal.ajustes");
     if (parte[3] === "usuario") return tiene("usuarios.administrar");
-    return tiene("catalogos.administrar") || (get && tiene("reportes.productos", "reportes.ventas", "cortes.ver", "facturas.administrar", "usuarios.administrar", "precios.actualizar", "pedidos.surtir"));
+    return tiene("catalogos.administrar") || (get && tiene("reportes.productos", "reportes.ventas", "cortes.ver", "facturas.administrar", "usuarios.administrar", "precios.actualizar", "pedidos.surtir", "prestamos.operar", "pedidos.crear", "pedidos.recibir", "sucursal.ajustes"));
   }
   if (["empleados", "terminales", "vales"].includes(recurso)) return tiene("catalogos.administrar") || (get && recurso !== "empleados" && tiene("pos.vender"));
   if (recurso === "inventario") return parte[2] === "entrada" && method === "POST" && tiene("inventario.administrar");
-  if (recurso === "inventario-sucursal") return get && tiene("pos.vender", "inventario.administrar");
+  if (recurso === "inventario-sucursal") return get && tiene("pos.vender", "inventario.administrar", "pedidos.crear", "pedidos.recibir", "prestamos.operar");
   if (recurso === "promociones" && parte[2] === "pos") return get && tiene("pos.vender");
   if (recurso === "promociones") return tiene("precios.actualizar");
   if (recurso === "actualizacion-precios") return tiene("precios.actualizar");
   if (recurso === "bitacora") return get && tiene("bitacora.ver");
   if (["ordenes-compra", "necesidades-compra", "solicitudes-producto"].includes(recurso)) return tiene("compras.administrar");
-  if (recurso === "pedidos") return tiene("pedidos.surtir");
+  if (recurso === "pedidos") {
+    if (s.role === "matriz") return tiene("pedidos.surtir");
+    if (get) return tiene("pedidos.crear", "pedidos.recibir");
+    if (parte[3] === "recibir") return tiene("pedidos.recibir");
+    return parte.length === 2 && method === "POST" && tiene("pedidos.crear");
+  }
   if (recurso === "facturas") return tiene("facturas.administrar");
   if (recurso === "clientes") return tiene("clientes.administrar") || (get && tiene("pos.vender", "facturas.administrar"));
   if (recurso === "ventas") {
+    if (parte[2] === "corregir-dia") return tiene("configuracion.editar");
     if (parte[3] === "cancelar") return tiene("pos.cancelar");
     return get ? tiene("ventas.historial", "facturas.administrar") : method === "POST" && parte.length === 2 && tiene("pos.vender");
   }
@@ -53,7 +63,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
 }
 
 export function accesoPaginaPuesto(s: SessionPayload, pathname: string): boolean {
-  if (!s.perfilDocumentoId) return true;
+  if (!s.perfilDocumentoId && !s.permisosIndividuales) return true;
   if (pathname === "/matriz/accesos" || pathname === "/sucursal/accesos") return true;
   if (pathname === "/matriz") return tienePermiso(s, "reportes.ver");
   if (pathname === "/sucursal") return tienePermiso(s, "pos.vender");
