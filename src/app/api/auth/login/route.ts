@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
     sucursalRol: user.role === "sucursal" ? ((user.sucursalRol as "admin" | "ventas") ?? "admin") : null,
     sucursalId: user.sucursalId ? String(user.sucursalId) : null,
     permisos: await permisosDeUsuario(user),
+    permisosIndividuales: Array.isArray(user.permisosIndividuales),
+    permisosSoloConsulta: user.permisosSoloConsulta ?? [],
   });
 
   const res = NextResponse.json({

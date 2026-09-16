@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   await connectDB();
 
   try {
-    const motivo = await MotivoPos.findByIdAndUpdate(id, update, { new: true, runValidators: true }).lean();
+    const motivo = await MotivoPos.findByIdAndUpdate(id, update, { returnDocument: "after", runValidators: true }).lean();
     if (!motivo) return notFound("Motivo no encontrado");
     return NextResponse.json({ ...motivo, _id: String((motivo as { _id: unknown })._id) });
   } catch (err) {

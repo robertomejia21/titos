@@ -28,6 +28,8 @@ export type SessionPayload = {
    * traen; `permisosDeSesion()` los deduce del rol viejo.
    */
   permisos?: string[];
+  permisosIndividuales?: boolean;
+  permisosSoloConsulta?: string[];
   perfilDocumentoId?: string;
 };
 

@@ -13,6 +13,9 @@ const UserSchema = new Schema(
     // Perfil de permisos configurable. Cuando está presente manda sobre
     // `sucursalRol`; cuando no, se usa el comportamiento anterior.
     rolId: { type: Schema.Types.ObjectId, ref: "Rol", default: null },
+    // null hereda el puesto; [] es una decisión explícita de no dar accesos.
+    permisosIndividuales: { type: [String], default: null },
+    permisosSoloConsulta: { type: [String], default: [] },
     sucursalId: { type: Schema.Types.ObjectId, ref: "Sucursal", default: null },
     // NIP de 6 dígitos del encargado de turno, con el que autoriza cancelaciones
     // y retiros en el punto de venta. Se guarda hasheado y nunca sale por la

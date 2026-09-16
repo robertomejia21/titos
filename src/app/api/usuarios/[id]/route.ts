@@ -1,3 +1,4 @@
+import { validarPermisosIndividuales } from "@/lib/permisosIndividuales";
 import { NextRequest, NextResponse } from "next/server";
 import { requiereNipCaja } from "@/lib/nipCaja";
 import { connectDB } from "@/lib/db";
@@ -37,8 +38,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Quien edita no puede quitarse a sí mismo el acceso: sería la forma más
   // fácil de dejar el sistema sin nadie que pueda administrarlo.
   const esPropio = String(usuario._id) === session.userId;
-  if (esPropio && ("activo" in body || "rolId" in body || "role" in body)) {
-    return badRequest("No puedes cambiar tu propio rol ni desactivar tu usuario");
+  if (esPropio && ("activo" in body || "rolId" in body || "role" in body || "permisosIndividuales" in body || "permisosSoloConsulta" in body)) {
+    return badRequest("Otro administrador debe cambiar tus permisos, puesto o estado");
   }
 
   if ("nombre" in body) {
@@ -74,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("rolId" in body) {
     const rolId = body.rolId ? String(body.rolId) : null;
     if (rolId) {
-      const rol = await RolModel.findById(rolId).select("ambito activo retirado esSupervisor").lean();
+      const rol = await RolModel.findById(rolId).select("ambito activo retirado esSupervisor codigoSistema perfilDocumentoId").lean();
       if (!rol) return badRequest("El rol no existe");
       if (rol.retirado) return badRequest("Este rol fue sustituido. Elige un puesto del catálogo actual.");
     if (!rol.activo) return badRequest("Ese rol está desactivado");
@@ -84,25 +85,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // el candado se saltaría dando de alta un cajero y editándolo enseguida.
       // Solo se pide cuando el rol cambia: guardar el nombre de un supervisor
       // que ya lo era no tiene por qué exigirlo.
-      if (rol.esSupervisor && String(usuario.rolId ?? "") !== rolId) {
+      if (requiereNipCaja(rol) && String(usuario.rolId ?? "") !== rolId) {
         const autorizacion = await verificarNipCreacionSupervisor(
           String(body.nipCreacionSupervisor ?? "").trim()
         );
         if (!autorizacion.ok) return badRequest(autorizacion.error);
       }
-      if (rol.esSupervisor && !usuario.nipOperacionHash && !body.nipOperacion) {
+      if (requiereNipCaja(rol) && !usuario.nipOperacionHash && !body.nipOperacion) {
         return badRequest("Asigna un NIP personal al supervisor");
       }
     }
     usuario.rolId = rolId;
   }
 
-  const rolFinal = usuario.rolId ? await RolModel.findById(usuario.rolId).select("nombre perfilDocumentoId esSupervisor").lean() : null;
+  const rolFinal = usuario.rolId ? await RolModel.findById(usuario.rolId).select("nombre codigoSistema perfilDocumentoId esSupervisor").lean() : null;
   const usaNip = requiereNipCaja(rolFinal, usuario);
   const nuevoNip = String(body.nipOperacion ?? "").trim();
-  if (!usaNip && nuevoNip) return badRequest("El NIP personal es solo para cajeros y supervisores de caja");
-  if (usaNip && !usuario.nipOperacionHash && !nuevoNip) return badRequest("Asigna un NIP personal al cajero o supervisor de caja");
-  // Vacío conserva el NIP; cambiar de puesto no elimina credenciales existentes.
+  if (!usaNip && nuevoNip) return badRequest("El NIP personal es solo para el gerente de tienda");
+  if (usaNip && !usuario.nipOperacionHash && !nuevoNip) return badRequest("Asigna un NIP personal al gerente de tienda");
+  if (!usaNip) { usuario.nipOperacionHash = ""; usuario.nipOperacionHuella = undefined; }
   if (usaNip && nuevoNip) {
     try {
       Object.assign(usuario, await prepararNipPersonal(nuevoNip, id));
@@ -110,6 +111,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (error instanceof NipPersonalError) return badRequest(error.message);
       throw error;
     }
+  }
+
+  if ("permisosIndividuales" in body || "permisosSoloConsulta" in body) {
+    try {
+      Object.assign(usuario, validarPermisosIndividuales({ permisosIndividuales: usuario.permisosIndividuales ?? null, permisosSoloConsulta: usuario.permisosSoloConsulta ?? [], ...body }, usuario.role));
+    } catch (error) { return badRequest((error as Error).message); }
   }
 
   if ("activo" in body) usuario.activo = Boolean(body.activo);

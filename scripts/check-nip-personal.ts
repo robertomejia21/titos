@@ -13,14 +13,15 @@ import { buscarSupervisorPorNip } from "../src/lib/supervisores";
 import { requiereNipCaja } from "../src/lib/nipCaja";
 import User from "../src/models/User";
 import Rol from "../src/models/Rol";
+import Configuracion from "../src/models/Configuracion";
 
 async function main() {
-  assert.equal(requiereNipCaja({ perfilDocumentoId: "pos-cajero" }), true);
-  assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: true }), true);
-  assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: false }), true);
+  assert.equal(requiereNipCaja({ perfilDocumentoId: "pos-cajero" }), false);
+  assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: true }), false);
+  assert.equal(requiereNipCaja({ nombre: "Supervisor", esSupervisor: false }), false);
   assert.equal(requiereNipCaja({ nombre: "Compras" }), false);
   assert.equal(requiereNipCaja({ nombre: "Administrador de sucursal" }), false);
-  assert.equal(requiereNipCaja(null, { role: "sucursal", sucursalRol: "ventas" }), true);
+  assert.equal(requiereNipCaja(null, { role: "sucursal", sucursalRol: "ventas" }), false);
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   process.env.MONGODB_URI = mongo.getUri("titos_nip_personal_pruebas");
   process.env.JWT_SECRET = "solo-pruebas-nip-personal-2026";
@@ -28,19 +29,20 @@ async function main() {
   try {
     await connectDB();
     const admin = await User.create({ nombre: "Admin prueba", email: "pruebas@titos.local", role: "matriz", passwordHash: await hashPassword("Pruebas-locales-2026") });
-    const rol = await Rol.create({ nombre: "Caja", ambito: "matriz", permisos: ["pos.vender"], esSupervisor: false });
+    await Configuracion.create({ clave: "general", nipCreacionSupervisorHash: await hashPassword("998877") });
+    const rol = await Rol.create({ nombre: "Gerente prueba", codigoSistema: "gerente-tienda", ambito: "matriz", permisos: ["pos.vender"], esSupervisor: false });
     const token = await signSession({ userId: String(admin._id), email: admin.email, nombre: admin.nombre, role: "matriz", sucursalId: null });
     const request = (method: string, body?: unknown, auth = token) => new NextRequest("http://localhost/api/usuarios", {
       method, headers: { cookie: `titos_session=${auth}`, "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    const datos = { nombre: "Persona prueba", email: "persona@titos.local", role: "matriz", rolId: String(rol._id), password: "Pruebas-locales-2026", nipOperacion: "123456" };
+    const datos = { nombre: "Persona prueba", email: "persona@titos.local", role: "matriz", rolId: String(rol._id), password: "Pruebas-locales-2026", nipOperacion: "123456", nipCreacionSupervisor: "998877" };
     assert.equal((await POST(request("POST", datos, ""))).status, 401);
     assert.equal((await POST(request("POST", { ...datos, nipOperacion: "" }))).status, 400);
     const alta = await POST(request("POST", datos));
     assert.equal(alta.status, 201, await alta.clone().text());
     const { _id: id } = await alta.json();
     assert.equal((await POST(request("POST", { ...datos, email: "otra@titos.local" }))).status, 400);
-    assert.equal(await buscarSupervisorPorNip("123456"), null, "Tener NIP no convierte al usuario en supervisor");
+    assert.equal((await buscarSupervisorPorNip("123456"))?.id, id, "Solo el gerente autoriza con su NIP");
     assert.equal((await PATCH(request("PATCH", { nipOperacion: "123456" }), { params: Promise.resolve({ id }) })).status, 200);
     assert.equal((await PATCH(request("PATCH", { nipOperacion: null }), { params: Promise.resolve({ id }) })).status, 200);
     await User.create({ nombre: "NIP anterior", email: "anterior@titos.local", role: "matriz", passwordHash: "no-login", nipOperacionHash: await hashPassword("654321"), activo: false });
@@ -70,7 +72,7 @@ async function main() {
     assert.equal(listado.usuarios.find((u: { _id: string }) => u._id === id).tieneNipOperacion, true);
     assert.equal((await PATCH(request("PATCH", { nombre: "Admin actualizado" }), { params: Promise.resolve({ id: String(admin._id) }) })).status, 200);
     assert.deepEqual(PERFILES_DOCUMENTO.map((p) => p.pagina), [1,2,3,4,5,6,7,8,9]);
-    console.log("OK: NIP personal de operador, validación, duplicados heredados, concurrencia, edición, privacidad y nueve páginas del PDF");
+    console.log("OK: NIP exclusivo de gerente, validación, duplicados heredados, concurrencia, edición, privacidad y nueve páginas del PDF");
     if (process.argv.includes("--serve")) {
       server = spawn("npm", ["run", "dev", "--", "--port", "3100"], { stdio: "inherit", env: { ...process.env } });
       await new Promise<void>((resolve) => { server!.on("exit", () => resolve()); process.on("SIGTERM", () => { server?.kill(); resolve(); }); });

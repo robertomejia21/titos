@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (update.whatsapp) update.whatsapp = normalizarWhatsAppMX(update.whatsapp as string);
 
-  const empleado = await Empleado.findByIdAndUpdate(id, update, { new: true });
+  const empleado = await Empleado.findByIdAndUpdate(id, update, { returnDocument: "after" });
   if (!empleado) return notFound("Empleado no encontrado");
 
   return NextResponse.json(empleado);

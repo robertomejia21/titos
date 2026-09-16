@@ -9,6 +9,7 @@ const RolSchema = new Schema(
   {
     nombre: { type: String, required: true, unique: true, trim: true },
     descripcion: { type: String, default: "", trim: true },
+    departamentoId: { type: Schema.Types.ObjectId, ref: "Departamento", default: null },
     // Un rol de sucursal no puede traer permisos de matriz ni al revés: el
     // ámbito es lo que decide qué casillas se ofrecen al editarlo.
     ambito: { type: String, enum: AMBITOS_ROL, required: true },

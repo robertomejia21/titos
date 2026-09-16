@@ -230,10 +230,13 @@ export function permisosDeSesion(sesion: {
 }
 
 export function tienePermiso(
-  sesion: { role?: string | null; sucursalRol?: string | null; permisos?: string[] | null },
+  sesion: { role?: string | null; sucursalRol?: string | null; permisos?: string[] | null; permisosIndividuales?: boolean },
   clave: string
 ) {
   const permisos = permisosDeSesion(sesion);
+  if (sesion.permisosIndividuales) {
+    return permisos.includes(clave) || (["reportes.productos", "reportes.ventas", "cortes.ver"].includes(clave) && permisos.includes("reportes.globales"));
+  }
   const grupos: Record<string, string> = {
     "reportes.productos": "reportes.ver",
     "reportes.ventas": "reportes.ver",

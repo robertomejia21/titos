@@ -20,7 +20,7 @@ export async function proxy(req: NextRequest) {
 
   if (isApiRoute) {
     if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    if (!accesoApiPuesto(session, pathname, req.method)) return NextResponse.json({ error: "Tu puesto no incluye permiso para esta acción" }, { status: 403 });
+    if (!accesoApiPuesto(session, pathname, req.method)) return NextResponse.json({ error: "Tus permisos no permiten esta acción. Revisa si tienes acceso de solo consulta." }, { status: 403 });
     return NextResponse.next();
   }
 

@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("alias" in body && !update.alias) return badRequest("El nombre de la terminal no puede quedar vacío");
 
   try {
-    const terminal = await TerminalPago.findByIdAndUpdate(id, update, { new: true });
+    const terminal = await TerminalPago.findByIdAndUpdate(id, update, { returnDocument: "after" });
     if (!terminal) return notFound("Terminal no encontrada");
     return NextResponse.json(terminal);
   } catch (err) {

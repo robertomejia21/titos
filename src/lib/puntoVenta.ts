@@ -16,7 +16,7 @@ export async function obtenerMostradorMatriz() {
   return Sucursal.findOneAndUpdate(
     { esMatriz: true },
     { $setOnInsert: { nombre: NOMBRE_MOSTRADOR_MATRIZ, esMatriz: true } },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   );
 }
 

@@ -1,3 +1,4 @@
+import { departamentoValido } from "@/lib/departamentos";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import RolModel from "@/models/Rol";
@@ -31,6 +32,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const rol = await RolModel.findById(id);
   if (!rol) return notFound("Rol no encontrado");
 
+  if ("departamentoId" in body) {
+    if (!(await departamentoValido(body.departamentoId))) return badRequest("Elige un departamento activo.");
+    rol.departamentoId = body.departamentoId || null;
+  }
+
   if ("nombre" in body) {
     const nombre = String(body.nombre).trim();
     if (!nombre) return badRequest("El nombre del rol no puede quedar vacío");
@@ -48,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // razón que crearlo así: es el marcado, no el nombre, lo que abre el candado.
   if ("esSupervisor" in body) {
     const esSupervisor = body.esSupervisor === true;
+    if (esSupervisor !== !!rol.esSupervisor) return badRequest("La autorización con NIP corresponde al puesto Gerente de tienda.");
     if (esSupervisor && !rol.esSupervisor) {
       const autorizacion = await verificarNipCreacionSupervisor(
         String(body.nipCreacionSupervisor ?? "").trim()

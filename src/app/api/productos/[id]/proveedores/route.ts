@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       esPrincipal: Boolean(body.esPrincipal),
       activo: true,
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   ).populate("proveedorId", "nombre");
 
   return NextResponse.json(enlace, { status: 201 });

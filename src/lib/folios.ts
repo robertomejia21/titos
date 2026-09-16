@@ -31,7 +31,7 @@ export async function siguienteFolio(prefijo: string): Promise<string> {
       const secuencia = await FolioSecuencia.findOneAndUpdate(
         { prefijo: clave },
         { $inc: { consecutivo: 1 } },
-        { new: true, upsert: true }
+        { returnDocument: "after", upsert: true }
       );
       return formatearFolio(clave, secuencia.consecutivo);
     } catch (err) {
