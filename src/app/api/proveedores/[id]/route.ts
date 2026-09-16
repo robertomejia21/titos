@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (update.whatsapp) update.whatsapp = normalizarWhatsAppMX(update.whatsapp as string);
 
-  const proveedor = await Proveedor.findByIdAndUpdate(id, update, { new: true });
+  const proveedor = await Proveedor.findByIdAndUpdate(id, update, { returnDocument: "after" });
   if (!proveedor) return notFound("Proveedor no encontrado");
 
   return NextResponse.json(proveedor);

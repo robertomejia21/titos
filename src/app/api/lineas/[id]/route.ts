@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
-    const linea = await LineaProducto.findByIdAndUpdate(id, update, { new: true });
+    const linea = await LineaProducto.findByIdAndUpdate(id, update, { returnDocument: "after" });
     if (!linea) return notFound("Línea no encontrada");
     return NextResponse.json(linea);
   } catch (err) {

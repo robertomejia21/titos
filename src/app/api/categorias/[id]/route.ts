@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
-    const categoria = await CategoriaProducto.findByIdAndUpdate(id, update, { new: true });
+    const categoria = await CategoriaProducto.findByIdAndUpdate(id, update, { returnDocument: "after" });
     if (!categoria) return notFound("Categoría no encontrada");
     return NextResponse.json(categoria);
   } catch (err) {

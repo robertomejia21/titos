@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (update.whatsapp) update.whatsapp = normalizarWhatsAppMX(update.whatsapp as string);
   if ("zonaHoraria" in update && !esZonaHorariaValida(update.zonaHoraria)) return badRequest("Zona horaria inválida");
 
-  const sucursal = await Sucursal.findByIdAndUpdate(id, update, { new: true });
+  const sucursal = await Sucursal.findByIdAndUpdate(id, update, { returnDocument: "after" });
   if (!sucursal) return notFound("Sucursal no encontrada");
 
   return NextResponse.json(sucursal);

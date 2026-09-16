@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const pedido = await Pedido.findByIdAndUpdate(
     id,
     { repartidorId: body.repartidorId || null },
-    { new: true }
+    { returnDocument: "after" }
   )
     .populate("sucursalId", "nombre whatsapp")
     .populate("repartidorId", "nombre whatsapp puesto");
