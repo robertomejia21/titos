@@ -36,6 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (String(venta.sucursalId) !== ctx.sucursalId) return forbidden();
   if (venta.estado === "cancelada") return badRequest("Esta venta ya está cancelada");
 
+  if (venta.facturaGlobalId) return conflict("La venta está incluida en una factura global. Cancela primero la global interna desde Facturación.");
+
   // Si ya se facturó, primero hay que cancelar la factura: si no, quedaría un
   // documento fiscal amparando una venta que ya no existe.
   const factura = await Factura.findOne({ ventaId: venta._id, estado: "generada" }).select("folio").lean();

@@ -1,0 +1,50 @@
+export type VentaGlobal = {
+  ventaId: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  folio: string;
+  fecha: string;
+  total: number;
+  esVentas2: boolean;
+  credito: number;
+};
+export type DocumentoGlobal = {
+  _id: string;
+  folio: string;
+  alcance: string;
+  dia: string;
+  sucursalNombre: string;
+  estado: "generada" | "cancelada";
+  total: number;
+  totalConsulta: number;
+  ventas: VentaGlobal[];
+  creadoPorNombre: string;
+  createdAt: string;
+  motivoCancelacion: string;
+};
+export type ResumenGlobal = {
+  dia: string;
+  hoy: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  zonaHoraria: string;
+  huella: string;
+  ventas: number;
+  totalVentas: number;
+  totalIndividuales: number;
+  totalGlobales: number;
+  totalPendiente: number;
+  diferencia: number;
+  credito: number;
+  devolucionesDia: number;
+  netoTrasDevoluciones: number;
+  pendientes: VentaGlobal[];
+  individuales: {
+    folio: string;
+    ventaFolio: string;
+    total: number;
+    timbrada: boolean;
+  }[];
+  globales: DocumentoGlobal[];
+  avisos: string[];
+};

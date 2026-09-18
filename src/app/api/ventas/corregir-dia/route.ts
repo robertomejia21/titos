@@ -19,9 +19,10 @@ export async function POST(req:NextRequest) {
   const ventas = await Venta.find({folio:{$in:candidatosFolioVenta(body.folio)},estado:"completada"}).limit(2);
   if (ventas.length!==1) return badRequest("Usa el folio completo de una venta vigente y única.");
   const venta = ventas[0];
+  if (venta.facturaGlobalId) return badRequest("La venta está incluida en una global. Cancela primero la global interna antes de cambiar su día.");
   if (await Factura.exists({ventaId:venta._id,estado:{$ne:"cancelada"}})) return badRequest("La venta tiene una factura vigente. Requiere ajuste fiscal; no se puede cambiar su día aquí.");
   if (venta.corte===dia) return badRequest("La venta ya está en ese día.");
-  const actualizada = await Venta.findOneAndUpdate({_id:venta._id,corte:venta.corte,estado:"completada"},{$set:{corte:dia},$push:{correccionesDia:{anterior:venta.corte,nuevo:dia,motivo:body.motivo.trim(),usuarioId:usuario.userId,fecha:new Date()}}},{returnDocument:"after"});
+  const actualizada = await Venta.findOneAndUpdate({_id:venta._id,corte:venta.corte,estado:"completada",facturaGlobalId:null},{$set:{corte:dia},$push:{correccionesDia:{anterior:venta.corte,nuevo:dia,motivo:body.motivo.trim(),usuarioId:usuario.userId,fecha:new Date()}}},{returnDocument:"after"});
   if (!actualizada) return NextResponse.json({error:"La venta cambió mientras la revisabas. Vuelve a consultar."},{status:409});
   return NextResponse.json({folio:actualizada.folio,diaAnterior:venta.corte,diaNuevo:dia,fechaOriginal:actualizada.fecha,historial:actualizada.correccionesDia,mensaje:"Día del reporte corregido. La fecha original, los pagos y el corte de caja conservan sus registros."});
 }
