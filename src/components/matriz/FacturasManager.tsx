@@ -1,5 +1,6 @@
 "use client";
 
+import { FacturaGlobalManager } from "./FacturaGlobalManager";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -109,7 +110,7 @@ function etiqueta(catalogo: readonly { value: string; label: string }[], value: 
 
 export function FacturasManager() {
   const zonaHoraria = useZonaHoraria();
-  const [tab, setTab] = useState<"porFacturar" | "facturas">("porFacturar");
+  const [tab, setTab] = useState<"porFacturar" | "facturas" | "global">("porFacturar");
   const [sucursales, setSucursales] = useState<SucursalFiltro[]>([]);
 
   const [sucursalId, setSucursalId] = useState("");
@@ -150,6 +151,7 @@ export function FacturasManager() {
   }, [sucursalId, desde, hasta, busqueda]);
 
   const cargar = useCallback(async () => {
+    if (tab === "global") return;
     setLoading(true);
     const ruta = tab === "porFacturar" ? "/api/facturas/ventas" : "/api/facturas";
     const res = await fetch(`${ruta}?${query()}`);
@@ -308,8 +310,10 @@ export function FacturasManager() {
         <Button variant={tab === "facturas" ? "primary" : "ghost"} onClick={() => setTab("facturas")}>
           Facturas emitidas
         </Button>
+        <Button variant={tab === "global" ? "primary" : "ghost"} onClick={() => setTab("global")}>Global del día</Button>
       </div>
 
+      {tab === "global" ? <FacturaGlobalManager sucursales={sucursales} /> : <>
       <FiltrosSucursalFecha
         sucursales={sucursales}
         sucursalId={sucursalId}
@@ -625,6 +629,7 @@ export function FacturasManager() {
         )}
       </Card>
 
+      </>}
       <Card className="mt-6 border-sky-200 bg-sky-50/50">
         <h2 className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
           <Stamp className="h-4.5 w-4.5 text-sky-700" />

@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   await connectDB();
 
   const url = new URL(req.url);
-  const filtro: Record<string, unknown> = { estado: "completada" };
+  const filtro: Record<string, unknown> = { estado: "completada", facturaGlobalId: null };
 
   const sucursalId = url.searchParams.get("sucursalId");
   if (sucursalId) filtro.sucursalId = sucursalId;

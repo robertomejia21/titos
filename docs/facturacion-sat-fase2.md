@@ -105,3 +105,20 @@ edita, se cancela y se vuelve a emitir, y las cancelaciones fuera del mes en cur
 requieren aceptación del receptor. Por eso conviene mantener el paso actual —generar
 primero la factura del sistema, revisarla, y timbrar como acción aparte— en vez de
 timbrar automáticamente al cerrar la venta.
+
+
+## Global diaria interna (18 septiembre 2026)
+
+Confirmación del cliente: todas las tiendas utilizan el mismo RFC. El timbrado sigue pendiente.
+
+En Facturación > Facturas > Global del día se prepara el día anterior por defecto, tomando `Venta.corte` y todas las sucursales. Permite consultar una sucursal, generar una global interna de las ventas sin factura vigente, descargar el PDF, cancelar con motivo y regenerar. Las notas de venta se incluyen; las ventas canceladas y las ya cubiertas por una factura individual o global vigente se excluyen. La elección diaria usa el horario de Mexicali/Tijuana para todas las sucursales y el horario configurado al consultar una sola.
+
+La conciliación utiliza importes guardados en pesos y muestra individuales + globales + pendientes frente a ventas del día. El crédito y las devoluciones pagadas en el día se informan aparte; abonos, fondos y retiros no se facturan como ventas nuevas. No se recalculan IVA/IEPS ni se presenta el concentrado como CFDI. El PDF conserva el resumen al momento de generar.
+
+Las transacciones reservan cada venta y evitan que dos emisiones, o una individual y una global simultáneas, incluyan el mismo ticket. Una vista previa desactualizada requiere recarga. Para una factura individual posterior: cancelar la global interna, generar la individual y regenerar la global con el resto. Se conserva el historial; no se borran documentos.
+
+Para el CFDI global real falta integrar PAC, emisor/CSD, validación de impuestos por operación y cancelación/sustitución fiscal. La regla de receptor genérico y los campos de información global se deben validar con la guía 4.0 vigente:
+- https://wwwmatnp.sat.gob.mx/aplicacion/26989/factura-electronica-en-mis-cuentas
+- https://wwwmat.sat.gob.mx/consultas/35025/formato-de-factura-electronica-%28anexo-20%29
+
+Prueba aislada: `npx tsx scripts/check-factura-global.ts`.

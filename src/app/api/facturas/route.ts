@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose, { isValidObjectId } from "mongoose";
+import { ErrorFacturaGlobal } from "@/lib/facturaGlobal";
 import { connectDB } from "@/lib/db";
 import Factura from "@/models/Factura";
 import Venta from "@/models/Venta";
 import Cliente from "@/models/Cliente";
 import Sucursal from "@/models/Sucursal";
-import { requireSession, unauthorized, forbidden, badRequest, notFound, conflict, generateFolio, todayCorte } from "@/lib/apiAuth";
+import {
+  requireSession,
+  unauthorized,
+  forbidden,
+  badRequest,
+  notFound,
+  conflict,
+  generateFolio,
+  todayCorte,
+} from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
-import { desglosarFactura, formaPagoSat, metodoPagoSat, type ItemVentaLike } from "@/lib/facturas";
+import {
+  desglosarFactura,
+  formaPagoSat,
+  metodoPagoSat,
+  type ItemVentaLike,
+} from "@/lib/facturas";
 import { parseReceptor } from "@/lib/facturaReceptor";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
@@ -38,11 +54,22 @@ export async function GET(req: NextRequest) {
 
   const busqueda = url.searchParams.get("q")?.trim();
   if (busqueda) {
-    const regex = new RegExp(busqueda.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filtro.$or = [{ folio: regex }, { ventaFolio: regex }, { "receptor.rfc": regex }, { "receptor.razonSocial": regex }];
+    const regex = new RegExp(
+      busqueda.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i",
+    );
+    filtro.$or = [
+      { folio: regex },
+      { ventaFolio: regex },
+      { "receptor.rfc": regex },
+      { "receptor.razonSocial": regex },
+    ];
   }
 
-  const facturas = await Factura.find(filtro).sort({ createdAt: -1 }).limit(500).lean();
+  const facturas = await Factura.find(filtro)
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .lean();
   return NextResponse.json(facturas.map((f) => JSON.parse(JSON.stringify(f))));
 }
 
@@ -54,17 +81,26 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const ventaId = String(body?.ventaId ?? "");
-  if (!ventaId) return badRequest("Indica la venta que se va a facturar");
+  if (!isValidObjectId(ventaId))
+    return badRequest("Indica una venta válida para facturar.");
 
   await connectDB();
 
   const venta = await Venta.findById(ventaId).lean();
   if (!venta) return notFound("Venta no encontrada");
-  if (venta.estado !== "completada") return badRequest("Solo se pueden facturar ventas completadas");
+  if (venta.estado !== "completada")
+    return badRequest("Solo se pueden facturar ventas completadas");
 
-  const yaFacturada = await Factura.findOne({ ventaId: venta._id, estado: "generada" }).select("folio").lean();
+  const yaFacturada = await Factura.findOne({
+    ventaId: venta._id,
+    estado: "generada",
+  })
+    .select("folio")
+    .lean();
   if (yaFacturada) {
-    return conflict(`Esta venta ya se facturó con el folio ${(yaFacturada as { folio: string }).folio}`);
+    return conflict(
+      `Esta venta ya se facturó con el folio ${(yaFacturada as { folio: string }).folio}`,
+    );
   }
 
   // Los datos fiscales pueden venir de un cliente ya dado de alta o capturarse a
@@ -89,42 +125,94 @@ export async function POST(req: NextRequest) {
 
   const config = await obtenerConfiguracion();
   const tasaIva = Number(body?.tasaIva ?? config.tasaIvaFactura ?? 0);
-  if (!Number.isFinite(tasaIva) || tasaIva < 0 || tasaIva > 100) return badRequest("Tasa de IVA inválida");
+  if (!Number.isFinite(tasaIva) || tasaIva < 0 || tasaIva > 100)
+    return badRequest("Tasa de IVA inválida");
 
   const pagos = (venta.pagos ?? []) as { metodoPago: string; monto: number }[];
   const { conceptos, subtotal, iva, total } = desglosarFactura(
     (venta.items ?? []) as unknown as ItemVentaLike[],
     venta.total,
-    tasaIva
+    tasaIva,
   );
 
-  const sucursal = await Sucursal.findById(venta.sucursalId).select("nombre").lean();
+  const sucursal = await Sucursal.findById(venta.sucursalId)
+    .select("nombre")
+    .lean();
   const comentarioInicial = String(body?.comentario ?? "").trim();
 
-  const factura = await Factura.create({
-    folio: generateFolio("FAC"),
-    serie: String(body?.serie ?? "A").trim().toUpperCase().slice(0, 5) || "A",
-    ventaId: venta._id,
-    ventaFolio: venta.folio,
-    ventaFecha: venta.fecha,
-    sucursalId: venta.sucursalId,
-    sucursalNombre: (sucursal as { nombre?: string } | null)?.nombre ?? "",
-    clienteId: cliente?._id ?? venta.clienteId ?? null,
-    receptor: receptor.data,
-    conceptos,
-    tasaIva,
-    subtotal,
-    iva,
-    total,
-    formaPago: String(body?.formaPago ?? "") || formaPagoSat(pagos),
-    metodoPago: String(body?.metodoPago ?? "") || metodoPagoSat(pagos),
-    comentarios: comentarioInicial
-      ? [{ texto: comentarioInicial, usuarioId: session.userId, usuarioNombre: session.nombre, fecha: new Date() }]
-      : [],
-    creadoPorId: session.userId,
-    creadoPorNombre: session.nombre,
-    corte: todayCorte(await zonaHorariaDeSucursal(venta.sucursalId)),
-  });
-
-  return NextResponse.json(JSON.parse(JSON.stringify(factura)), { status: 201 });
+  try {
+    const factura = await mongoose.connection.transaction(async (tx) => {
+      const bloqueada = await Venta.updateOne(
+        {
+          _id: venta._id,
+          estado: "completada",
+          corte: venta.corte,
+          facturaGlobalId: null,
+        },
+        { $inc: { versionFacturacion: 1 } },
+        { session: tx },
+      );
+      if (!bloqueada.modifiedCount)
+        throw new ErrorFacturaGlobal(
+          "La venta está incluida en una global o cambió. Cancela la global interna antes de facturarla individualmente.",
+        );
+      if (
+        await Factura.exists({
+          ventaId: venta._id,
+          estado: "generada",
+        }).session(tx)
+      )
+        throw new ErrorFacturaGlobal(
+          "Esta venta ya tiene una factura vigente.",
+        );
+      const [creada] = await Factura.create(
+        [
+          {
+            folio: generateFolio("FAC"),
+            serie:
+              String(body?.serie ?? "A")
+                .trim()
+                .toUpperCase()
+                .slice(0, 5) || "A",
+            ventaId: venta._id,
+            ventaFolio: venta.folio,
+            ventaFecha: venta.fecha,
+            sucursalId: venta.sucursalId,
+            sucursalNombre:
+              (sucursal as { nombre?: string } | null)?.nombre ?? "",
+            clienteId: cliente?._id ?? venta.clienteId ?? null,
+            receptor: receptor.data,
+            conceptos,
+            tasaIva,
+            subtotal,
+            iva,
+            total,
+            formaPago: String(body?.formaPago ?? "") || formaPagoSat(pagos),
+            metodoPago: String(body?.metodoPago ?? "") || metodoPagoSat(pagos),
+            comentarios: comentarioInicial
+              ? [
+                  {
+                    texto: comentarioInicial,
+                    usuarioId: session.userId,
+                    usuarioNombre: session.nombre,
+                    fecha: new Date(),
+                  },
+                ]
+              : [],
+            creadoPorId: session.userId,
+            creadoPorNombre: session.nombre,
+            corte: todayCorte(await zonaHorariaDeSucursal(venta.sucursalId)),
+          },
+        ],
+        { session: tx },
+      );
+      return creada;
+    });
+    return NextResponse.json(JSON.parse(JSON.stringify(factura)), {
+      status: 201,
+    });
+  } catch (error) {
+    if (error instanceof ErrorFacturaGlobal) return conflict(error.message);
+    throw error;
+  }
 }
