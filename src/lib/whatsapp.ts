@@ -31,3 +31,27 @@ export function normalizarWhatsAppMX(numero: string): string {
   // Ya viene completo o es de otro país: se deja tal cual.
   return digitos;
 }
+
+export function normalizarWhatsAppUS(numero: string): string {
+  const digitos = numero.replace(/\D/g, "");
+
+  // 10 dígitos locales.
+  if (digitos.length === 10) return `1${digitos}`;
+
+  // Ya con código de país.
+  if (digitos.length === 11 && digitos.startsWith("1")) return digitos;
+
+  return digitos;
+}
+
+export function normalizarWhatsApp(numero: string, codigoArea: "+52" | "+1"): string {
+  return codigoArea === "+1" ? normalizarWhatsAppUS(numero) : normalizarWhatsAppMX(numero);
+}
+
+export function validarTelefono(numero: string, codigoArea: "+52" | "+1"): boolean {
+  const digitos = numero.replace(/\D/g, "");
+  if (codigoArea === "+52") {
+    return digitos.length >= 10 && digitos.length <= 13;
+  }
+  return digitos.length >= 10 && digitos.length <= 11;
+}

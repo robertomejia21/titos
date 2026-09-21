@@ -42,6 +42,7 @@ import {
   ClipboardCheck,
   Presentation,
   Search,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { opcionesBusqueda, type ResultadoBusqueda } from "@/lib/busqueda";
@@ -118,6 +119,7 @@ const MATRIZ_NAV: NavCategory[] = [
     items: [
       { href: "/matriz/configuracion", label: "Configuración", icon: Settings },
       { href: "/matriz/usuarios", label: "Usuarios y roles", icon: UserCog },
+      { href: "/matriz/whatsapp", label: "Monitor WhatsApp", icon: MessageCircle },
       { href: "/matriz/bitacora", label: "Bitácora", icon: ScrollText },
     ],
   },

@@ -18,6 +18,7 @@ import {
 import { hashPassword } from "@/lib/auth";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 import { prepararNipPersonal, NipPersonalError, esNipDuplicado } from "@/lib/nipPersonal";
+import { validarTelefono, normalizarWhatsApp } from "@/lib/whatsapp";
 
 const PERMISO = "usuarios.administrar";
 
@@ -117,6 +118,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     try {
       Object.assign(usuario, validarPermisosIndividuales({ permisosIndividuales: usuario.permisosIndividuales ?? null, permisosSoloConsulta: usuario.permisosSoloConsulta ?? [], ...body }, usuario.role));
     } catch (error) { return badRequest((error as Error).message); }
+  }
+
+  if ("telefono" in body || "codigoArea" in body) {
+    const codigoArea = String(body.codigoArea ?? usuario.codigoArea ?? "+52").trim();
+    const telefono = String(body.telefono ?? usuario.telefono ?? "").trim();
+    if (!["+52", "+1"].includes(codigoArea)) return badRequest("Código de área inválido");
+    if (!telefono) return badRequest("El teléfono es obligatorio");
+    if (!validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
+    const normalizado = normalizarWhatsApp(telefono, codigoArea as "+52" | "+1");
+    if (normalizado !== usuario.telefono) {
+      usuario.telefono = normalizado;
+      usuario.telefonoVerificado = false;
+    }
+    usuario.codigoArea = codigoArea;
   }
 
   if ("activo" in body) usuario.activo = Boolean(body.activo);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search } from "lucide-react";
+import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PermisosUsuarioEditor } from "./PermisosUsuarioEditor";
@@ -33,10 +33,12 @@ type Usuario = {
   sucursalRol: "admin" | "ventas";
   sucursal: { _id: string; nombre: string } | null;
   rol: { _id: string; nombre: string; ambito: string } | null;
-  /** Ya tiene NIP personal para autorizar cancelaciones y retiros. */
   tieneNipOperacion?: boolean;
   permisosIndividuales?: string[] | null;
   permisosSoloConsulta?: string[];
+  telefono?: string | null;
+  codigoArea?: "+52" | "+1" | null;
+  telefonoVerificado?: boolean;
   activo: boolean;
   propio: boolean;
 };
@@ -85,6 +87,8 @@ function UsuarioModal({
   const [role, setRole] = useState<"matriz" | "sucursal">(usuario?.role ?? "sucursal");
   const [sucursalId, setSucursalId] = useState(usuario?.sucursal?._id ?? "");
   const [rolId, setRolId] = useState(usuario?.rol?._id ?? "");
+  const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
+  const [codigoArea, setCodigoArea] = useState<"+52" | "+1">(usuario?.codigoArea ?? "+52");
   const [nipSupervisor, setNipSupervisor] = useState("");
   const [nipOperacion, setNipOperacion] = useState("");
   const [activo, setActivo] = useState(usuario?.activo ?? true);
@@ -112,7 +116,7 @@ function UsuarioModal({
     setError(null);
     setGuardando(true);
 
-    const cuerpo: Record<string, unknown> = { nombre, email };
+    const cuerpo: Record<string, unknown> = { nombre, email, telefono, codigoArea };
     if (!usuario?.propio) {
       cuerpo.rolId = rolId || null;
       cuerpo.permisosIndividuales = permisosUsuario;
@@ -148,6 +152,7 @@ function UsuarioModal({
   const faltaCampo =
     !nombre ||
     !email ||
+    !telefono ||
     (!esEdicion && !rolId) ||
     (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId))) ||
     (pideNipSupervisor && nipSupervisor.length !== 6) ||
@@ -174,6 +179,26 @@ function UsuarioModal({
           </FormField>
           <FormField label="Correo">
             <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </FormField>
+        </FormGrid>
+
+        <FormGrid>
+          <FormField label="Código de área">
+            <Select icon={Phone} value={codigoArea} onChange={(e) => setCodigoArea(e.target.value as "+52" | "+1")}>
+              <option value="+52">+52 México</option>
+              <option value="+1">+1 EUA</option>
+            </Select>
+          </FormField>
+          <FormField label="Teléfono (WhatsApp)">
+            <Input
+              icon={Phone}
+              type="tel"
+              inputMode="numeric"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value.replace(/[^\d]/g, "").slice(0, 13))}
+              placeholder="10 dígitos"
+            />
+            {!esEdicion && <p className="mt-1 text-xs text-black/50">Se enviará un enlace de verificación por WhatsApp para activar la cuenta.</p>}
           </FormField>
         </FormGrid>
 
@@ -647,8 +672,19 @@ export function UsuariosRolesManager() {
                         </span>
                         {u.permisosIndividuales !== null && u.permisosIndividuales !== undefined ? <p className="mt-1 text-xs text-black/75">Permisos personalizados</p> : null}
                       </td>
-                      <td className="py-2 pr-3"><span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span></td>
-                      <td className="py-2 pr-3 text-right">
+                      <td className="py-2 pr-3">
+                        <span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span>
+                        {u.telefono && !u.telefonoVerificado ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800">Sin verificar</span> : null}
+                      </td>
+                      <td className="py-2 pr-3 text-right flex gap-1 justify-end">
+                        {u.telefono && !u.telefonoVerificado ? (
+                          <Button variant="ghost" onClick={async () => {
+                            await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
+                            alert("Enlace de verificación reenviado por WhatsApp");
+                          }}>
+                            Reenviar
+                          </Button>
+                        ) : null}
                         <Button variant="ghost" onClick={() => setUsuarioModal(u)}>
                           Editar
                         </Button>

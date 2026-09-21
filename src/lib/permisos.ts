@@ -122,6 +122,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/matriz/configuracion": "configuracion.editar",
   "/matriz/bitacora": "bitacora.ver",
   "/matriz/usuarios": "usuarios.administrar",
+  "/matriz/whatsapp": "configuracion.editar",
 
   "/sucursal/reportes": "reportes.globales",
   "/sucursal/productos": "pos.vender",

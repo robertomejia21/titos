@@ -12,6 +12,8 @@ import { asegurarRolesSemilla } from "@/lib/roles";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
 import { prepararNipPersonal, NipPersonalError, esNipDuplicado } from "@/lib/nipPersonal";
+import { validarTelefono, normalizarWhatsApp } from "@/lib/whatsapp";
+import { generarTokenVerificacion, enviarVerificacionWhatsApp } from "@/lib/verificacionWhatsApp";
 
 // Administración unificada de usuarios: matriz da de alta y edita los usuarios
 // de todas las sucursales desde un solo lugar. Antes cada sucursal administraba
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const [usuarios, roles, sucursales, departamentos] = await Promise.all([
     UserModel.find({})
-      .select("nombre email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta")
+      .select("nombre email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta telefono codigoArea telefonoVerificado")
       .populate("rolId", "nombre ambito codigoSistema perfilDocumentoId departamentoId")
       .populate("sucursalId", "nombre")
       .sort({ role: 1, nombre: 1 })
@@ -54,6 +56,9 @@ export async function GET(req: NextRequest) {
       tieneNipOperacion: requiereNipCaja(u.rolId) && !!u.nipOperacionHash,
       permisosIndividuales: u.permisosIndividuales ?? null,
       permisosSoloConsulta: u.permisosSoloConsulta ?? [],
+      telefono: u.telefono ?? null,
+      codigoArea: u.codigoArea ?? null,
+      telefonoVerificado: u.telefonoVerificado ?? false,
       activo: u.activo,
       // El propio usuario no puede desactivarse ni cambiarse el rol a sí mismo.
       propio: String(u._id) === session.userId,
@@ -92,9 +97,9 @@ export async function POST(req: NextRequest) {
   const sucursalId = body?.sucursalId ? String(body.sucursalId) : null;
   const rolId = body?.rolId ? String(body.rolId) : null;
   const nipSupervisor = String(body?.nipCreacionSupervisor ?? "").trim();
-  // NIP personal del encargado de turno: con él autoriza cancelaciones y
-  // retiros en el punto de venta.
   const nipOperacion = String(body?.nipOperacion ?? "").trim();
+  const telefono = String(body?.telefono ?? "").trim();
+  const codigoArea = String(body?.codigoArea ?? "").trim();
 
   if (!nombre) return badRequest("El nombre es requerido");
   if (!rolId) return badRequest("Elige el puesto del usuario");
@@ -102,6 +107,9 @@ export async function POST(req: NextRequest) {
   if (password.length < 6) return badRequest("La contraseña debe tener al menos 6 caracteres");
   if (!["matriz", "sucursal"].includes(role)) return badRequest("Elige si el usuario es de matriz o de sucursal");
   if (role === "sucursal" && !sucursalId) return badRequest("Elige la sucursal del usuario");
+  if (!telefono) return badRequest("El teléfono es obligatorio");
+  if (!["+52", "+1"].includes(codigoArea)) return badRequest("Selecciona el código de área: +52 (México) o +1 (EUA)");
+  if (!validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
 
   await connectDB();
 
@@ -138,9 +146,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const telefonoNormalizado = normalizarWhatsApp(telefono, codigoArea as "+52" | "+1");
+
   try {
     const permisosUsuario = "permisosIndividuales" in body ? validarPermisosIndividuales(body, role as "matriz" | "sucursal") : {};
     const nipPersonal = nipOperacion ? await prepararNipPersonal(nipOperacion) : {};
+    const tokenVerificacion = generarTokenVerificacion();
     const usuario = await UserModel.create({
       nombre,
       email,
@@ -148,12 +159,24 @@ export async function POST(req: NextRequest) {
       role,
       sucursalId: role === "sucursal" ? sucursalId : null,
       rolId,
+      telefono: telefonoNormalizado,
+      codigoArea,
+      telefonoVerificado: false,
+      tokenVerificacion,
+      tokenVerificacionExpira: new Date(Date.now() + 24 * 60 * 60 * 1000),
       ...nipPersonal,
       ...permisosUsuario,
-      activo: true,
+      activo: false,
     });
 
-    return NextResponse.json({ _id: String(usuario._id) }, { status: 201 });
+    try {
+      await enviarVerificacionWhatsApp(telefonoNormalizado, nombre, tokenVerificacion);
+    } catch {
+      // Si Green API falla, el usuario queda creado pero sin verificar.
+      // El admin puede reenviar desde la pantalla de usuarios.
+    }
+
+    return NextResponse.json({ _id: String(usuario._id), verificacionEnviada: true }, { status: 201 });
   } catch (error) {
     if (error instanceof PermisosIndividualesError) return badRequest(error.message);
     if (error instanceof NipPersonalError) return badRequest(error.message);

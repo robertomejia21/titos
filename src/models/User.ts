@@ -21,6 +21,11 @@ const UserSchema = new Schema(
     // y retiros en el punto de venta. Se guarda hasheado y nunca sale por la
     // API: solo se informa si el usuario ya tiene uno. Es lo que permite que la
     // bitácora diga QUIÉN autorizó, y no solo que alguien lo hizo.
+    telefono: { type: String, trim: true, default: null },
+    codigoArea: { type: String, enum: ["+52", "+1"], default: null },
+    telefonoVerificado: { type: Boolean, default: false },
+    tokenVerificacion: { type: String, default: null, select: false },
+    tokenVerificacionExpira: { type: Date, default: null, select: false },
     nipOperacionHash: { type: String, default: "" },
     nipOperacionHuella: { type: String, select: false },
     activo: { type: Boolean, default: true },
