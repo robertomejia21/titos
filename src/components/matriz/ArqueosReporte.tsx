@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, Button } from "@/components/ui";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
+import { excelArqueos } from "@/lib/exportacionesFinancieras";
 import { fechaEnZona, formatFechaHora } from "@/lib/zonasHorarias";
 import { importeConSigno, resumenArqueos, type FilaArqueo } from "@/lib/reporteArqueos";
 type Datos = { filas: FilaArqueo[]; resumen: ReturnType<typeof resumenArqueos>; limitado: boolean; zona: string; sucursales: { _id: string; nombre: string }[] };
@@ -15,13 +17,15 @@ export function ArqueosReporte() {
   const [consulta, setConsulta] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [consultaLista, setConsultaLista] = useState("");
+  const claveConsulta = `${desde}|${hasta}|${sucursal}|${consulta}`;
   useEffect(() => {
     const abort = new AbortController();
     const q = new URLSearchParams({ desde, hasta, sucursalId: sucursal });
     // eslint-disable-next-line react-hooks/set-state-in-effect -- estado de la consulta dependiente de filtros
     setCargando(true); setError("");
     fetch(`/api/reportes/arqueos?${q}`, { signal: abort.signal }).then(async (r) => {
-      const json = await r.json(); if (!r.ok) throw new Error(json.error); setDatos(json);
+      const json = await r.json(); if (!r.ok) throw new Error(json.error); if (abort.signal.aborted) return; setDatos(json); setConsultaLista(`${desde}|${hasta}|${sucursal}|${consulta}`);
     }).catch((e) => { if (e.name !== "AbortError") setError(e.message || "No se pudo cargar el reporte."); }).finally(() => { if (!abort.signal.aborted) setCargando(false); });
     return () => abort.abort();
   }, [desde, hasta, sucursal, consulta]);
@@ -45,7 +49,13 @@ export function ArqueosReporte() {
       <p className="mb-3 text-sm text-black/75">Totales del periodo y sucursal. No se compensan faltantes con sobrantes. Horario: {datos?.zona}.</p>
       {datos?.limitado && <p role="alert" className="mb-3 text-amber-900">Se muestran los 1,000 turnos más recientes. Los totales corresponden a esos turnos; reduce el periodo para consultar el resto.</p>}
       <div className="mb-3 grid gap-3 sm:grid-cols-2"><label className="flex flex-col gap-1 text-sm">Mostrar<select className={input} value={filtro} onChange={(e) => setFiltro(e.target.value)}><option value="diferencias">Con diferencias</option><option value="faltantes">Con faltantes</option><option value="sobrantes">Con sobrantes</option><option value="todos">Todos, incluyendo cajas cuadradas</option></select></label><label className="flex flex-col gap-1 text-sm">Buscar responsable o supervisor<input className={input} value={buscar} onChange={(e) => setBuscar(e.target.value)} /></label></div>
-      <p role="status" className="mb-3 text-sm">{filas.length} turnos en la lista</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-sm">{filas.length} turnos en la lista</p>
+        <ExportarExcelButton disabled={!filas.length || consultaLista !== claveConsulta} crearReporte={() => excelArqueos(filas, datos!.zona, [
+          ["Desde", desde], ["Hasta", hasta], ["Sucursal", datos?.sucursales.find(s => s._id === sucursal)?.nombre || "Todas"],
+          ["Mostrar", filtro], ["Responsable o supervisor", buscar], ["Alcance", datos?.limitado ? "Consulta limitada a los 1,000 turnos más recientes" : "Todos los turnos que coinciden con los filtros"],
+        ])} />
+      </div>
       {!filas.length ? <p className="py-3 text-sm">No hay arqueos guardados que coincidan con estos filtros.</p> : <ul className="divide-y divide-black/20">{filas.map((f) => <li key={f.id} className="py-4">
         <div className="flex flex-wrap justify-between gap-2"><strong>{f.sucursal} · {f.cajero}</strong><span className="text-sm">{formatFechaHora(f.fecha, datos?.zona)}</span></div>
         <p className="mt-1 text-sm">Responsable de apertura: {f.cajero}. Arqueo autorizado por: {f.supervisor}.</p>

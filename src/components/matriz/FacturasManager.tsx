@@ -1,7 +1,9 @@
 "use client";
 
 import { FacturaGlobalManager } from "./FacturaGlobalManager";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
+import { excelFacturas, excelPorFacturar } from "@/lib/exportacionesFinancieras";
 import {
   ChevronDown,
   ChevronRight,
@@ -30,7 +32,7 @@ import { formatFechaHora } from "@/lib/zonasHorarias";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
 import { FORMAS_PAGO_SAT, METODOS_PAGO_SAT } from "@/lib/facturas";
 
-type VentaFacturable = {
+export type VentaFacturable = {
   _id: string;
   folio: string;
   fecha: string;
@@ -64,7 +66,7 @@ type Concepto = {
   importe: number;
 };
 
-type Factura = {
+export type Factura = {
   _id: string;
   folio: string;
   serie: string;
@@ -123,6 +125,9 @@ export function FacturasManager() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [expandida, setExpandida] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState("");
+  const [consultaLista, setConsultaLista] = useState("");
+  const solicitud = useRef(0);
 
   // Alta de factura
   const [ventaAFacturar, setVentaAFacturar] = useState<VentaFacturable | null>(null);
@@ -151,16 +156,27 @@ export function FacturasManager() {
   }, [sucursalId, desde, hasta, busqueda]);
 
   const cargar = useCallback(async () => {
+    const id = ++solicitud.current;
     if (tab === "global") return;
+    const consulta = query();
     setLoading(true);
+    setErrorCarga("");
+    setConsultaLista("");
     const ruta = tab === "porFacturar" ? "/api/facturas/ventas" : "/api/facturas";
-    const res = await fetch(`${ruta}?${query()}`);
-    setLoading(false);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (tab === "porFacturar") setVentas(data);
-    else setFacturas(data);
-    setPage(1);
+    try {
+      const res = await fetch(`${ruta}?${consulta}`);
+      if (!res.ok) throw new Error("No se pudo consultar la lista.");
+      const data = await res.json();
+      if (id !== solicitud.current) return;
+      if (tab === "porFacturar") setVentas(data);
+      else setFacturas(data);
+      setConsultaLista(`${tab}?${consulta}`);
+      setPage(1);
+    } catch {
+      if (id === solicitud.current) setErrorCarga("No se pudo consultar la lista. Actualiza para reintentar.");
+    } finally {
+      if (id === solicitud.current) setLoading(false);
+    }
   }, [tab, query]);
 
   useEffect(() => {
@@ -362,13 +378,26 @@ export function FacturasManager() {
           <h2 className="font-semibold text-titos-green-900">
             {tab === "porFacturar" ? "Ventas sin factura" : "Facturas del sistema"}
           </h2>
+          <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" onClick={cargar} disabled={loading}>
             <span className="flex items-center gap-1.5">
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Actualizar
             </span>
           </Button>
+          <ExportarExcelButton disabled={loading || !!errorCarga || consultaLista !== `${tab}?${query()}` || lista.length === 0}
+            crearReporte={() => {
+              const filtros: [string, string][] = [["Desde", desde], ["Hasta", hasta],
+                ["Sucursal", sucursales.find(s => s._id === sucursalId)?.nombre || "Todas"], ["Búsqueda", busqueda],
+                ["Alcance", tab === "porFacturar" ? "Ventas pendientes dentro de las 600 ventas elegibles más recientes consultadas." : "Hasta 500 facturas consultadas, incluidas todas las páginas de la lista."],
+                ["Fiscal", "Comprobantes internos. La exportación no timbra ni modifica facturas."]];
+              return tab === "porFacturar" ? excelPorFacturar(ventas, zonaHoraria, filtros) : excelFacturas(facturas, zonaHoraria, filtros);
+            }} />
+          </div>
         </div>
+
+        {errorCarga && <p role="alert" className="mb-3 text-sm text-red-800">{errorCarga}</p>}
+        <p className="mb-3 text-sm text-black/70">El Excel incluye los registros consultados de todas las páginas. {tab === "porFacturar" ? "La consulta revisa hasta 600 ventas elegibles recientes; reduce el periodo para revisar las anteriores." : "La consulta admite hasta 500 facturas; reduce el periodo si alcanzas ese límite."}</p>
 
         {loading ? (
           <p className="text-sm text-black/50">Cargando...</p>

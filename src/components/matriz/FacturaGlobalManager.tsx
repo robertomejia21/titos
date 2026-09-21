@@ -15,6 +15,8 @@ import { fechaEnZona, sumarDias, formatFechaHora } from "@/lib/zonasHorarias";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import type { ResumenGlobal, DocumentoGlobal } from "@/lib/facturaGlobalTipos";
 import type { SucursalFiltro } from "./FiltrosSucursalFecha";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
+import { excelGlobal } from "@/lib/exportacionesFinancieras";
 
 export function FacturaGlobalManager({
   sucursales,
@@ -169,6 +171,8 @@ export function FacturaGlobalManager({
           >
             Actualizar resumen
           </Button>
+          <ExportarExcelButton disabled={loading || guardando || !!error || !datos || datos.dia !== dia || datos.sucursalId !== sucursalId}
+            crearReporte={() => excelGlobal(datos!)} />
         </div>
         <p className="mt-2 text-xs text-black/65">
           Se usa el día de corte registrado en cada venta. Incluye tickets y
