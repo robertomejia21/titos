@@ -39,6 +39,7 @@ type Usuario = {
   telefono?: string | null;
   codigoArea?: "+52" | "+1" | null;
   telefonoVerificado?: boolean;
+  estadoVerificacion?: "pendiente" | "esperando_password" | "verificado";
   activo: boolean;
   propio: boolean;
 };
@@ -154,7 +155,7 @@ function UsuarioModal({
     !email ||
     !telefono ||
     (!esEdicion && !rolId) ||
-    (!esEdicion && (password.length < 6 || (role === "sucursal" && !sucursalId))) ||
+    (!esEdicion && (role === "sucursal" && !sucursalId)) ||
     (pideNipSupervisor && nipSupervisor.length !== 6) ||
     (nipOperacionObligatorio && nipOperacion.length !== 6) ||
     (usaNipCaja && !!nipOperacion && nipOperacion.length !== 6);
@@ -198,7 +199,7 @@ function UsuarioModal({
               onChange={(e) => setTelefono(e.target.value.replace(/[^\d]/g, "").slice(0, 13))}
               placeholder="10 dígitos"
             />
-            {!esEdicion && <p className="mt-1 text-xs text-black/50">Se enviará un enlace de verificación por WhatsApp para activar la cuenta.</p>}
+            {!esEdicion && <p className="mt-1 text-xs text-black/50">El colaborador enviará "alta" a este WhatsApp para crear su contraseña y activar la cuenta.</p>}
           </FormField>
         </FormGrid>
 
@@ -310,16 +311,23 @@ function UsuarioModal({
           </FormField>
         ) : null}
 
-        <FormField label={esEdicion ? "Nueva contraseña (opcional)" : "Contraseña"}>
-          <Input
-            icon={KeyRound}
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={esEdicion ? "Déjala vacía para no cambiarla" : "Mínimo 6 caracteres"}
-          />
-        </FormField>
+        {esEdicion ? (
+          <FormField label="Nueva contraseña (opcional)">
+            <Input
+              icon={KeyRound}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Déjala vacía para no cambiarla"
+            />
+          </FormField>
+        ) : (
+          <div className="rounded-lg bg-titos-green-100/50 p-3 text-sm text-titos-green-900">
+            <p className="font-medium">La contraseña se crea por WhatsApp</p>
+            <p className="mt-1 text-xs text-titos-green-700">El colaborador debe enviar la palabra <strong>"alta"</strong> al WhatsApp del sistema para crear su contraseña y activar su cuenta.</p>
+          </div>
+        )}
 
         {esEdicion && !usuario!.propio ? (
           <label className="flex items-center gap-2 text-sm text-black/70">
@@ -674,7 +682,8 @@ export function UsuariosRolesManager() {
                       </td>
                       <td className="py-2 pr-3">
                         <span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span>
-                        {u.telefono && !u.telefonoVerificado ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800">Sin verificar</span> : null}
+                        {u.telefono && u.estadoVerificacion === "pendiente" ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800">Esperando &quot;alta&quot;</span> : null}
+                        {u.estadoVerificacion === "esperando_password" ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-sky-100 text-sky-800">Creando contraseña</span> : null}
                       </td>
                       <td className="py-2 pr-3 text-right flex gap-1 justify-end">
                         {u.telefono && !u.telefonoVerificado ? (

@@ -24,6 +24,8 @@ const UserSchema = new Schema(
     telefono: { type: String, trim: true, default: null },
     codigoArea: { type: String, enum: ["+52", "+1"], default: null },
     telefonoVerificado: { type: Boolean, default: false },
+    // "pendiente" = esperando "alta", "esperando_password" = ya mandó alta, falta contraseña
+    estadoVerificacion: { type: String, enum: ["pendiente", "esperando_password", "verificado"], default: "pendiente" },
     tokenVerificacion: { type: String, default: null, select: false },
     tokenVerificacionExpira: { type: Date, default: null, select: false },
     nipOperacionHash: { type: String, default: "" },
