@@ -530,7 +530,8 @@ function RolModal({ rol, departamentos, onClose, onGuardado }: { rol: Rol | null
 type ResultadoImport = { fila: number; nombre: string; ok: boolean; error?: string };
 
 function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol[]; sucursales: Sucursal[]; onClose: () => void; onImportado: () => void }) {
-  const [filas, setFilas] = useState<{ nombre: string; puesto: string; telefono: string; codigoArea: string; sucursal: string }[]>([]);
+  type FilaImport = { nombre: string; puesto: string; telefono: string; codigoArea: string; sucursal: string };
+  const [filas, setFilas] = useState<FilaImport[]>([]);
   const [resultados, setResultados] = useState<ResultadoImport[]>([]);
   const [importando, setImportando] = useState(false);
   const [error, setError] = useState("");
@@ -585,6 +586,13 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
     setImportando(false);
   }
 
+  function editarFila(i: number, campo: keyof FilaImport, valor: string) {
+    setFilas((prev) => prev.map((f, idx) => idx === i ? { ...f, [campo]: valor } : f));
+  }
+  function eliminarFila(i: number) {
+    setFilas((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   const normN = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/@/g, "").toLowerCase().trim();
   const rolesConocidos = new Set(roles.map((r) => normN(r.nombre)));
   const aliasesRol: Record<string, string[]> = {
@@ -601,7 +609,7 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
 
   return (
     <Modal open onClose={onClose} title="Importar usuarios desde Excel" icon={Upload} size="lg"
-      footer={paso === "revisar" ? <Button onClick={importar} disabled={importando}>{importando ? "Importando…" : `Importar ${filas.length} usuarios`}</Button>
+      footer={paso === "revisar" ? <Button onClick={importar} disabled={importando || filas.length === 0}>{importando ? "Importando…" : `Importar ${filas.length} usuario${filas.length !== 1 ? "s" : ""}`}</Button>
         : paso === "resultado" ? <Button onClick={onClose}>Cerrar</Button> : null}
     >
       {paso === "subir" ? (
@@ -623,16 +631,18 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
         </div>
       ) : paso === "revisar" ? (
         <div className="space-y-3">
-          <p className="text-sm text-black/70">{filas.length} filas encontradas. Revisa antes de importar:</p>
-          <div className="max-h-80 overflow-auto rounded-lg border border-black/10">
+          <p className="text-sm text-black/70">{filas.length} filas encontradas. Puedes corregir cualquier valor antes de importar.</p>
+          <div className="max-h-[26rem] overflow-auto rounded-lg border border-black/10">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-white">
+              <thead className="sticky top-0 z-10 bg-white">
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="px-2 py-1.5">#</th>
+                  <th className="px-2 py-1.5 w-8">#</th>
                   <th className="px-2 py-1.5">Nombre</th>
                   <th className="px-2 py-1.5">Puesto</th>
+                  <th className="px-2 py-1.5 w-16">Cód.</th>
                   <th className="px-2 py-1.5">Teléfono</th>
                   <th className="px-2 py-1.5">Sucursal</th>
+                  <th className="px-2 py-1.5 w-8" />
                 </tr>
               </thead>
               <tbody>
@@ -641,11 +651,40 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
                   const sucOk = sucursalesConocidas.has(normN(f.sucursal));
                   return (
                     <tr key={i} className="border-b border-black/5">
-                      <td className="px-2 py-1.5 text-black/40">{i + 1}</td>
-                      <td className="px-2 py-1.5">{f.nombre}</td>
-                      <td className={`px-2 py-1.5 ${puestoOk ? "" : "text-red-600 font-semibold"}`}>{f.puesto}{puestoOk ? "" : " ⚠"}</td>
-                      <td className="px-2 py-1.5 text-black/60">{f.codigoArea} {f.telefono}</td>
-                      <td className={`px-2 py-1.5 ${sucOk ? "" : "text-red-600 font-semibold"}`}>{f.sucursal}{sucOk ? "" : " ⚠"}</td>
+                      <td className="px-2 py-1 text-black/40">{i + 1}</td>
+                      <td className="px-1 py-1">
+                        <input value={f.nombre} onChange={(e) => editarFila(i, "nombre", e.target.value)}
+                          className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-black/15 focus:border-titos-green-500 focus:outline-none" />
+                      </td>
+                      <td className="px-1 py-1">
+                        <select value={puestoOk ? f.puesto : ""} onChange={(e) => editarFila(i, "puesto", e.target.value)}
+                          className={`w-full rounded border px-1 py-0.5 text-xs focus:border-titos-green-500 focus:outline-none ${puestoOk ? "border-transparent bg-transparent" : "border-red-300 bg-red-50 text-red-700"}`}>
+                          {!puestoOk && <option value="" disabled>{f.puesto} ⚠</option>}
+                          {roles.filter((r) => r.activo).map((r) => <option key={r._id} value={r.nombre}>{r.nombre}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-1">
+                        <select value={f.codigoArea} onChange={(e) => editarFila(i, "codigoArea", e.target.value)}
+                          className="w-full rounded border border-transparent bg-transparent px-0.5 py-0.5 text-xs hover:border-black/15 focus:border-titos-green-500 focus:outline-none">
+                          <option value="+52">+52</option>
+                          <option value="+1">+1</option>
+                        </select>
+                      </td>
+                      <td className="px-1 py-1">
+                        <input value={f.telefono} onChange={(e) => editarFila(i, "telefono", e.target.value.replace(/\D/g, "").slice(0, 13))}
+                          inputMode="numeric"
+                          className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-black/15 focus:border-titos-green-500 focus:outline-none" />
+                      </td>
+                      <td className="px-1 py-1">
+                        <select value={sucOk ? f.sucursal : ""} onChange={(e) => editarFila(i, "sucursal", e.target.value)}
+                          className={`w-full rounded border px-1 py-0.5 text-xs focus:border-titos-green-500 focus:outline-none ${sucOk ? "border-transparent bg-transparent" : "border-red-300 bg-red-50 text-red-700"}`}>
+                          {!sucOk && <option value="" disabled>{f.sucursal} ⚠</option>}
+                          {sucursales.map((s) => <option key={s._id} value={s.nombre}>{s.nombre}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-1">
+                        <button type="button" onClick={() => eliminarFila(i)} className="rounded p-0.5 text-black/30 hover:bg-red-100 hover:text-red-600" aria-label="Eliminar fila" title="Eliminar fila">✕</button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -653,7 +692,7 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
             </table>
           </div>
           {filas.some((f) => !rolesConocidos.has(normN(f.puesto)) || !sucursalesConocidas.has(normN(f.sucursal))) ? (
-            <p className="text-xs text-amber-700">⚠ Las filas marcadas tienen un puesto o sucursal que no coincide con el catálogo y serán rechazadas.</p>
+            <p className="text-xs text-amber-700">⚠ Las filas marcadas tienen un puesto o sucursal que no coincide con el catálogo. Corrígelas con el desplegable o elimínalas antes de importar.</p>
           ) : null}
         </div>
       ) : (
