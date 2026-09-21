@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone } from "lucide-react";
+import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone, Upload } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PermisosUsuarioEditor } from "./PermisosUsuarioEditor";
@@ -525,6 +525,172 @@ function RolModal({ rol, departamentos, onClose, onGuardado }: { rol: Rol | null
   );
 }
 
+// ----------------------------------------------------------- Importar Excel ---
+
+type ResultadoImport = { fila: number; nombre: string; ok: boolean; error?: string };
+
+function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol[]; sucursales: Sucursal[]; onClose: () => void; onImportado: () => void }) {
+  const [filas, setFilas] = useState<{ nombre: string; puesto: string; telefono: string; codigoArea: string; sucursal: string }[]>([]);
+  const [resultados, setResultados] = useState<ResultadoImport[]>([]);
+  const [importando, setImportando] = useState(false);
+  const [error, setError] = useState("");
+  const [paso, setPaso] = useState<"subir" | "revisar" | "resultado">("subir");
+
+  async function manejarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
+      const rows = data.slice(1).filter((r) => r.length >= 4 && String(r[1] ?? "").trim());
+
+      const parsed = rows.map((r) => {
+        const tel = String(r[3] ?? "").replace(/\D/g, "");
+        return {
+          nombre: String(r[1] ?? "").trim(),
+          puesto: String(r[2] ?? "").trim(),
+          telefono: tel,
+          codigoArea: "+52" as const,
+          sucursal: String(r[4] ?? "").trim(),
+        };
+      });
+
+      if (parsed.length === 0) { setError("No se encontraron filas válidas en el archivo."); return; }
+      setFilas(parsed);
+      setPaso("revisar");
+    } catch {
+      setError("No se pudo leer el archivo. Asegúrate de que sea .xlsx");
+    }
+  }
+
+  async function importar() {
+    setImportando(true);
+    setError("");
+    try {
+      const res = await fetch("/api/usuarios/importar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filas }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al importar"); setImportando(false); return; }
+      setResultados(data.resultados ?? []);
+      setPaso("resultado");
+      if (data.creados > 0) onImportado();
+    } catch { setError("No se pudo conectar con el servidor"); }
+    setImportando(false);
+  }
+
+  const normN = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/@/g, "").toLowerCase().trim();
+  const rolesConocidos = new Set(roles.map((r) => normN(r.nombre)));
+  const aliasesRol: Record<string, string[]> = {
+    "gerente de tienda": ["gerente"], cajero: ["cajero", "cajera", "cajer"],
+    almacenista: ["almacenista"], compras: ["compras"],
+    inventario: ["inventarios", "inventario"], contabilidad: ["contabilidad", "contador", "contadora"],
+    "administrador general": ["admin", "administrador"],
+  };
+  for (const [rolName, aliases] of Object.entries(aliasesRol)) {
+    if (rolesConocidos.has(normN(rolName))) for (const a of aliases) rolesConocidos.add(normN(a));
+  }
+  // subgerente → try "Subgerente" in DB too (may exist)
+  const sucursalesConocidas = new Set(sucursales.map((s) => normN(s.nombre)));
+
+  return (
+    <Modal open onClose={onClose} title="Importar usuarios desde Excel" icon={Upload} size="lg"
+      footer={paso === "revisar" ? <Button onClick={importar} disabled={importando}>{importando ? "Importando…" : `Importar ${filas.length} usuarios`}</Button>
+        : paso === "resultado" ? <Button onClick={onClose}>Cerrar</Button> : null}
+    >
+      {paso === "subir" ? (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-titos-green-100/50 p-3 text-sm text-titos-green-900">
+            <p className="font-medium">Formato esperado (Excel .xlsx)</p>
+            <p className="mt-1 text-xs text-titos-green-700">
+              Columnas: <strong>Marca temporal</strong> (ignorada), <strong>Nombre completo</strong>, <strong>Puesto</strong>, <strong>Teléfono</strong>, <strong>Sucursal</strong>
+            </p>
+            <p className="mt-1 text-xs text-titos-green-700">
+              Los nombres de puesto y sucursal deben coincidir con los del catálogo. Los usuarios se crean inactivos — cada empleado activa su cuenta enviando &quot;alta&quot; por WhatsApp.
+            </p>
+          </div>
+          <FormField label="Archivo Excel">
+            <input type="file" accept=".xlsx,.xls" onChange={manejarArchivo}
+              className="block w-full text-sm text-black/60 file:mr-3 file:rounded-lg file:border-0 file:bg-titos-green-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-titos-green-700"
+            />
+          </FormField>
+        </div>
+      ) : paso === "revisar" ? (
+        <div className="space-y-3">
+          <p className="text-sm text-black/70">{filas.length} filas encontradas. Revisa antes de importar:</p>
+          <div className="max-h-80 overflow-auto rounded-lg border border-black/10">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-black/10 text-black/50">
+                  <th className="px-2 py-1.5">#</th>
+                  <th className="px-2 py-1.5">Nombre</th>
+                  <th className="px-2 py-1.5">Puesto</th>
+                  <th className="px-2 py-1.5">Teléfono</th>
+                  <th className="px-2 py-1.5">Sucursal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f, i) => {
+                  const puestoOk = rolesConocidos.has(normN(f.puesto));
+                  const sucOk = sucursalesConocidas.has(normN(f.sucursal));
+                  return (
+                    <tr key={i} className="border-b border-black/5">
+                      <td className="px-2 py-1.5 text-black/40">{i + 1}</td>
+                      <td className="px-2 py-1.5">{f.nombre}</td>
+                      <td className={`px-2 py-1.5 ${puestoOk ? "" : "text-red-600 font-semibold"}`}>{f.puesto}{puestoOk ? "" : " ⚠"}</td>
+                      <td className="px-2 py-1.5 text-black/60">{f.codigoArea} {f.telefono}</td>
+                      <td className={`px-2 py-1.5 ${sucOk ? "" : "text-red-600 font-semibold"}`}>{f.sucursal}{sucOk ? "" : " ⚠"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filas.some((f) => !rolesConocidos.has(normN(f.puesto)) || !sucursalesConocidas.has(normN(f.sucursal))) ? (
+            <p className="text-xs text-amber-700">⚠ Las filas marcadas tienen un puesto o sucursal que no coincide con el catálogo y serán rechazadas.</p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <span className="rounded-lg bg-titos-green-100 px-3 py-1.5 text-sm font-semibold text-titos-green-700">{resultados.filter((r) => r.ok).length} creados</span>
+            {resultados.some((r) => !r.ok) ? <span className="rounded-lg bg-red-100 px-3 py-1.5 text-sm font-semibold text-red-700">{resultados.filter((r) => !r.ok).length} con errores</span> : null}
+          </div>
+          {resultados.some((r) => !r.ok) ? (
+            <div className="max-h-60 overflow-auto rounded-lg border border-black/10">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-black/10 text-black/50">
+                    <th className="px-2 py-1.5">Fila</th>
+                    <th className="px-2 py-1.5">Nombre</th>
+                    <th className="px-2 py-1.5">Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultados.filter((r) => !r.ok).map((r) => (
+                    <tr key={r.fila} className="border-b border-black/5">
+                      <td className="px-2 py-1.5 text-black/40">{r.fila}</td>
+                      <td className="px-2 py-1.5">{r.nombre}</td>
+                      <td className="px-2 py-1.5 text-red-600">{r.error}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+    </Modal>
+  );
+}
+
 // ----------------------------------------------------------------- Pantalla ---
 
 export function UsuariosRolesManager() {
@@ -572,6 +738,7 @@ export function UsuariosRolesManager() {
   const [creandoUsuario, setCreandoUsuario] = useState(false);
   const [rolModal, setRolModal] = useState<Rol | null>(null);
   const [creandoRol, setCreandoRol] = useState(false);
+  const [importando, setImportando] = useState(false);
 
   async function cargar() {
     setCargando(true);
@@ -616,7 +783,10 @@ export function UsuariosRolesManager() {
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold text-titos-green-900">Usuarios del sistema</h2>
-            <Button onClick={() => setCreandoUsuario(true)}>+ Nuevo usuario</Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setImportando(true)}><Upload className="mr-1.5 inline h-3.5 w-3.5" />Importar Excel</Button>
+              <Button onClick={() => setCreandoUsuario(true)}>+ Nuevo usuario</Button>
+            </div>
           </div>
           <p className="mb-4 text-sm text-black/50">
             Todos los usuarios de matriz y de cada sucursal, en un solo lugar. Los que todavía no tienen un rol
@@ -787,6 +957,15 @@ export function UsuariosRolesManager() {
             setUsuarioModal(null);
             cargar();
           }}
+        />
+      ) : null}
+
+      {importando ? (
+        <ImportarModal
+          roles={roles}
+          sucursales={sucursales}
+          onClose={() => setImportando(false)}
+          onImportado={() => { setImportando(false); cargar(); }}
         />
       ) : null}
 
