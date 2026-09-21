@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
+import { excelCortes } from "@/lib/exportacionesFinancieras";
 import { ChevronDown, ChevronRight, Banknote } from "lucide-react";
 import { Button, Card, EmptyState, FormField, Input, Select, formatMoney } from "@/components/ui";
 import { fechaEnZona, formatFechaHora, formatHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
@@ -15,7 +17,7 @@ type Retiro = {
   fecha: string;
 };
 
-type Corte = {
+export type Corte = {
   _id: string;
   sucursalId: { _id: string; nombre: string; zonaHoraria?: string } | string;
   usuarioAperturaId?: { nombre?: string } | null;
@@ -82,17 +84,29 @@ export function CortesManager() {
   const [hasta, setHasta] = useState(hoyISO());
   const [diaImpresion, setDiaImpresion] = useState(hoyISO());
   const [notasImpresion, setNotasImpresion] = useState("con");
+  const [errorCarga, setErrorCarga] = useState("");
+  const [consultaLista, setConsultaLista] = useState("");
+  const solicitud = useRef(0);
+  const consulta = new URLSearchParams({ sucursalId, desde, hasta }).toString();
 
   const cargar = useCallback(async () => {
+    const id = ++solicitud.current;
     setCargando(true);
-    const params = new URLSearchParams();
-    if (sucursalId) params.set("sucursalId", sucursalId);
-    if (desde) params.set("desde", desde);
-    if (hasta) params.set("hasta", hasta);
-    const res = await fetch(`/api/cortes?${params.toString()}`);
-    setCargando(false);
-    if (res.ok) setCortes(await res.json());
-  }, [sucursalId, desde, hasta]);
+    setErrorCarga("");
+    setConsultaLista("");
+    try {
+      const res = await fetch(`/api/cortes?${consulta}`);
+      if (!res.ok) throw new Error("No se pudieron consultar los cortes.");
+      const data = await res.json();
+      if (id !== solicitud.current) return;
+      setCortes(data);
+      setConsultaLista(consulta);
+    } catch {
+      if (id === solicitud.current) setErrorCarga("No se pudieron consultar los cortes. Actualiza para reintentar.");
+    } finally {
+      if (id === solicitud.current) setCargando(false);
+    }
+  }, [consulta]);
 
   useEffect(() => {
     fetch("/api/sucursales")
@@ -212,7 +226,16 @@ export function CortesManager() {
       </div>
 
       <Card>
-        <h2 className="mb-3 font-semibold text-titos-green-900">Cortes cerrados ({cortes.length})</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold text-titos-green-900">Cortes cerrados ({cortes.length})</h2>
+          <ExportarExcelButton disabled={cargando || !!errorCarga || consultaLista !== consulta || cortes.length === 0}
+            crearReporte={() => excelCortes(cortes, [
+              ["Desde", desde], ["Hasta", hasta], ["Sucursal", sucursales.find(s => s._id === sucursalId)?.nombre || "Todas"],
+              ["Alcance", "Cortes cerrados consultados. Máximo 300. Usa el rango de consulta, no el día de impresión."],
+            ])} />
+        </div>
+        {errorCarga && <p role="alert" className="mb-3 text-sm text-red-800">{errorCarga}</p>}
+        {cortes.length >= 300 && <p role="status" className="mb-3 text-sm text-amber-900">La consulta y el Excel incluyen los 300 cierres más recientes. Reduce el periodo para consultar el resto.</p>}
         {cargando ? (
           <p className="text-sm text-black/50">Cargando...</p>
         ) : cortes.length === 0 ? (

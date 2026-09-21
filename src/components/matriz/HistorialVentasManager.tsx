@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
+import { excelVentas } from "@/lib/exportacionesFinancieras";
 import { Download, RefreshCw } from "lucide-react";
 import { Button, Card, EmptyState, FormField, Pagination, Select, formatMoney } from "@/components/ui";
 import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/components/matriz/FiltrosSucursalFecha";
@@ -8,7 +10,7 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { ETIQUETA_TIPO_TARJETA, esTipoTarjeta } from "@/lib/tarjetas";
 
-type VentaHistorial = {
+export type VentaHistorial = {
   _id: string;
   folio: string;
   fecha: string;
@@ -22,7 +24,7 @@ type VentaHistorial = {
   articulos: number;
 };
 
-type Resumen = {
+export type Resumen = {
   cantidad: number;
   total: number;
   ticketPromedio: number;
@@ -71,6 +73,9 @@ export function HistorialVentasManager() {
 
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [errorCarga, setErrorCarga] = useState("");
+  const [consultaLista, setConsultaLista] = useState("");
+  const solicitud = useRef(0);
 
   const query = useCallback(() => {
     const params = new URLSearchParams();
@@ -83,14 +88,25 @@ export function HistorialVentasManager() {
   }, [sucursalId, desde, hasta, notasDeVenta, incluirCanceladas]);
 
   const cargar = useCallback(async () => {
+    const id = ++solicitud.current;
+    const consulta = query();
     setLoading(true);
-    const res = await fetch(`/api/reportes/historial-ventas?${query()}`);
-    setLoading(false);
-    if (!res.ok) return;
-    const data = await res.json();
-    setVentas(data.ventas ?? []);
-    setResumen(data.resumen ?? RESUMEN_VACIO);
-    setPage(1);
+    setErrorCarga("");
+    setConsultaLista("");
+    try {
+      const res = await fetch(`/api/reportes/historial-ventas?${consulta}`);
+      if (!res.ok) throw new Error("No se pudo consultar el historial de ventas.");
+      const data = await res.json();
+      if (id !== solicitud.current) return;
+      setVentas(data.ventas ?? []);
+      setResumen(data.resumen ?? RESUMEN_VACIO);
+      setConsultaLista(consulta);
+      setPage(1);
+    } catch {
+      if (id === solicitud.current) setErrorCarga("No se pudo consultar el historial de ventas. Actualiza para reintentar.");
+    } finally {
+      if (id === solicitud.current) setLoading(false);
+    }
   }, [query]);
 
   useEffect(() => {
@@ -254,8 +270,17 @@ export function HistorialVentasManager() {
                 </span>
               </Button>
             </a>
+            <ExportarExcelButton disabled={loading || !!errorCarga || consultaLista !== query() || ventas.length === 0}
+              crearReporte={() => excelVentas(ventas, resumen, zonaHoraria, [
+                ["Desde", desde], ["Hasta", hasta], ["Sucursal", sucursales.find(s => s._id === sucursalId)?.nombre || "Todas"],
+                ["Notas de venta", notasDeVenta], ["Mostrar canceladas", incluirCanceladas ? "Sí" : "No"],
+                ["Alcance", "Registros consultados, incluidas todas las páginas de la lista. Máximo 2,000 ventas."],
+              ])} />
           </div>
         </div>
+
+        {errorCarga && <p role="alert" className="mb-3 text-sm text-red-800">{errorCarga}</p>}
+        {ventas.length >= 2000 && <p role="status" className="mb-3 text-sm text-amber-900">La consulta y el Excel incluyen las 2,000 ventas más recientes. Reduce el periodo para consultar el resto.</p>}
 
         {loading ? (
           <p className="text-sm text-black/50">Cargando...</p>

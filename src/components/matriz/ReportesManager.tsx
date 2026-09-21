@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Card, Pagination } from "@/components/ui";
+import { ExportarExcelButton } from "@/components/ExportarExcelButton";
 
 type Fila = {
   sucursal: string;
@@ -60,6 +61,18 @@ export function ReportesManager({ filas }: { filas: Fila[] }) {
       </div>
 
       <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-black/70">{filas.length} registros. El Excel incluye todas las páginas.</p>
+          <ExportarExcelButton disabled={!filas.length} crearReporte={() => ({
+            nombre: "titos-comparativo-pedidos",
+            filtros: [["Reporte", "Comparativo de pedidos, asignación, surtido y recepción"], ["Alcance", "Todos los pedidos consultados que ya no están pendientes"]],
+            hojas: [
+              { nombre: "Resumen", columnas: ["Concepto", "Cantidad"], filas: [["Pedido", totales.pedido], ["Asignado", totales.asignado], ["Surtido", totales.surtido], ["Recibido", totales.recibido]] },
+              { nombre: "Comparativo", columnas: ["Sucursal", "Producto", "Pedido", "Asignado (Nivelador)", "Surtido", "Recibido", "Diferencia pedido vs. asignado"],
+                filas: filas.map(f => [f.sucursal, f.producto, f.pedido, f.asignado, f.surtido, f.recibido, Math.min(0, f.asignado - f.pedido)]) },
+            ],
+          })} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
