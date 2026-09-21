@@ -42,3 +42,6 @@ next-env.d.ts
 
 # import logs
 /scripts/logs/
+
+# Data files
+*.xlsx

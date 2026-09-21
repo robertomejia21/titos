@@ -859,7 +859,7 @@ export function UsuariosRolesManager() {
                         {u.telefono && !u.telefonoVerificado ? (
                           <Button variant="ghost" onClick={async () => {
                             await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
-                            alert("Enlace de verificación reenviado por WhatsApp");
+                            alert("Recordatorio de activación enviado por WhatsApp");
                           }}>
                             Reenviar
                           </Button>
