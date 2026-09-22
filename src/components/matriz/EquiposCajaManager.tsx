@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { Button, Card, FormField, FormGrid, Input, Select } from "@/components/ui";
 import { BAUDIOS, EQUIPO_VACIO, PRUEBAS_EQUIPO, pesoEnKg, type EquipoCajaConfig } from "@/lib/equiposCaja";
 import { leerPuertoDiagnostico, type SerialApi } from "@/lib/serialDiagnostico";
@@ -13,6 +14,19 @@ type Datos = {
   puedeEditar: boolean;
 };
 const campo = "w-full rounded-lg border border-black/20 bg-white px-3 py-2 text-sm";
+
+function TarjetaEquipo({ titulo, abierta = false, children }: { titulo: string; abierta?: boolean; children: ReactNode }) {
+  return <Card className="p-0!">
+    <details open={abierta} className="group/tarjeta">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-4 text-titos-green-900 hover:bg-titos-green-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-titos-green-700 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <h2 className="min-w-0 text-base font-semibold sm:text-lg">{titulo}</h2>
+        <ChevronDown aria-hidden="true" className="h-5 w-5 shrink-0 group-open/tarjeta:rotate-180" />
+      </summary>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">{children}</div>
+    </details>
+  </Card>;
+}
+
 export function EquiposCajaManager() {
   const [datos, setDatos] = useState<Datos | null>(null);
   const [sucursal, setSucursal] = useState("");
@@ -71,8 +85,7 @@ export function EquiposCajaManager() {
   const precioNum = /^\d+(?:[.,]\d{1,2})?$/.test(precio) ? Number(precio.replace(",", ".")) : NaN;
   const importe = kg && Number.isFinite(precioNum) && precioNum >= 0 && precioNum <= 1000000 ? Math.round(kg * precioNum * 100) / 100 : null;
   return <div className="space-y-5">
-    <Card>
-      <p className="font-semibold">Preparación de la caja</p>
+    <TarjetaEquipo titulo="Preparación de la caja" abierta>
       <p className="mt-2 text-sm text-black/70">Hoy puedes capturar el peso del visor y registrar un pago aprobado en la terminal. La lectura automática de la báscula y el envío del importe a Banorte requieren identificar y probar los equipos en la tienda.</p>
       {cargando ? <p className="mt-3" role="status">Cargando sucursal…</p> : datos && <div className="mt-4 max-w-lg">
         <FormField label="Sucursal"><Select aria-label="Sucursal de los equipos" disabled={guardando || leyendo || datos.sucursales.length < 2} value={datos.sucursalId} onChange={e => {
@@ -81,11 +94,10 @@ export function EquiposCajaManager() {
         }}>{datos.sucursales.map(s => <option key={s._id} value={s._id}>{s.nombre}</option>)}</Select></FormField>
         <p className="mt-2 text-xs text-black/65">Se guarda una configuración de referencia por sucursal. El permiso para abrir un puerto se elige en cada computadora.</p>
       </div>}
-    </Card>
+    </TarjetaEquipo>
     {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800">{error}</p>}
     {datos && !cargando && <>
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold">1. Identificar los equipos</h2>
+      <TarjetaEquipo titulo="1. Identificar los equipos">
         {!datos.puedeEditar && <p className="mb-3 text-sm">Solo administración puede guardar esta configuración. Puedes consultar la guía y hacer pruebas locales.</p>}
         <fieldset disabled={!datos.puedeEditar || guardando || leyendo} className="space-y-4">
           <FormGrid><FormField label="Nombre de caja"><Input aria-label="Nombre de caja" maxLength={60} value={form.nombreCaja} onChange={e => set("nombreCaja", e.target.value)} placeholder="Ej. Caja principal" /></FormField>
@@ -110,8 +122,8 @@ export function EquiposCajaManager() {
         {datos.puedeEditar && <div className="mt-4 flex flex-wrap items-center gap-3"><Button onClick={guardar} disabled={guardando || leyendo || !dirty}>{guardando ? "Guardando…" : "Guardar configuración"}</Button><Link className="text-sm underline" href="/matriz/terminales">Registrar una terminal bancaria</Link></div>}
         {aviso && <p role="status" className="mt-3 text-sm text-titos-green-900">{aviso}</p>}
         {datos.equipo && <p className="mt-3 text-xs text-black/65">Última configuración: {datos.equipo.actualizadoPor} · {new Date(datos.equipo.updatedAt).toLocaleString("es-MX")}</p>}
-      </Card>
-      <Card><h2 className="mb-3 text-lg font-semibold">2. Probar lector y peso</h2><p className="mb-4 text-sm">Estas pruebas no crean ventas ni cobran dinero.</p>
+      </TarjetaEquipo>
+      <TarjetaEquipo titulo="2. Probar lector y peso"><p className="mb-4 text-sm">Estas pruebas no crean ventas ni cobran dinero.</p>
         <FormField label="Prueba del lector"><Input aria-label="Prueba del lector" value={codigo} maxLength={80} onChange={e => setCodigo(e.target.value)} placeholder="Haz clic aquí y escanea un producto" /></FormField>
         {codigo && <p className="mt-2 break-all text-sm" role="status">Código recibido: {codigo} · {codigo.length} caracteres. Compáralo con la etiqueta. Esto no confirma lectura de peso.</p>}
         <h3 className="mb-3 mt-6 font-semibold">Comprobar el cálculo por kilogramo</h3>
@@ -125,8 +137,8 @@ export function EquiposCajaManager() {
           {!form.baudRate && <p className="mt-2 text-sm">Falta confirmar la velocidad en los parámetros de la configuración.</p>}
           {serialTexto && <pre role="status" className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/5 p-3 text-xs">{serialTexto}</pre>}
         </details>
-      </Card>
-      <Card><h2 className="mb-4 text-lg font-semibold">3. Instalación en Junior · guía para el técnico</h2>
+      </TarjetaEquipo>
+      <TarjetaEquipo titulo="3. Instalación en Junior · guía para el técnico">
         <ol className="list-decimal space-y-3 pl-5 text-sm">
           <li>Anota modelo y serie de la báscula, modelo de terminal Banorte y versión de Windows. Conserva la configuración que usaban con BRANIX antes de cambiar cables o parámetros.</li>
           <li>En la foto PSC se distinguen POS Terminal, Scale Host y Remote Display. No se identifica el modelo exacto. Un conector parecido a red no asegura que sea Ethernet: el técnico debe confirmar cable y distribución de pines con el manual.</li>
@@ -141,7 +153,7 @@ export function EquiposCajaManager() {
         </ol>
         <details className="mt-5"><summary className="cursor-pointer py-3 font-medium">Texto para solicitar la integración a Banorte</summary><p className="rounded-lg bg-black/5 p-3 text-sm">Tenemos el punto de venta web de Mercados Titos en sucursal Junior, Mexicali. Queremos enviar el importe a su terminal y recibir la autorización automáticamente. ¿Nuestra afiliación y modelo admiten integración con caja o Interredes? Necesitamos requisitos, documentación o SDK, ambiente de pruebas, consulta de transacciones y cancelaciones, además del proceso para habilitarlo en producción.</p></details>
         <p className="mt-4 text-xs text-black/65">Referencias técnicas: <a className="underline" href="https://www.datalogic.com/upload/marketlit/manuals/opos/820025614.pdf" target="_blank" rel="noreferrer">Datalogic OPOS / DualTest</a> · <a className="underline" href="https://www.banorte.com/Empresas/Servicios/Soluciones-de-cobro-para-tu-negocio/Productos/Terminales-punto-de-venta--TPV-/" target="_blank" rel="noreferrer">Terminales Banorte</a> · <a className="underline" href="https://developer.chrome.com/docs/capabilities/serial" target="_blank" rel="noreferrer">Web Serial</a>. Verificadas el 22 de septiembre de 2026; confirmar compatibilidad del equipo antes de instalar.</p>
-      </Card>
+      </TarjetaEquipo>
     </>}
   </div>;
 }
