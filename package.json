@@ -20,7 +20,10 @@
     "check:peticiones": "tsx scripts/check-peticiones.ts",
     "check:reglas": "tsx scripts/check-reglas.ts",
     "diagnostico:permisos": "tsx scripts/diagnostico-permisos.ts",
-    "diagnostico:presentacion": "tsx scripts/diagnostico-presentacion.ts"
+    "diagnostico:presentacion": "tsx scripts/diagnostico-presentacion.ts",
+    "check:sw": "tsx --env-file=.env.local scripts/check-sw.ts",
+    "check:cfdi": "tsx scripts/check-cfdi.ts",
+    "diagnostico:fiscal": "tsx --env-file=.env.local scripts/diagnostico-fiscal.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

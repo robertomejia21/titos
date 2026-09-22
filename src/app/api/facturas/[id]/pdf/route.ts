@@ -27,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!factura) return notFound("Factura no encontrada");
 
   const receptor = factura.receptor;
+  const timbrado = factura.timbrado;
   const conceptos = (factura.conceptos ?? []) as {
     claveProdServ: string;
     descripcion: string;
@@ -49,7 +50,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       `${etiqueta(FORMAS_PAGO_SAT, factura.formaPago)} · ${etiqueta(METODOS_PAGO_SAT, factura.metodoPago)}`,
       factura.estado === "cancelada"
         ? `DOCUMENTO CANCELADO — ${factura.motivoCancelacion}`
-        : "Documento interno sin valor fiscal: pendiente de timbrado ante el SAT.",
+        : timbrado?.estado === "timbrada"
+          ? `CFDI timbrado · UUID ${timbrado.uuid}`
+          : "Documento interno sin valor fiscal: pendiente de timbrado ante el SAT.",
     ],
     tabla: {
       titulo: "Conceptos",
@@ -83,6 +86,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
     totalLabel: "Total:",
     totalValor: formatMoney(factura.total),
+    // Solo las facturas timbradas llevan bloque fiscal. En las demás el PDF
+    // sigue siendo lo que era: un documento interno.
+    selloFiscal:
+      timbrado?.estado === "timbrada" || timbrado?.estado === "cancelada_sat"
+        ? {
+            qrBase64: timbrado.qrCode || undefined,
+            datos: [
+              { etiqueta: "Folio fiscal (UUID)", valor: timbrado.uuid || "—" },
+              {
+                etiqueta: "Fecha y hora de certificación",
+                valor: formatFechaHora(timbrado.fechaTimbrado, ZONA_HORARIA_DEFAULT, "—"),
+              },
+              { etiqueta: "No. de certificado del SAT", valor: timbrado.noCertificadoSAT || "—" },
+              { etiqueta: "RFC del proveedor de certificación", valor: timbrado.proveedor || "—" },
+              ...(timbrado.estado === "cancelada_sat"
+                ? [{
+                    etiqueta: "Cancelada ante el SAT",
+                    valor: `Motivo ${timbrado.motivoCancelacionSat}${timbrado.folioSustitucion ? ` · sustituye ${timbrado.folioSustitucion}` : ""}`,
+                  }]
+                : []),
+            ],
+            selloCFDI: timbrado.selloCFDI || undefined,
+            selloSAT: timbrado.selloSAT || undefined,
+            cadenaOriginal: timbrado.cadenaOriginalSAT || undefined,
+          }
+        : undefined,
   });
 
   return new NextResponse(Buffer.from(pdfBytes), {

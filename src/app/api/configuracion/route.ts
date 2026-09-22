@@ -12,6 +12,7 @@ import {
 import { hayNipsDeSupervisor } from "@/lib/supervisores";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
 import { validarReglasOperacion, REGLAS_OPERACION } from "@/lib/reglasOperacion";
+import { validarEmisorFiscal } from "@/lib/emisorFiscal";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -141,6 +142,10 @@ export async function PATCH(req: NextRequest) {
     const tasa = Number(body.tasaIvaFactura);
     if (!Number.isFinite(tasa) || tasa < 0 || tasa > 100) return badRequest("La tasa de IVA debe ir de 0 a 100");
     update.tasaIvaFactura = tasa;
+  }
+  if ("emisorFiscal" in body) {
+    try { update.emisorFiscal = validarEmisorFiscal(body.emisorFiscal); }
+    catch (error) { return badRequest((error as Error).message); }
   }
   // `null` borra el NIP (deja las cancelaciones sin autorización); una cadena lo
   // cambia. Si no viene la llave, el NIP actual no se toca.

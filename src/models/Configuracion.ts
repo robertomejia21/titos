@@ -1,5 +1,6 @@
 import { Schema, model, models, type InferSchemaType } from "mongoose";
 import { DIAS_SEMANA } from "@/lib/dias";
+import { REGIMENES_FISCALES_VALORES } from "@/lib/facturacion";
 
 // Reglas con las que el punto de venta recibe dólares en billete.
 const ConfiguracionDolaresSchema = new Schema(
@@ -81,6 +82,21 @@ const ConfiguracionSchema = new Schema(
     // Tasa de IVA con la que se generan las facturas del sistema. La mayoría del
     // abarrote es tasa 0%, por eso el default no es 16.
     tasaIvaFactura: { type: Number, default: 0, min: 0, max: 100 },
+    // Datos fiscales de la empresa emisora. Solo hacen falta para timbrar: la
+    // factura del sistema se genera sin ellos, el CFDI no. Tienen que coincidir
+    // con el CSD cargado en el PAC o el SAT rechaza el comprobante.
+    emisorFiscal: {
+      type: new Schema(
+        {
+          rfc: { type: String, default: "", trim: true, uppercase: true },
+          razonSocial: { type: String, default: "", trim: true },
+          regimenFiscal: { type: String, enum: ["", ...REGIMENES_FISCALES_VALORES], default: "" },
+          codigoPostal: { type: String, default: "", trim: true },
+        },
+        { _id: false },
+      ),
+      default: () => ({}),
+    },
   },
   { timestamps: true }
 );
