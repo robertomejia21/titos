@@ -9,3 +9,5 @@ Un formulario de contraseña visible impide capturar. Marca áreas sensibles con
 Bundle generado con html2canvas-pro 1.6.7 y esbuild; conserva avisos de licencia al final. Fuente: jonahgrca/Davinci-WebBrain, src/capture-bridge.js y src/lib/installCaptureBridge.js. Para regenerar desde ese repositorio: node tools/build-capture-bridge.mjs /ruta/a/este/ERP/public/davinci-capture.v1.js.
 
 Revertir el commit de integración devuelve el comportamiento anterior sin cambios de base de datos.
+
+Validación: 17 pruebas del protocolo/guardado aprobadas en CRM y prueba visual local sin errores de consola. Build de este ERP aprobado localmente.
