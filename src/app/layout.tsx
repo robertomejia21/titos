@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <Analytics />
+        <Script id="davinci-capture-loader" strategy="afterInteractive">{`if(window.parent!==window){var s=document.createElement('script');s.src='/davinci-capture.v1.js';s.async=true;document.head.appendChild(s);}`}</Script>
       </body>
     </html>
   );
