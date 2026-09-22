@@ -9,6 +9,7 @@ type SucursalRol = "admin" | "ventas";
 type Usuario = {
   _id: string;
   nombre: string;
+  usuario?: string | null;
   email: string;
   sucursalRol: SucursalRol;
   activo: boolean;
@@ -36,6 +37,7 @@ function UsuarioFormModal({
 }) {
   const esEdicion = usuario !== null;
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
+  const [nombreUsuario, setNombreUsuario] = useState(usuario?.usuario ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState<SucursalRol>(usuario?.sucursalRol ?? "ventas");
@@ -46,7 +48,7 @@ function UsuarioFormModal({
     setError(null);
     setSaving(true);
 
-    const payload: Record<string, unknown> = { nombre: nombre.trim(), email: email.trim() };
+    const payload: Record<string, unknown> = { nombre: nombre.trim(), usuario: nombreUsuario.trim(), email: email.trim() };
     if (!esEdicion || password) payload.password = password;
     if (!esEdicion || !usuario.propio) payload.sucursalRol = rol;
 
@@ -67,7 +69,7 @@ function UsuarioFormModal({
     onGuardado();
   }
 
-  const puedeGuardar = nombre.trim() && email.trim() && (esEdicion || password.length >= 6);
+  const puedeGuardar = nombre.trim() && nombreUsuario.trim() && (esEdicion || password.length >= 6);
 
   return (
     <Modal
@@ -87,8 +89,11 @@ function UsuarioFormModal({
           <FormField label="Nombre">
             <Input icon={UserCircle} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del empleado" />
           </FormField>
-          <FormField label="Correo de acceso">
-            <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@sucursal.com" />
+          <FormField label="Usuario de acceso">
+            <Input icon={UserCircle} value={nombreUsuario} onChange={(e) => setNombreUsuario(e.target.value)} placeholder="ej. jperez" autoComplete="off" />
+          </FormField>
+          <FormField label="Correo (opcional)">
+            <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Solo como dato de contacto" />
           </FormField>
           <FormField label={esEdicion ? "Nueva contraseña (opcional)" : "Contraseña"}>
             <Input
@@ -173,7 +178,7 @@ export function UsuariosManager() {
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
                   <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2">Correo</th>
+                  <th className="py-2 pr-2">Usuario</th>
                   <th className="py-2 pr-2">Rol</th>
                   <th className="py-2 pr-2">Estado</th>
                   <th className="py-2 pr-2 text-right">Acciones</th>
@@ -186,7 +191,10 @@ export function UsuariosManager() {
                       {u.nombre}
                       {u.propio ? <span className="ml-1.5 text-xs font-normal text-black/40">(tú)</span> : null}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">{u.email}</td>
+                    <td className="py-2 pr-2 text-black/60">
+                      {u.usuario ?? <span className="text-black/30">— sin usuario —</span>}
+                      {u.email ? <span className="block text-xs text-black/35">{u.email}</span> : null}
+                    </td>
                     <td className="py-2 pr-2">
                       <span
                         className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${

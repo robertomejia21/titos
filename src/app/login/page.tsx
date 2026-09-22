@@ -8,7 +8,7 @@ import { Button, Input } from "@/components/ui";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ function LoginForm() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ usuario, password }),
     });
 
     setLoading(false);
@@ -77,13 +77,14 @@ function LoginForm() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-black/70">Correo electrónico</label>
+                <label className="mb-1 block text-sm font-medium text-black/70">Usuario</label>
                 <Input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tucorreo@titos.com"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  placeholder="tu usuario"
+                  autoComplete="username"
                   autoFocus
                 />
               </div>

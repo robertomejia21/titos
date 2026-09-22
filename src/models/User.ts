@@ -2,9 +2,16 @@ import { Schema, model, models, type InferSchemaType } from "mongoose";
 
 const UserSchema = new Schema(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    // Identificador con el que inicia sesión. Se asigna al dar de alta al
+    // usuario y sustituye al correo como "gate" del login.
+    usuario: { type: String, unique: true, sparse: true, trim: true },
+    // El correo pasó a ser solo un dato de contacto opcional.
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true, default: null },
     passwordHash: { type: String, required: true },
     nombre: { type: String, required: true },
+    // Datos con los que se autogenera la contraseña (apellidoPaterno.DDMM).
+    apellidoPaterno: { type: String, trim: true, default: null },
+    fechaNacimiento: { type: Date, default: null },
     role: { type: String, enum: ["matriz", "sucursal"], required: true },
     // Rol interno dentro de la sucursal: admin (todo) o ventas (solo punto de venta).
     // Se conserva para los usuarios que todavía no tienen un `rolId` asignado:

@@ -7,15 +7,15 @@ import { asegurarRolesSemilla, permisosDeUsuario } from "@/lib/roles";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  const email = body?.email?.toString().trim().toLowerCase();
+  const usuario = body?.usuario?.toString().trim();
   const password = body?.password?.toString();
 
-  if (!email || !password) {
-    return badRequest("Correo y contraseña son requeridos");
+  if (!usuario || !password) {
+    return badRequest("Usuario y contraseña son requeridos");
   }
 
   await connectDB();
-  const user = await UserModel.findOne({ email, activo: true }).lean();
+  const user = await UserModel.findOne({ usuario, activo: true }).lean();
 
   if (!user) {
     return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const token = await signSession({
     userId: String(user._id),
-    email: user.email,
+    email: user.email ?? null,
     nombre: user.nombre,
     role: user.role as "matriz" | "sucursal",
     sucursalRol: user.role === "sucursal" ? ((user.sucursalRol as "admin" | "ventas") ?? "admin") : null,

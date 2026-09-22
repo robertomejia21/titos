@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import UserModel from "@/models/User";
 import { requireSession, unauthorized, forbidden, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
-import { sendMessage } from "@/lib/greenApi";
+import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
+import { enviarBienvenida } from "@/lib/onboarding";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
@@ -16,23 +17,24 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const usuario = await UserModel.findById(usuarioId).select("nombre telefono telefonoVerificado estadoVerificacion");
+  const usuario = await UserModel.findById(usuarioId).select("nombre usuario telefono apellidoPaterno fechaNacimiento");
   if (!usuario) return badRequest("El usuario no existe");
-  if (usuario.telefonoVerificado) return badRequest("Esta cuenta ya fue verificada");
   if (!usuario.telefono) return badRequest("El usuario no tiene teléfono registrado");
-
-  // If stuck in esperando_password, reset to pendiente so "alta" works again
-  if (usuario.estadoVerificacion === "esperando_password") {
-    await UserModel.updateOne({ _id: usuario._id }, { estadoVerificacion: "pendiente" });
+  if (!usuario.usuario || !usuario.apellidoPaterno || !usuario.fechaNacimiento) {
+    return badRequest("A este usuario le faltan datos (usuario, apellido paterno o fecha de nacimiento) para generar su contraseña");
   }
 
-  await sendMessage(
-    usuario.telefono,
-    `📲 *Titos — Activación de cuenta*\n\n` +
-    `Hola *${usuario.nombre}*, tu cuenta en el sistema Titos está pendiente de activación.\n\n` +
-    `Para activarla, envía la palabra *alta* a este mismo chat.\n\n` +
-    `Después te pediremos que crees tu contraseña.`
-  );
+  // La contraseña es determinista; se regenera y se re-sincroniza el hash para
+  // garantizar que lo que se envía es lo que sirve para entrar.
+  const passwordPlano = generarPasswordUsuario(usuario.apellidoPaterno, usuario.fechaNacimiento);
+  await UserModel.updateOne({ _id: usuario._id }, { passwordHash: await hashPassword(passwordPlano) });
+
+  await enviarBienvenida({
+    telefono: usuario.telefono,
+    nombre: usuario.nombre,
+    usuario: usuario.usuario,
+    password: passwordPlano,
+  });
 
   return NextResponse.json({ ok: true });
 }

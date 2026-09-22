@@ -7,7 +7,8 @@ import RolModel from "@/models/Rol";
 import Departamento from "@/models/Departamento";
 import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, badRequest, conflict, puede, sinPermiso } from "@/lib/apiAuth";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
+import { enviarBienvenida } from "@/lib/onboarding";
 import { asegurarRolesSemilla } from "@/lib/roles";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const [usuarios, roles, sucursales, departamentos] = await Promise.all([
     UserModel.find({})
-      .select("nombre email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta telefono codigoArea telefonoVerificado estadoVerificacion")
+      .select("nombre usuario apellidoPaterno fechaNacimiento email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta telefono codigoArea telefonoVerificado estadoVerificacion")
       .populate("rolId", "nombre ambito codigoSistema perfilDocumentoId departamentoId")
       .populate("sucursalId", "nombre")
       .sort({ role: 1, nombre: 1 })
@@ -45,6 +46,9 @@ export async function GET(req: NextRequest) {
     usuarios: usuarios.map((u) => ({
       _id: String(u._id),
       nombre: u.nombre,
+      usuario: u.usuario ?? null,
+      apellidoPaterno: u.apellidoPaterno ?? null,
+      fechaNacimiento: u.fechaNacimiento ? new Date(u.fechaNacimiento).toISOString().slice(0, 10) : null,
       email: u.email,
       role: u.role,
       sucursalRol: u.sucursalRol ?? "admin",
@@ -91,8 +95,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const nombre = String(body?.nombre ?? "").trim();
+  const usuario = String(body?.usuario ?? "").trim();
+  const apellidoPaterno = String(body?.apellidoPaterno ?? "").trim();
+  const fechaNacimiento = String(body?.fechaNacimiento ?? "").trim();
   const email = String(body?.email ?? "").trim().toLowerCase();
-  const password = String(body?.password ?? "");
   const role = String(body?.role ?? "");
   const sucursalId = body?.sucursalId ? String(body.sucursalId) : null;
   const rolId = body?.rolId ? String(body.rolId) : null;
@@ -102,8 +108,10 @@ export async function POST(req: NextRequest) {
   const codigoArea = String(body?.codigoArea ?? "").trim();
 
   if (!nombre) return badRequest("El nombre es requerido");
+  if (!usuario) return badRequest("El usuario es requerido");
+  if (!apellidoPaterno) return badRequest("El apellido paterno es requerido");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento)) return badRequest("La fecha de nacimiento es requerida");
   if (!rolId) return badRequest("Elige el puesto del usuario");
-  if (!email) return badRequest("El correo es requerido");
   if (!["matriz", "sucursal"].includes(role)) return badRequest("Elige si el usuario es de matriz o de sucursal");
   if (role === "sucursal" && !sucursalId) return badRequest("Elige la sucursal del usuario");
   if (!telefono) return badRequest("El teléfono es obligatorio");
@@ -112,7 +120,8 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  if (await UserModel.findOne({ email })) return conflict("Ese correo ya está en uso por otro usuario");
+  if (await UserModel.findOne({ usuario })) return conflict("Ese usuario ya está en uso por otro colaborador");
+  if (email && (await UserModel.findOne({ email }))) return conflict("Ese correo ya está en uso por otro usuario");
 
   if (sucursalId && !(await Sucursal.findById(sucursalId).select("_id").lean())) {
     return badRequest("La sucursal no existe");
@@ -150,26 +159,38 @@ export async function POST(req: NextRequest) {
   try {
     const permisosUsuario = "permisosIndividuales" in body ? validarPermisosIndividuales(body, role as "matriz" | "sucursal") : {};
     const nipPersonal = nipOperacion ? await prepararNipPersonal(nipOperacion) : {};
-    // Contraseña temporal: el colaborador la define al verificarse por WhatsApp
-    // enviando "alta" al número del sistema.
-    const tempHash = await hashPassword(crypto.randomUUID());
-    const usuario = await UserModel.create({
+    // La contraseña se autogenera (apellido paterno + día/mes de nacimiento) y se
+    // envía al colaborador por WhatsApp junto con su usuario.
+    const passwordPlano = generarPasswordUsuario(apellidoPaterno, fechaNacimiento);
+    const nuevo = await UserModel.create({
       nombre,
-      email,
-      passwordHash: tempHash,
+      usuario,
+      apellidoPaterno,
+      fechaNacimiento: new Date(fechaNacimiento),
+      email: email || null,
+      passwordHash: await hashPassword(passwordPlano),
       role,
       sucursalId: role === "sucursal" ? sucursalId : null,
       rolId,
       telefono: telefonoNormalizado,
       codigoArea,
       telefonoVerificado: false,
-      estadoVerificacion: "pendiente",
+      estadoVerificacion: "verificado",
       ...nipPersonal,
       ...permisosUsuario,
-      activo: false,
+      activo: true,
     });
 
-    return NextResponse.json({ _id: String(usuario._id) }, { status: 201 });
+    // El saludo + credenciales no deben tumbar el alta si WhatsApp falla: el
+    // usuario ya quedó creado y las credenciales se pueden reenviar.
+    let whatsappEnviado = true;
+    try {
+      await enviarBienvenida({ telefono: telefonoNormalizado, nombre, usuario, password: passwordPlano });
+    } catch {
+      whatsappEnviado = false;
+    }
+
+    return NextResponse.json({ _id: String(nuevo._id), whatsappEnviado }, { status: 201 });
   } catch (error) {
     if (error instanceof PermisosIndividualesError) return badRequest(error.message);
     if (error instanceof NipPersonalError) return badRequest(error.message);

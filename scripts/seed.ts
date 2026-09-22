@@ -41,6 +41,7 @@ async function seed() {
 
   console.log("Creando usuario de matriz...");
   await UserModel.create({
+    usuario: "matriz",
     email: "matriz@titos.com",
     passwordHash,
     nombre: "Administrador Matriz",
@@ -56,6 +57,7 @@ async function seed() {
 
   await Promise.all([
     UserModel.create({
+      usuario: "centro",
       email: "centro@titos.com",
       passwordHash,
       nombre: "Encargado Titos Centro",
@@ -63,6 +65,7 @@ async function seed() {
       sucursalId: centro._id,
     }),
     UserModel.create({
+      usuario: "norte",
       email: "norte@titos.com",
       passwordHash,
       nombre: "Encargado Titos Norte",
@@ -70,6 +73,7 @@ async function seed() {
       sucursalId: norte._id,
     }),
     UserModel.create({
+      usuario: "sur",
       email: "sur@titos.com",
       passwordHash,
       nombre: "Encargado Titos Sur",

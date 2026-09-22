@@ -15,7 +15,7 @@ type Sucursal = {
   // El mostrador de matriz aparece aquí porque también cobra y hace corte, pero
   // no es una sucursal que se administre ni se pueda eliminar.
   esMatriz?: boolean;
-  usuario: { email: string; nombre: string } | null;
+  usuario: { usuario?: string | null; email: string; nombre: string } | null;
 };
 
 const emptyForm = {
@@ -24,6 +24,7 @@ const emptyForm = {
   whatsapp: "",
   zonaHoraria: ZONA_HORARIA_DEFAULT,
   usuarioNombre: "",
+  usuario: "",
   email: "",
   password: "",
 };
@@ -53,8 +54,8 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
   // El usuario de acceso es opcional, pero a medias no sirve: o se capturan los
   // dos campos o ninguno. Antes los dos eran obligatorios y el botón se quedaba
   // apagado sin explicar por qué.
-  const capturoAlgo = !!form.email.trim() || !!form.password;
-  const credencialIncompleta = capturoAlgo && (!form.email.trim() || form.password.length < 6);
+  const capturoAlgo = !!form.usuario.trim() || !!form.password || !!form.email.trim();
+  const credencialIncompleta = capturoAlgo && (!form.usuario.trim() || form.password.length < 6);
 
   async function crear() {
     setError(null);
@@ -115,7 +116,10 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
             <FormField label="Nombre del responsable" className="sm:col-span-2">
               <Input icon={User} value={form.usuarioNombre} onChange={(e) => setForm({ ...form, usuarioNombre: e.target.value })} />
             </FormField>
-            <FormField label="Correo de acceso">
+            <FormField label="Usuario de acceso">
+              <Input icon={User} value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} placeholder="ej. centro" autoComplete="off" />
+            </FormField>
+            <FormField label="Correo (opcional)">
               <Input icon={Mail} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </FormField>
             <FormField label="Contraseña">
@@ -130,7 +134,7 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
           </FormGrid>
           {credencialIncompleta ? (
             <p className="mt-2 text-xs font-medium text-amber-700">
-              Para crear el usuario faltan datos: correo y contraseña de al menos 6 caracteres. Bórralos los dos si
+              Para crear el usuario faltan datos: usuario y contraseña de al menos 6 caracteres. Bórralos si
               prefieres dar de alta la tienda sin acceso todavía.
             </p>
           ) : null}
@@ -156,6 +160,7 @@ function SucursalModal({
   const [whatsapp, setWhatsapp] = useState(sucursal.whatsapp);
   const [zonaHoraria, setZonaHoraria] = useState(sucursal.zonaHoraria || ZONA_HORARIA_DEFAULT);
   const [activo, setActivo] = useState(sucursal.activo);
+  const [nombreUsuario, setNombreUsuario] = useState(sucursal.usuario?.usuario ?? "");
   const [email, setEmail] = useState(sucursal.usuario?.email ?? "");
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -178,11 +183,11 @@ function SucursalModal({
       return;
     }
 
-    if (sucursal.usuario && (email !== sucursal.usuario.email || nuevaPassword)) {
+    if (sucursal.usuario && (nombreUsuario !== (sucursal.usuario.usuario ?? "") || email !== sucursal.usuario.email || nuevaPassword)) {
       const resUsuario = await fetch(`/api/sucursales/${sucursal._id}/usuario`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: nuevaPassword || undefined }),
+        body: JSON.stringify({ usuario: nombreUsuario || undefined, email, password: nuevaPassword || undefined }),
       });
 
       setSaving(false);
@@ -243,7 +248,10 @@ function SucursalModal({
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-black/40">Usuario de acceso</p>
           {sucursal.usuario ? (
             <FormGrid>
-              <FormField label="Correo">
+              <FormField label="Usuario">
+                <Input icon={User} value={nombreUsuario} onChange={(e) => setNombreUsuario(e.target.value)} autoComplete="off" />
+              </FormField>
+              <FormField label="Correo (opcional)">
                 <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </FormField>
               <FormField label="Nueva contraseña">
@@ -376,7 +384,7 @@ export function SucursalesManager() {
                   <th className="py-2 pr-2">Dirección</th>
                   <th className="py-2 pr-2">Zona horaria</th>
                   <th className="py-2 pr-2">WhatsApp</th>
-                  <th className="py-2 pr-2">Correo</th>
+                  <th className="py-2 pr-2">Usuario</th>
                   <th className="w-px py-2 pl-2" />
                 </tr>
               </thead>
@@ -395,7 +403,7 @@ export function SucursalesManager() {
                     <td className="py-2 pr-2 text-black/60">{s.direccion || "—"}</td>
                     <td className="py-2 pr-2 text-black/60">{zonaHorariaLabel(s.zonaHoraria)}</td>
                     <td className="py-2 pr-2 text-black/60">{s.whatsapp || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{s.usuario?.email || "—"}</td>
+                    <td className="py-2 pr-2 text-black/60">{s.usuario?.usuario || s.usuario?.email || "—"}</td>
                     <td className="py-2 pl-2 text-right whitespace-nowrap">
                       <div className="flex justify-end gap-1.5">
                         <Button size="sm" variant="ghost" className="w-24" onClick={() => setSucursalModal(s)}>

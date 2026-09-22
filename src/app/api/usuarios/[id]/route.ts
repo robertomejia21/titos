@@ -50,12 +50,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if ("email" in body) {
-    const email = String(body.email).trim().toLowerCase();
-    if (!email) return badRequest("El correo es requerido");
-    if (await UserModel.findOne({ email, _id: { $ne: usuario._id } })) {
+    const email = String(body.email ?? "").trim().toLowerCase();
+    if (email && (await UserModel.findOne({ email, _id: { $ne: usuario._id } }))) {
       return conflict("Ese correo ya está en uso por otro usuario");
     }
-    usuario.email = email;
+    usuario.email = email || null;
+  }
+
+  if ("usuario" in body) {
+    const nuevoUsuario = String(body.usuario ?? "").trim();
+    if (!nuevoUsuario) return badRequest("El usuario es requerido");
+    if (await UserModel.findOne({ usuario: nuevoUsuario, _id: { $ne: usuario._id } })) {
+      return conflict("Ese usuario ya está en uso por otro colaborador");
+    }
+    usuario.usuario = nuevoUsuario;
+  }
+
+  if ("apellidoPaterno" in body) {
+    const ap = String(body.apellidoPaterno ?? "").trim();
+    if (!ap) return badRequest("El apellido paterno es requerido");
+    usuario.apellidoPaterno = ap;
+  }
+
+  if ("fechaNacimiento" in body) {
+    const fn = String(body.fechaNacimiento ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fn)) return badRequest("La fecha de nacimiento es requerida (AAAA-MM-DD)");
+    usuario.fechaNacimiento = new Date(fn);
   }
 
   if ("password" in body && body.password) {

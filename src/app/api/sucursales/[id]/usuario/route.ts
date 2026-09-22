@@ -19,6 +19,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (body.nombre) usuario.nombre = body.nombre;
 
+  if (body.usuario) {
+    const nuevoUsuario = String(body.usuario).trim();
+    if (await UserModel.findOne({ usuario: nuevoUsuario, _id: { $ne: usuario._id } })) {
+      return badRequest("Ese usuario ya está en uso por otro colaborador");
+    }
+    usuario.usuario = nuevoUsuario;
+  }
+
   if (body.email) {
     const email = String(body.email).toLowerCase().trim();
     const yaExiste = await UserModel.findOne({ email, _id: { $ne: usuario._id } });

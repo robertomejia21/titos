@@ -26,13 +26,13 @@ export async function GET(req: NextRequest) {
     role: "sucursal",
     sucursalId: { $in: sucursales.map((s) => s._id) },
   })
-    .select("email nombre sucursalId")
+    .select("usuario email nombre sucursalId")
     .lean();
   const usuarioPorSucursal = new Map(usuarios.map((u) => [String(u.sucursalId), u]));
 
   const sucursalesConUsuario = sucursales.map((s) => {
     const usuario = usuarioPorSucursal.get(String(s._id));
-    return { ...s, usuario: usuario ? { email: usuario.email, nombre: usuario.nombre } : null };
+    return { ...s, usuario: usuario ? { usuario: usuario.usuario ?? null, email: usuario.email, nombre: usuario.nombre } : null };
   });
 
   return NextResponse.json(sucursalesConUsuario);
@@ -58,18 +58,22 @@ export async function POST(req: NextRequest) {
   // quién la va a operar son dos momentos distintos, y exigir los dos juntos
   // dejaba el botón de "Crear sucursal" apagado sin decir por qué. Si se
   // capturan, se piden completos: media credencial no sirve para entrar.
+  const nombreUsuario = String(body?.usuario ?? "").trim();
   const email = String(body?.email ?? "").trim().toLowerCase();
   const password = String(body?.password ?? "");
-  const creaUsuario = !!email || !!password;
+  const creaUsuario = !!nombreUsuario || !!password || !!email;
 
   if (creaUsuario) {
-    if (!email) return badRequest("Captura el correo de acceso o deja vacía también la contraseña");
+    if (!nombreUsuario) return badRequest("Captura el usuario de acceso o deja vacía también la contraseña");
     if (password.length < 6) return badRequest("La contraseña de acceso debe tener al menos 6 caracteres");
   }
 
   await connectDB();
 
-  if (creaUsuario && (await UserModel.findOne({ email }))) {
+  if (creaUsuario && (await UserModel.findOne({ usuario: nombreUsuario }))) {
+    return conflict("Ese usuario ya está en uso por otro colaborador");
+  }
+  if (creaUsuario && email && (await UserModel.findOne({ email }))) {
     return conflict("Ese correo ya está en uso por otro usuario");
   }
 
@@ -85,7 +89,8 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await UserModel.create({
-    email,
+    usuario: nombreUsuario,
+    email: email || null,
     passwordHash: await hashPassword(password),
     nombre: body.usuarioNombre || nombre,
     role: "sucursal",
@@ -93,7 +98,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(
-    { sucursal, usuario: { email: user.email, nombre: user.nombre } },
+    { sucursal, usuario: { usuario: user.usuario, email: user.email, nombre: user.nombre } },
     { status: 201 }
   );
 }

@@ -28,6 +28,9 @@ type Rol = {
 type Usuario = {
   _id: string;
   nombre: string;
+  usuario?: string | null;
+  apellidoPaterno?: string | null;
+  fechaNacimiento?: string | null;
   email: string;
   role: "matriz" | "sucursal";
   sucursalRol: "admin" | "ventas";
@@ -83,6 +86,9 @@ function UsuarioModal({
 }) {
   const esEdicion = !!usuario;
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
+  const [nombreUsuario, setNombreUsuario] = useState(usuario?.usuario ?? "");
+  const [apellidoPaterno, setApellidoPaterno] = useState(usuario?.apellidoPaterno ?? "");
+  const [fechaNacimiento, setFechaNacimiento] = useState(usuario?.fechaNacimiento ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"matriz" | "sucursal">(usuario?.role ?? "sucursal");
@@ -117,7 +123,7 @@ function UsuarioModal({
     setError(null);
     setGuardando(true);
 
-    const cuerpo: Record<string, unknown> = { nombre, email, telefono, codigoArea };
+    const cuerpo: Record<string, unknown> = { nombre, usuario: nombreUsuario.trim(), apellidoPaterno, fechaNacimiento, email, telefono, codigoArea };
     if (!usuario?.propio) {
       cuerpo.rolId = rolId || null;
       cuerpo.permisosIndividuales = permisosUsuario;
@@ -152,7 +158,9 @@ function UsuarioModal({
 
   const faltaCampo =
     !nombre ||
-    !email ||
+    !nombreUsuario.trim() ||
+    !apellidoPaterno.trim() ||
+    !fechaNacimiento ||
     !telefono ||
     (!esEdicion && !rolId) ||
     (!esEdicion && (role === "sucursal" && !sucursalId)) ||
@@ -178,10 +186,23 @@ function UsuarioModal({
           <FormField label="Nombre">
             <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
           </FormField>
-          <FormField label="Correo">
-            <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <FormField label="Apellido paterno">
+            <Input value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)} />
           </FormField>
         </FormGrid>
+
+        <FormGrid>
+          <FormField label="Usuario (para iniciar sesión)">
+            <Input icon={UserCog} value={nombreUsuario} onChange={(e) => setNombreUsuario(e.target.value)} placeholder="ej. jperez" autoComplete="off" />
+          </FormField>
+          <FormField label="Fecha de nacimiento">
+            <Input type="date" value={fechaNacimiento ?? ""} onChange={(e) => setFechaNacimiento(e.target.value)} />
+          </FormField>
+        </FormGrid>
+
+        <FormField label="Correo (opcional)">
+          <Input icon={Mail} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Solo como dato de contacto" />
+        </FormField>
 
         <FormGrid>
           <FormField label="Código de área">
@@ -199,7 +220,7 @@ function UsuarioModal({
               onChange={(e) => setTelefono(e.target.value.replace(/[^\d]/g, "").slice(0, 13))}
               placeholder="10 dígitos"
             />
-            {!esEdicion && <p className="mt-1 text-xs text-black/50">El colaborador enviará "alta" a este WhatsApp para crear su contraseña y activar la cuenta.</p>}
+            {!esEdicion && <p className="mt-1 text-xs text-black/50">A este WhatsApp se enviará el saludo de bienvenida y las credenciales de acceso.</p>}
           </FormField>
         </FormGrid>
 
@@ -324,8 +345,8 @@ function UsuarioModal({
           </FormField>
         ) : (
           <div className="rounded-lg bg-titos-green-100/50 p-3 text-sm text-titos-green-900">
-            <p className="font-medium">La contraseña se crea por WhatsApp</p>
-            <p className="mt-1 text-xs text-titos-green-700">El colaborador debe enviar la palabra <strong>"alta"</strong> al WhatsApp del sistema para crear su contraseña y activar su cuenta.</p>
+            <p className="font-medium">La contraseña se genera automáticamente</p>
+            <p className="mt-1 text-xs text-titos-green-700">Se forma con el <strong>apellido paterno</strong> y el <strong>día y mes de nacimiento</strong> (ej. <em>Perez.1503</em>) y se envía al colaborador por WhatsApp junto con su usuario.</p>
           </div>
         )}
 
@@ -530,7 +551,7 @@ function RolModal({ rol, departamentos, onClose, onGuardado }: { rol: Rol | null
 type ResultadoImport = { fila: number; nombre: string; ok: boolean; error?: string };
 
 function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol[]; sucursales: Sucursal[]; onClose: () => void; onImportado: () => void }) {
-  type FilaImport = { nombre: string; puesto: string; telefono: string; codigoArea: string; sucursal: string };
+  type FilaImport = { nombre: string; apellidoPaterno: string; fechaNacimiento: string; usuario: string; puesto: string; telefono: string; codigoArea: string; sucursal: string };
   const [filas, setFilas] = useState<FilaImport[]>([]);
   const [resultados, setResultados] = useState<ResultadoImport[]>([]);
   const [importando, setImportando] = useState(false);
@@ -544,21 +565,56 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
     try {
       const XLSX = await import("xlsx");
       const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array" });
+      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
-      const rows = data.slice(1).filter((r) => r.length >= 4 && String(r[1] ?? "").trim());
+      const data = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true });
+      if (data.length < 2) { setError("El archivo no tiene filas de datos."); return; }
 
-      const parsed = rows.map((r) => {
-        const tel = String(r[3] ?? "").replace(/\D/g, "");
-        return {
-          nombre: String(r[1] ?? "").trim(),
-          puesto: String(r[2] ?? "").trim(),
-          telefono: tel,
-          codigoArea: "+52" as const,
-          sucursal: String(r[4] ?? "").trim(),
-        };
-      });
+      const norm = (s: unknown) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/@/g, "").toLowerCase().trim();
+      const header = (data[0] as unknown[]).map(norm);
+      const col = (...names: string[]) => header.findIndex((h) => names.includes(h));
+      const iNombre = col("nombre", "nombre completo", "nombre(s)");
+      const iApellido = col("apellido paterno", "apellido");
+      const iFecha = col("fecha de nacimiento", "nacimiento", "fecha");
+      const iPuesto = col("puesto", "rol", "cargo");
+      const iTel = col("telefono", "celular", "whatsapp");
+      const iSuc = col("sucursal", "tienda");
+      const iUsuario = col("usuario", "user");
+      if (iNombre < 0) { setError("No encontré la columna \"Nombre\" en el encabezado del archivo."); return; }
+
+      const cell = (row: unknown[], i: number) => (i >= 0 ? row[i] : undefined);
+      const toISO = (v: unknown): string => {
+        if (v instanceof Date) return `${v.getUTCFullYear()}-${String(v.getUTCMonth() + 1).padStart(2, "0")}-${String(v.getUTCDate()).padStart(2, "0")}`;
+        const s = String(v ?? "").trim();
+        let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+        m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+        return "";
+      };
+
+      const parsed = (data.slice(1) as unknown[][])
+        .filter((r) => String(cell(r, iNombre) ?? "").trim())
+        .map((r) => {
+          const nombre = String(cell(r, iNombre) ?? "").trim();
+          const apellidoPaterno = String(cell(r, iApellido) ?? "").trim();
+          const usuarioRaw = String(cell(r, iUsuario) ?? "").trim();
+          const primerNombre = norm(nombre).split(/\s+/)[0] ?? "";
+          const apellidoNorm = norm(apellidoPaterno).replace(/\s+/g, "");
+          // Usuario sugerido cuando el Excel no trae columna "Usuario": inicial
+          // del nombre + apellido paterno (editable en la vista previa).
+          const usuario = usuarioRaw || (primerNombre && apellidoNorm ? `${primerNombre[0]}${apellidoNorm}` : primerNombre);
+          return {
+            nombre,
+            apellidoPaterno,
+            fechaNacimiento: toISO(cell(r, iFecha)),
+            usuario,
+            puesto: String(cell(r, iPuesto) ?? "").trim(),
+            telefono: String(cell(r, iTel) ?? "").replace(/\D/g, ""),
+            codigoArea: "+52" as const,
+            sucursal: String(cell(r, iSuc) ?? "").trim(),
+          };
+        });
 
       if (parsed.length === 0) { setError("No se encontraron filas válidas en el archivo."); return; }
       setFilas(parsed);
@@ -617,10 +673,10 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
           <div className="rounded-lg bg-titos-green-100/50 p-3 text-sm text-titos-green-900">
             <p className="font-medium">Formato esperado (Excel .xlsx)</p>
             <p className="mt-1 text-xs text-titos-green-700">
-              Columnas: <strong>Marca temporal</strong> (ignorada), <strong>Nombre completo</strong>, <strong>Puesto</strong>, <strong>Teléfono</strong>, <strong>Sucursal</strong>
+              Columnas (por encabezado): <strong>Nombre</strong>, <strong>Apellido paterno</strong>, <strong>Fecha de nacimiento</strong>, <strong>Puesto</strong>, <strong>Teléfono</strong>, <strong>Sucursal</strong> y opcionalmente <strong>Usuario</strong>.
             </p>
             <p className="mt-1 text-xs text-titos-green-700">
-              Los nombres de puesto y sucursal deben coincidir con los del catálogo. Los usuarios se crean inactivos — cada empleado activa su cuenta enviando &quot;alta&quot; por WhatsApp.
+              Los nombres de puesto y sucursal deben coincidir con el catálogo. La contraseña se genera sola (apellido + día/mes de nacimiento) y a cada empleado se le envían por WhatsApp su bienvenida y sus credenciales.
             </p>
           </div>
           <FormField label="Archivo Excel">
@@ -638,6 +694,9 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
                 <tr className="border-b border-black/10 text-black/50">
                   <th className="px-2 py-1.5 w-8">#</th>
                   <th className="px-2 py-1.5">Nombre</th>
+                  <th className="px-2 py-1.5">Apellido paterno</th>
+                  <th className="px-2 py-1.5">Nacimiento</th>
+                  <th className="px-2 py-1.5">Usuario</th>
                   <th className="px-2 py-1.5">Puesto</th>
                   <th className="px-2 py-1.5 w-16">Cód.</th>
                   <th className="px-2 py-1.5">Teléfono</th>
@@ -649,12 +708,28 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
                 {filas.map((f, i) => {
                   const puestoOk = rolesConocidos.has(normN(f.puesto));
                   const sucOk = sucursalesConocidas.has(normN(f.sucursal));
+                  const apellidoOk = !!f.apellidoPaterno.trim();
+                  const fechaOk = /^\d{4}-\d{2}-\d{2}$/.test(f.fechaNacimiento);
+                  const usuarioOk = !!f.usuario.trim();
+                  const claseCampo = (ok: boolean) => `w-full rounded border px-1 py-0.5 text-xs focus:border-titos-green-500 focus:outline-none ${ok ? "border-transparent bg-transparent hover:border-black/15" : "border-red-300 bg-red-50 text-red-700"}`;
                   return (
                     <tr key={i} className="border-b border-black/5">
                       <td className="px-2 py-1 text-black/40">{i + 1}</td>
                       <td className="px-1 py-1">
                         <input value={f.nombre} onChange={(e) => editarFila(i, "nombre", e.target.value)}
                           className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-black/15 focus:border-titos-green-500 focus:outline-none" />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input value={f.apellidoPaterno} onChange={(e) => editarFila(i, "apellidoPaterno", e.target.value)}
+                          className={claseCampo(apellidoOk)} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input type="date" value={f.fechaNacimiento} onChange={(e) => editarFila(i, "fechaNacimiento", e.target.value)}
+                          className={claseCampo(fechaOk)} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <input value={f.usuario} onChange={(e) => editarFila(i, "usuario", e.target.value)}
+                          className={claseCampo(usuarioOk)} />
                       </td>
                       <td className="px-1 py-1">
                         <select value={puestoOk ? f.puesto : ""} onChange={(e) => editarFila(i, "puesto", e.target.value)}
@@ -691,8 +766,8 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
               </tbody>
             </table>
           </div>
-          {filas.some((f) => !rolesConocidos.has(normN(f.puesto)) || !sucursalesConocidas.has(normN(f.sucursal))) ? (
-            <p className="text-xs text-amber-700">⚠ Las filas marcadas tienen un puesto o sucursal que no coincide con el catálogo. Corrígelas con el desplegable o elimínalas antes de importar.</p>
+          {filas.some((f) => !rolesConocidos.has(normN(f.puesto)) || !sucursalesConocidas.has(normN(f.sucursal)) || !f.apellidoPaterno.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(f.fechaNacimiento) || !f.usuario.trim()) ? (
+            <p className="text-xs text-amber-700">⚠ Hay filas con datos faltantes o que no coinciden con el catálogo (usuario, apellido, nacimiento, puesto o sucursal). Corrígelas o elimínalas antes de importar.</p>
           ) : null}
         </div>
       ) : (
@@ -756,11 +831,11 @@ export function UsuariosRolesManager() {
     (estado === "todos" || u.activo === (estado === "activos")) &&
     (!filtroRol || claveRolUsuario(u) === filtroRol) &&
     (!filtroSucursal || (filtroSucursal === "matriz" ? u.role === "matriz" : u.role === "sucursal" && u.sucursal?._id === filtroSucursal)) &&
-    coincideBusqueda(`${u.nombre} ${u.email} ${rolMostrado(u)} ${ubicacionUsuario(u)}`, busqueda)
+    coincideBusqueda(`${u.nombre} ${u.usuario ?? ""} ${u.email ?? ""} ${rolMostrado(u)} ${ubicacionUsuario(u)}`, busqueda)
   ).sort((a, b) => {
     if (orden === "activos") return Number(b.activo) - Number(a.activo) || compararTexto(a.nombre, b.nombre);
-    const campoA = orden === "sucursal" ? ubicacionUsuario(a) : orden === "rol" ? rolMostrado(a) : orden === "correo" ? a.email : a.nombre;
-    const campoB = orden === "sucursal" ? ubicacionUsuario(b) : orden === "rol" ? rolMostrado(b) : orden === "correo" ? b.email : b.nombre;
+    const campoA = orden === "sucursal" ? ubicacionUsuario(a) : orden === "rol" ? rolMostrado(a) : orden === "correo" ? (a.usuario ?? "") : a.nombre;
+    const campoB = orden === "sucursal" ? ubicacionUsuario(b) : orden === "rol" ? rolMostrado(b) : orden === "correo" ? (b.usuario ?? "") : b.nombre;
     return (compararTexto(campoA, campoB) || compararTexto(a.nombre, b.nombre) || compararTexto(a._id, b._id)) * (orden === "nombre-desc" ? -1 : 1);
   }), [usuarios, estado, filtroRol, filtroSucursal, busqueda, orden]);
   const rolesVisibles = useMemo(() => roles.filter((r) =>
@@ -835,13 +910,13 @@ export function UsuariosRolesManager() {
           <div className="mb-4 space-y-3">
             <FormField label="Buscar usuario">
               <Input type="search" aria-label="Buscar usuario" icon={Search} placeholder="Nombre, correo, puesto o sucursal" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} list="sugerencias-usuarios" autoComplete="off" className="border-black/50" />
-              <datalist id="sugerencias-usuarios">{usuariosVisibles.slice(0, 20).map((u) => <option key={u._id} value={u.email}>{u.nombre} · {u.activo ? "Activo" : "Inactivo"} · {rolMostrado(u)}</option>)}</datalist>
+              <datalist id="sugerencias-usuarios">{usuariosVisibles.slice(0, 20).map((u) => <option key={u._id} value={u.usuario ?? u.nombre}>{u.nombre} · {u.activo ? "Activo" : "Inactivo"} · {rolMostrado(u)}</option>)}</datalist>
             </FormField>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <FormField label="Estado"><Select aria-label="Estado del usuario" className="border-black/50" value={estado} onChange={(e) => setEstado(e.target.value)}><option value="todos">Todos ({usuarios.length})</option><option value="activos">Activos ({usuarios.filter((u) => u.activo).length})</option><option value="inactivos">Inactivos ({usuarios.filter((u) => !u.activo).length})</option></Select></FormField>
               <FormField label="Puesto / rol"><Select aria-label="Filtrar por puesto" className="border-black/50" value={filtroRol} onChange={(e) => setFiltroRol(e.target.value)}><option value="">Todos los puestos</option>{roles.map((r) => <option key={r._id} value={r._id}>{r.nombre}</option>)}{rolesHeredados.map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</Select></FormField>
               <FormField label="Ubicación"><Select aria-label="Filtrar por ubicación" className="border-black/50" value={filtroSucursal} onChange={(e) => setFiltroSucursal(e.target.value)}><option value="">Todas las ubicaciones</option><option value="matriz">Matriz (administración)</option>{sucursales.map((s) => <option key={s._id} value={s._id}>{s.nombre}</option>)}</Select></FormField>
-              <FormField label="Ordenar"><Select aria-label="Ordenar usuarios" className="border-black/50" value={orden} onChange={(e) => setOrden(e.target.value)}><option value="nombre-asc">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option><option value="correo">Correo: A–Z</option><option value="sucursal">Ubicación: A–Z</option><option value="rol">Puesto: A–Z</option><option value="activos">Activos primero</option></Select></FormField>
+              <FormField label="Ordenar"><Select aria-label="Ordenar usuarios" className="border-black/50" value={orden} onChange={(e) => setOrden(e.target.value)}><option value="nombre-asc">Nombre: A–Z</option><option value="nombre-desc">Nombre: Z–A</option><option value="correo">Usuario: A–Z</option><option value="sucursal">Ubicación: A–Z</option><option value="rol">Puesto: A–Z</option><option value="activos">Activos primero</option></Select></FormField>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p role="status" className="text-sm text-black/70">{cargando ? "Cargando usuarios…" : `${usuariosVisibles.length} de ${usuarios.length} usuarios`}</p>
@@ -860,7 +935,7 @@ export function UsuariosRolesManager() {
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
                     <th className="py-2 pr-3">Nombre</th>
-                    <th className="py-2 pr-3">Correo</th>
+                    <th className="py-2 pr-3">Usuario</th>
                     <th className="py-2 pr-3">Dónde</th>
                     <th className="py-2 pr-3">Rol</th>
                     <th className="py-2 pr-3">Estado</th>
@@ -875,7 +950,10 @@ export function UsuariosRolesManager() {
                         {u.propio ? <span className="ml-1 text-xs text-titos-green-700">(tú)</span> : null}
 
                       </td>
-                      <td className="py-2 pr-3 text-black/60">{u.email}</td>
+                      <td className="py-2 pr-3 text-black/60">
+                        {u.usuario ?? <span className="text-black/30">— sin usuario —</span>}
+                        {u.email ? <span className="block text-xs text-black/35">{u.email}</span> : null}
+                      </td>
                       <td className="py-2 pr-3 text-black/60">
                         {u.role === "matriz" ? "Matriz" : (u.sucursal?.nombre ?? "— sin sucursal —")}
                       </td>
@@ -891,16 +969,14 @@ export function UsuariosRolesManager() {
                       </td>
                       <td className="py-2 pr-3">
                         <span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span>
-                        {u.telefono && u.estadoVerificacion === "pendiente" ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800">Esperando &quot;alta&quot;</span> : null}
-                        {u.estadoVerificacion === "esperando_password" ? <span className="ml-1 inline-block rounded px-2 py-1 text-xs font-medium bg-sky-100 text-sky-800">Creando contraseña</span> : null}
                       </td>
                       <td className="py-2 pr-3 text-right flex gap-1 justify-end">
-                        {u.telefono && !u.telefonoVerificado ? (
+                        {u.telefono && u.usuario ? (
                           <Button variant="ghost" onClick={async () => {
-                            await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
-                            alert("Recordatorio de activación enviado por WhatsApp");
+                            const res = await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
+                            alert(res.ok ? "Acceso reenviado por WhatsApp" : "No se pudo reenviar el acceso");
                           }}>
-                            Reenviar
+                            Reenviar acceso
                           </Button>
                         ) : null}
                         <Button variant="ghost" onClick={() => setUsuarioModal(u)}>

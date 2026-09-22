@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
   const usuarios = await UserModel.find({ role: "sucursal", sucursalId: session.sucursalId })
-    .select("nombre email sucursalRol activo")
+    .select("nombre usuario email sucursalRol activo")
     .sort({ nombre: 1 })
     .lean();
 
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
     usuarios.map((u) => ({
       _id: String(u._id),
       nombre: u.nombre,
+      usuario: u.usuario ?? null,
       email: u.email,
       sucursalRol: (u.sucursalRol as "admin" | "ventas") ?? "admin",
       activo: u.activo,
@@ -43,22 +44,24 @@ export async function POST(req: NextRequest) {
   if (!body) return badRequest("Cuerpo inválido");
 
   const nombre = String(body.nombre ?? "").trim();
+  const nombreUsuario = String(body.usuario ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const sucursalRol = body.sucursalRol;
 
   if (!nombre) return badRequest("El nombre es requerido");
-  if (!email) return badRequest("El correo es requerido");
+  if (!nombreUsuario) return badRequest("El usuario es requerido");
   if (password.length < 6) return badRequest("La contraseña debe tener al menos 6 caracteres");
   if (!["admin", "ventas"].includes(sucursalRol)) return badRequest("Rol inválido");
 
   await connectDB();
-  const yaExiste = await UserModel.findOne({ email });
-  if (yaExiste) return conflict("Ese correo ya está en uso por otro usuario");
+  if (await UserModel.findOne({ usuario: nombreUsuario })) return conflict("Ese usuario ya está en uso por otro colaborador");
+  if (email && (await UserModel.findOne({ email }))) return conflict("Ese correo ya está en uso por otro usuario");
 
   const usuario = await UserModel.create({
     nombre,
-    email,
+    usuario: nombreUsuario,
+    email: email || null,
     passwordHash: await hashPassword(password),
     role: "sucursal",
     sucursalRol,
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
     {
       _id: String(usuario._id),
       nombre: usuario.nombre,
+      usuario: usuario.usuario,
       email: usuario.email,
       sucursalRol: usuario.sucursalRol,
       activo: usuario.activo,

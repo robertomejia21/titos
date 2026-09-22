@@ -47,6 +47,23 @@ export async function getChats() {
   >;
 }
 
+// Green API restringe getChats en instancias ya autorizadas (responde 401), así
+// que el listado de conversaciones se arma con los últimos mensajes entrantes y
+// salientes, que sí están disponibles.
+export async function getLastMessages(minutes = 44640 /* ~31 días */) {
+  requireEnv();
+  const inc = `${baseUrl()}/waInstance${INSTANCE_ID}/lastIncomingMessages/${API_TOKEN}?minutes=${minutes}`;
+  const out = `${baseUrl()}/waInstance${INSTANCE_ID}/lastOutgoingMessages/${API_TOKEN}?minutes=${minutes}`;
+  type UltimoMensaje = { chatId?: string; timestamp?: number; senderName?: string; chatName?: string };
+  const traer = async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) return [] as UltimoMensaje[];
+    return (await res.json().catch(() => [])) as UltimoMensaje[];
+  };
+  const [entrantes, salientes] = await Promise.all([traer(inc), traer(out)]);
+  return [...entrantes, ...salientes];
+}
+
 export async function getChatHistory(chatIdStr: string, count = 100) {
   requireEnv();
   const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getChatHistory/${API_TOKEN}`;
