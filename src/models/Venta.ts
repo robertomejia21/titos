@@ -55,6 +55,7 @@ const PagoVentaSchema = new Schema(
     // Con qué terminal física se cobró, para cuadrar contra el banco.
     terminalId: { type: Schema.Types.ObjectId, ref: "TerminalPago", default: null },
     terminalAlias: { type: String, default: "" },
+    autorizacion: { type: String, maxlength: 12, default: "" },
     // Crédito, débito o American Express. El banco liquida cada uno por
     // separado y con su propia comisión, así que el corte tiene que poder
     // desglosarlos. `null` en las ventas anteriores a esta versión: se muestran
