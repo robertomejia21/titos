@@ -242,6 +242,34 @@ export async function cancelar(
   return (await leerRespuesta(res, "cancelar")).data;
 }
 
+/** Un CSD cargado en la cuenta del PAC. */
+export type CertificadoSw = {
+  issuer_rfc: string;
+  issuer_business_name: string;
+  certificate_number: string;
+  certificate_type: string;
+  is_active: boolean;
+  valid_from: string;
+  valid_to: string;
+};
+
+/**
+ * Certificados de sello digital cargados en la cuenta de SW.
+ *
+ * El timbrado sella del lado del PAC, así que si aquí no aparece un CSD activo
+ * del RFC emisor, no se puede timbrar por más correcto que esté el CFDI. Un CSD
+ * dura cuatro años: conviene mirar `valid_to` antes de que venza y tumbe la
+ * facturación sin aviso.
+ */
+export async function certificados(): Promise<CertificadoSw[]> {
+  const res = await fetch(`${url()}/certificates`, {
+    headers: { Authorization: `Bearer ${await token()}` },
+    cache: "no-store",
+  });
+  const json = await leerRespuesta(res, "consultar certificados");
+  return (json.data ?? []) as unknown as CertificadoSw[];
+}
+
 /** Timbres disponibles en la cuenta. Sirve para avisar antes de quedarse sin. */
 export async function saldo() {
   const res = await fetch(`${urlApi()}/management/v2/api/users/balance`, {

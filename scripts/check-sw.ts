@@ -12,6 +12,7 @@
 import {
   ErrorSw,
   cancelar,
+  certificados,
   esProduccion,
   saldo,
   swConfigurado,
@@ -137,13 +138,31 @@ async function main() {
     console.log("         (no bloquea el timbrado; revisa SW_API_URL si te interesa el dato)");
   }
 
+  console.log("\n3. Certificados de sello digital (CSD)");
+  try {
+    const lista = await certificados();
+    if (!lista.length) {
+      console.log("  FALTA  No hay ningún CSD cargado en la cuenta de SW.");
+      console.log("         Sin CSD el PAC no puede sellar: el timbrado falla ahí, no en el código.");
+    }
+    for (const c of lista) {
+      const dias = Math.round((new Date(c.valid_to).getTime() - Date.now()) / 86400000);
+      ok(`${c.issuer_rfc} — ${c.issuer_business_name}`);
+      console.log(`      tipo ${c.certificate_type} · no. ${c.certificate_number}`);
+      console.log(`      ${c.is_active ? "activo" : "INACTIVO"} · vence ${c.valid_to.slice(0, 10)} (${dias} días)`);
+      if (dias < 60) console.log("      AVISO  por vencer: renuévalo antes de que tumbe la facturación.");
+    }
+  } catch (error) {
+    console.log(`  AVISO  no se pudo consultar: ${error instanceof Error ? error.message : error}`);
+  }
+
   if (!timbrado) {
     console.log("\nConexión verificada. Para probar un timbrado real de sandbox:");
     console.log("  npm run check:sw -- --timbrar\n");
     return;
   }
 
-  console.log("\n3. Timbrado de prueba");
+  console.log("\n4. Timbrado de prueba");
   let uuid = "";
   try {
     const res = await timbrar(cfdiDePrueba(), { customId: `check-sw-${Date.now()}` });
