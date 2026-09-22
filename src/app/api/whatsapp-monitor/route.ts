@@ -44,16 +44,19 @@ export async function GET(req: NextRequest) {
   if (session.role !== "matriz") return forbidden();
   if (!puede(session, PERMISO)) return sinPermiso(PERMISO);
 
+  let estado = "notAuthorized";
   try {
-    // El estado de la instancia es lo que de verdad dice si WhatsApp está
-    // conectado; si esto falla, la integración está caída (502).
     const state = await getStateInstance();
-    const contactos = (await obtenerContactos()).sort((a, b) => b.ultimoMensaje - a.ultimoMensaje);
-    return NextResponse.json({ contactos, estado: state.stateInstance });
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message, contactos: [], estado: "error" },
-      { status: 502 }
-    );
+    estado = state.stateInstance;
+  } catch { /* keep default */ }
+
+  let contactos: Contacto[] = [];
+  let error: string | undefined;
+  try {
+    contactos = (await obtenerContactos()).sort((a, b) => b.ultimoMensaje - a.ultimoMensaje);
+  } catch (e) {
+    error = (e as Error).message;
   }
+
+  return NextResponse.json({ contactos, estado, ...(error ? { error } : {}) });
 }
