@@ -14,7 +14,7 @@ import Producto from "@/models/Producto";
 import Sucursal from "@/models/Sucursal";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { construirCfdi, ErrorCfdi, type FacturaLike, type FiscalPorProducto } from "@/lib/cfdi";
-import { EMISOR_VACIO, type EmisorFiscal } from "@/lib/emisorFiscal";
+import { emisorDesde } from "@/lib/emisorFiscal";
 import type { FiscalProducto } from "@/lib/fiscalProducto";
 import { ErrorSw, cancelar, timbrar, type RespuestaTimbrado } from "@/lib/sw";
 import type { MotivoCancelacion } from "@/lib/facturas";
@@ -62,7 +62,7 @@ async function lugarExpedicion(factura: DocFactura): Promise<string> {
  */
 export async function previsualizarCfdi(factura: DocFactura) {
   const config = await obtenerConfiguracion();
-  const emisor: EmisorFiscal = { ...EMISOR_VACIO, ...(config.emisorFiscal ?? {}) };
+  const emisor = emisorDesde(config.emisorFiscal);
   const fiscales = await fiscalDeConceptos(factura);
   return construirCfdi(factura as unknown as FacturaLike, emisor, fiscales, {
     lugarExpedicion: await lugarExpedicion(factura),
@@ -150,7 +150,7 @@ export async function cancelarFacturaEnSat(
     throw new ErrorTimbrado("Esta factura no está timbrada: no hay nada que cancelar ante el SAT.");
 
   const config = await obtenerConfiguracion();
-  const rfcEmisor = config.emisorFiscal?.rfc || "";
+  const rfcEmisor = emisorDesde(config.emisorFiscal).rfc;
   if (!rfcEmisor)
     throw new ErrorTimbrado("Falta el RFC de la empresa en Configuración para cancelar.");
 

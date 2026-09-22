@@ -25,6 +25,25 @@ export const EMISOR_VACIO: EmisorFiscal = {
   codigoPostal: "",
 };
 
+/**
+ * Lee los datos del emisor vengan de donde vengan.
+ *
+ * No se puede hacer `{...config.emisorFiscal}`: cuando la configuración llega
+ * como documento de Mongoose, eso es un subdocumento y el spread copia sus
+ * propiedades internas ($__, _doc, $basePath) en vez de los campos, dejando el
+ * emisor vacío y haciendo creer que nunca se capturó. Aquí se leen por nombre,
+ * que funciona igual con documento, subdocumento u objeto plano.
+ */
+export function emisorDesde(valor: unknown): EmisorFiscal {
+  const e = (valor ?? {}) as Partial<EmisorFiscal>;
+  return {
+    rfc: e.rfc ?? "",
+    razonSocial: e.razonSocial ?? "",
+    regimenFiscal: e.regimenFiscal ?? "",
+    codigoPostal: e.codigoPostal ?? "",
+  };
+}
+
 /** True cuando ya hay datos suficientes para armar el nodo Emisor del CFDI. */
 export function emisorCompleto(emisor: EmisorFiscal | null | undefined) {
   return Boolean(
