@@ -1,7 +1,7 @@
 import Pedido from "@/models/Pedido";
 import Sucursal from "@/models/Sucursal";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { enviarWhatsApp } from "@/lib/evolutionApi";
+import { sendMessage as enviarWhatsApp } from "@/lib/greenApi";
 
 // Barrido de pedidos que se quedaron atorados: los que matriz no surtió dentro
 // del plazo y los que la sucursal no confirmó haber recibido. Manda un WhatsApp

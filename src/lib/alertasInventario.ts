@@ -3,7 +3,7 @@ import NecesidadCompra from "@/models/NecesidadCompra";
 import Producto from "@/models/Producto";
 import Sucursal from "@/models/Sucursal";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { enviarWhatsApp } from "@/lib/evolutionApi";
+import { sendMessage as enviarWhatsApp } from "@/lib/greenApi";
 import type { ContextoPuntoVenta } from "@/lib/puntoVenta";
 
 // Aviso al área de compras cuando una venta deja un producto en cero.

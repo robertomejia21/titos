@@ -101,6 +101,66 @@ export async function getStateInstance() {
   return res.json() as Promise<{ stateInstance: string }>;
 }
 
+export async function getQR(): Promise<{ qr: string | null }> {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/qr/${API_TOKEN}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  return { qr: data.message ?? null };
+}
+
+export async function logout() {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/logout/${API_TOKEN}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json();
+}
+
+export async function sendFileByUrl(phone: string, urlFile: string, fileName: string, caption: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/sendFileByUrl/${API_TOKEN}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chatId: chatId(phone), urlFile, fileName, caption }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json() as Promise<{ idMessage: string }>;
+}
+
+export async function sendFileByUpload(phone: string, fileBase64: string, fileName: string, caption: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/sendFileByUpload/${API_TOKEN}`;
+  const boundary = "----GreenApiBoundary" + Date.now();
+  const body = [
+    `--${boundary}\r\nContent-Disposition: form-data; name="chatId"\r\n\r\n${chatId(phone)}`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\nContent-Transfer-Encoding: base64\r\n\r\n${fileBase64}`,
+    `--${boundary}--`,
+  ].join("\r\n");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+    body,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json() as Promise<{ idMessage: string }>;
+}
+
 export async function sendButtonsMessage(
   phone: string,
   body: string,

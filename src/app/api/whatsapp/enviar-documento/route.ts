@@ -7,7 +7,7 @@ import "@/models/Empleado"; // necesario para que populate("repartidorId") funci
 import "@/models/Proveedor"; // necesario para que populate("proveedorId") funcione
 import { requireSession, unauthorized, forbidden, badRequest, notFound } from "@/lib/apiAuth";
 import { generarPdfPedido, generarPdfOrdenCompra } from "@/lib/pdf";
-import { enviarWhatsAppDocumento } from "@/lib/evolutionApi";
+import { sendFileByUpload } from "@/lib/greenApi";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
 export async function POST(req: NextRequest) {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await enviarWhatsAppDocumento(whatsapp, Buffer.from(pdfBytes).toString("base64"), fileName, caption);
+    await sendFileByUpload(whatsapp, Buffer.from(pdfBytes).toString("base64"), fileName, caption);
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }

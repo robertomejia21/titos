@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import Venta from "@/models/Venta";
 import Sucursal from "@/models/Sucursal";
 import Ventas2ActivacionModel, { type Ventas2Activacion as Ventas2ActivacionType } from "@/models/Ventas2Activacion";
-import { enviarWhatsApp } from "@/lib/evolutionApi";
+import { sendMessage as enviarWhatsApp } from "@/lib/greenApi";
 import { formatFechaHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
 export type EstadoVentas2 = "programada" | "activa" | "finalizada" | "cancelada";

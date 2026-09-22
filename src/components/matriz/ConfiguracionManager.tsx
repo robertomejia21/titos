@@ -4,14 +4,8 @@ import { EMISOR_VACIO, emisorCompleto, type EmisorFiscal } from "@/lib/emisorFis
 import { REGIMENES_FISCALES } from "@/lib/facturacion";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import { Button, Card, FormGrid, FormField, Input, Modal } from "@/components/ui";
+import { Button, Card, FormGrid, FormField, Input } from "@/components/ui";
 import {
-  Wifi,
-  WifiOff,
-  Loader2,
-  RefreshCw,
-  QrCode,
   Clock,
   CalendarCheck,
   DollarSign,
@@ -27,105 +21,8 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { MotivosPosManager } from "@/components/matriz/MotivosPosManager";
 
-type EstadoConexion = "open" | "connecting" | "close" | "desconocido";
-
-const ESTADO_INFO: Record<EstadoConexion, { label: string; className: string }> = {
-  open: { label: "Conectado", className: "bg-titos-green-100 text-titos-green-700" },
-  connecting: { label: "Conectando...", className: "bg-amber-100 text-amber-700" },
-  close: { label: "Desconectado", className: "bg-red-100 text-red-700" },
-  desconocido: { label: "Sin datos", className: "bg-black/5 text-black/50" },
-};
-
-function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: () => void }) {
-  const [qr, setQr] = useState<string | null>(null);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-
-  const pedirQR = useCallback(async () => {
-    setCargando(true);
-    setError(null);
-    const res = await fetch("/api/whatsapp/qr");
-    setCargando(false);
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "No se pudo obtener el código QR");
-      return;
-    }
-
-    const data = await res.json();
-    setQr(data.qr);
-    setPairingCode(data.pairingCode);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial del QR al abrir el modal
-    pedirQR();
-  }, [pedirQR]);
-
-  // Mientras el modal está abierto, revisa cada 3s si ya se vinculó el teléfono.
-  useEffect(() => {
-    const intervalo = setInterval(async () => {
-      const res = await fetch("/api/whatsapp/estado");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.estado === "open") {
-        clearInterval(intervalo);
-        onConectado();
-      }
-    }, 3000);
-    return () => clearInterval(intervalo);
-  }, [onConectado]);
-
-  return (
-    <Modal open onClose={onClose} title="Vincular WhatsApp" icon={QrCode}>
-      <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <p className="text-sm text-black/60">
-          Abre WhatsApp en el teléfono que usarás para enviar mensajes, ve a{" "}
-          <span className="font-medium">Dispositivos vinculados → Vincular un dispositivo</span> y escanea este código.
-        </p>
-
-        {cargando ? (
-          <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-dashed border-black/10">
-            <Loader2 className="h-8 w-8 animate-spin text-titos-green-600" />
-          </div>
-        ) : error ? (
-          <div className="flex h-64 w-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        ) : qr ? (
-          <Image src={qr} alt="Código QR de WhatsApp" width={256} height={256} className="rounded-xl border border-black/10" unoptimized />
-        ) : (
-          <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-dashed border-black/10 p-4 text-sm text-black/40">
-            No se recibió un código QR. La instancia podría ya estar conectada.
-          </div>
-        )}
-
-        {pairingCode ? (
-          <p className="text-sm text-black/60">
-            O usa el código de vinculación: <span className="font-mono font-semibold">{pairingCode}</span>
-          </p>
-        ) : null}
-
-        <Button type="button" variant="ghost" onClick={pedirQR} disabled={cargando}>
-          <span className="flex items-center gap-1.5">
-            <RefreshCw className="h-4 w-4" /> Generar nuevo código
-          </span>
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
 export function ConfiguracionManager() {
   const zonaHoraria = useZonaHoraria();
-  const [estado, setEstado] = useState<EstadoConexion>("desconocido");
-  const [cargandoEstado, setCargandoEstado] = useState(true);
-  const [mostrarQR, setMostrarQR] = useState(false);
-  const [desconectando, setDesconectando] = useState(false);
-  const [confirmandoDesconectar, setConfirmandoDesconectar] = useState(false);
-
   const [diasLaborales, setDiasLaborales] = useState<string[]>([]);
   const [horaCorte, setHoraCorte] = useState("16:00");
   const [tipoCambio, setTipoCambio] = useState("17");
@@ -181,18 +78,6 @@ export function ConfiguracionManager() {
 
   const cargado = useRef(false);
 
-  const cargarEstado = useCallback(async () => {
-    setCargandoEstado(true);
-    const res = await fetch("/api/whatsapp/estado");
-    setCargandoEstado(false);
-    if (!res.ok) {
-      setEstado("desconocido");
-      return;
-    }
-    const data = await res.json();
-    setEstado(data.estado ?? "desconocido");
-  }, []);
-
   const cargarConfiguracion = useCallback(async () => {
     setCargandoConfig(true);
     const res = await fetch("/api/configuracion");
@@ -225,9 +110,8 @@ export function ConfiguracionManager() {
   useEffect(() => {
     if (cargado.current) return;
     cargado.current = true;
-    cargarEstado();
     cargarConfiguracion();
-  }, [cargarEstado, cargarConfiguracion]);
+  }, [cargarConfiguracion]);
 
   function alternarDia(dia: string) {
     setDiasLaborales((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
@@ -437,16 +321,6 @@ export function ConfiguracionManager() {
     setMensajeNipSup("Se quitó el NIP. Mientras no haya uno, no se pueden dar de alta usuarios supervisores.");
   }
 
-  async function desconectar() {
-    setDesconectando(true);
-    const res = await fetch("/api/whatsapp/desconectar", { method: "POST" });
-    setDesconectando(false);
-    setConfirmandoDesconectar(false);
-    if (res.ok) cargarEstado();
-  }
-
-  const info = ESTADO_INFO[estado];
-
   useEffect(() => {
     if (cargandoConfig) return;
     const go = () => { const id = decodeURIComponent(window.location.hash.slice(1)); if (id) document.getElementById(id)?.scrollIntoView({block: "center"}); };
@@ -470,51 +344,6 @@ export function ConfiguracionManager() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 id="whatsapp" className="font-semibold text-titos-green-900">Conexión de WhatsApp</h2>
-            <p className="text-sm text-black/50">
-              Se usa para enviar pedidos y órdenes de compra en PDF por WhatsApp (Evolution API).
-            </p>
-          </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${info.className}`}>
-            {estado === "open" ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-            {cargandoEstado ? "Consultando..." : info.label}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="ghost" onClick={cargarEstado} disabled={cargandoEstado}>
-            <span className="flex items-center gap-1.5">
-              <RefreshCw className="h-4 w-4" /> Actualizar estado
-            </span>
-          </Button>
-
-          {estado !== "open" ? (
-            <Button type="button" onClick={() => setMostrarQR(true)}>
-              <span className="flex items-center gap-1.5">
-                <QrCode className="h-4 w-4" /> Vincular con código QR
-              </span>
-            </Button>
-          ) : confirmandoDesconectar ? (
-            <>
-              <span className="text-sm text-black/60">¿Desconectar WhatsApp?</span>
-              <Button type="button" variant="ghost" onClick={() => setConfirmandoDesconectar(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" variant="danger" onClick={desconectar} disabled={desconectando}>
-                {desconectando ? "Desconectando..." : "Sí, desconectar"}
-              </Button>
-            </>
-          ) : (
-            <Button type="button" variant="danger" onClick={() => setConfirmandoDesconectar(true)}>
-              Desconectar
-            </Button>
-          )}
-        </div>
-      </Card>
-
       <Card>
         <h2 id="horarios" className="mb-1 font-semibold text-titos-green-900">Días y horario laborales</h2>
         <p className="mb-4 text-sm text-black/50">
@@ -1007,19 +836,6 @@ export function ConfiguracionManager() {
       </Card>
 
       <MotivosPosManager />
-
-      {mostrarQR ? (
-        <QRModal
-          onClose={() => {
-            setMostrarQR(false);
-            cargarEstado();
-          }}
-          onConectado={() => {
-            setMostrarQR(false);
-            cargarEstado();
-          }}
-        />
-      ) : null}
     </div>
   );
 }

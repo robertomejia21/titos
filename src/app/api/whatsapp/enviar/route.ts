@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, unauthorized, forbidden, badRequest } from "@/lib/apiAuth";
-import { enviarWhatsApp } from "@/lib/evolutionApi";
+import { sendMessage as enviarWhatsApp } from "@/lib/greenApi";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);

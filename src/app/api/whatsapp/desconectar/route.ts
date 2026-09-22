@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, unauthorized, forbidden } from "@/lib/apiAuth";
-import { desconectarWhatsApp } from "@/lib/evolutionApi";
+import { logout } from "@/lib/greenApi";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (session.role !== "matriz") return forbidden();
 
   try {
-    await desconectarWhatsApp();
+    await logout();
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
