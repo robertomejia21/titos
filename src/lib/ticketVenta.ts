@@ -26,6 +26,7 @@ export type PagoTicket = {
   montoUsd?: number | null;
   tipoCambio?: number | null;
   terminalAlias?: string;
+  autorizacion?: string;
   tarjetaTipo?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
@@ -122,6 +123,9 @@ function detallePago(pago: PagoTicket) {
 
   if (pago.metodoPago === "tarjeta" && pago.terminalAlias) {
     lineas.push(fila(`<span class="tenue">Terminal ${escaparHTML(pago.terminalAlias)}</span>`, ""));
+  }
+  if (pago.metodoPago === "tarjeta" && pago.autorizacion) {
+    lineas.push(fila(`<span class="tenue">Autorización capturada: ${escaparHTML(pago.autorizacion)}</span>`, ""));
   }
 
   return lineas.join("");

@@ -118,6 +118,7 @@ const MATRIZ_NAV: NavCategory[] = [
     icon: Settings,
     items: [
       { href: "/matriz/configuracion", label: "Configuración", icon: Settings },
+      { href: "/matriz/equipos-caja", label: "Equipos de caja", icon: Wrench },
       { href: "/matriz/usuarios", label: "Usuarios y roles", icon: UserCog },
       { href: "/matriz/whatsapp", label: "Monitor WhatsApp", icon: MessageCircle },
       { href: "/matriz/bitacora", label: "Bitácora", icon: ScrollText },
@@ -151,6 +152,7 @@ const SUCURSAL_NAV: NavItem[] = [
   { href: "/sucursal/pedidos", label: "Mis pedidos", icon: ClipboardList },
   { href: "/sucursal/usuarios", label: "Usuarios", icon: Users },
   { href: "/sucursal/ajustes", label: "Ajustes", icon: Settings },
+  { href: "/sucursal/equipos-caja", label: "Equipos de caja", icon: Wrench },
 ];
 
 

@@ -13,6 +13,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (recurso === "busqueda") return get;
   if (recurso === "usuarios" || recurso === "roles" || recurso === "departamentos") return tiene("usuarios.administrar");
   if (recurso === "configuracion") return tiene("configuracion.editar") || (get && tiene("pos.vender"));
+  if (recurso === "equipos-caja") return tiene("configuracion.editar") || (get && tiene("pos.vender"));
   if (recurso === "reportes") {
     if (parte[2] === "arqueos") return get && tiene("cortes.ver");
     if (parte[2] === "productos") return get && tiene("reportes.productos");

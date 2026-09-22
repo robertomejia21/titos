@@ -10,6 +10,8 @@ import CajaSesion from "@/models/CajaSesion";
 import Cliente from "@/models/Cliente";
 import CuentaPorCobrar from "@/models/CuentaPorCobrar";
 import TerminalPago from "@/models/TerminalPago";
+import EquipoCaja from "@/models/EquipoCaja";
+import { autorizacionTarjeta } from "@/lib/equiposCaja";
 import EmisorValeModel from "@/models/EmisorVale";
 import "@/models/Sucursal"; // necesario para que populate("sucursalId") funcione
 import { requireSession, unauthorized, forbidden, badRequest, conflict, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
@@ -65,6 +67,7 @@ type PagoVenta = {
   tipoCambio?: number | null;
   terminalId?: string | null;
   terminalAlias?: string;
+  autorizacion?: string;
   tarjetaTipo?: TipoTarjeta | null;
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
@@ -108,6 +111,8 @@ export async function POST(req: NextRequest) {
       pago.montoUsd = montoUsd;
     }
     if (p.metodoPago === "tarjeta") {
+      try { pago.autorizacion = autorizacionTarjeta(p.autorizacion); }
+      catch (e) { return badRequest((e as Error).message); }
       if (p.terminalId) pago.terminalId = String(p.terminalId);
       // Crédito, débito y American Express se liquidan por separado: sin el
       // tipo, el corte no puede cuadrarse contra lo que deposita el banco.
@@ -190,6 +195,8 @@ export async function POST(req: NextRequest) {
   // --- Terminal con la que se cobró la tarjeta ---
   const pagoTarjeta = pagos.find((p) => p.metodoPago === "tarjeta");
   if (pagoTarjeta) {
+    const equipo = await EquipoCaja.findOne({ sucursalId: ctx.sucursalId }).select("configuracion.exigirAutorizacion").lean();
+    if (equipo?.configuracion?.exigirAutorizacion && !pagoTarjeta.autorizacion) return badRequest("Captura la autorización del comprobante aprobado en la terminal. Titos no realiza el cargo bancario.");
     const terminalesActivas = await TerminalPago.find({ sucursalId: ctx.sucursalId, activo: true })
       .select("alias")
       .lean();

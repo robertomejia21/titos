@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { pesoEnKg, autorizacionTarjeta } from "@/lib/equiposCaja";
 import {
   ScanLine,
   Trash2,
@@ -148,6 +151,7 @@ type PagoResp = {
   tipoCambio?: number | null;
   terminalId?: string | null;
   terminalAlias?: string;
+  autorizacion?: string;
   tarjetaTipo?: TipoTarjeta | null;
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
@@ -299,6 +303,7 @@ function SelectorTipoTarjeta({
 
 export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: string }) {
   const zonaHoraria = useZonaHoraria();
+  const rutaEquipos = usePathname()?.startsWith("/matriz") ? "/matriz/equipos-caja" : "/sucursal/equipos-caja";
   const [promociones, setPromociones] = useState<ReglaPromocion[]>([]);
   const [promocionesListas, setPromocionesListas] = useState(false);
   const operacionPromocion = useRef<string | null>(null);
@@ -336,6 +341,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [metodoRapido, setMetodoRapido] = useState<MetodoPago>("efectivo");
   const [terminales, setTerminales] = useState<TerminalPos[]>([]);
   const [terminalId, setTerminalId] = useState("");
+  const [autorizacion, setAutorizacion] = useState("");
+  const [exigirAutorizacion, setExigirAutorizacion] = useState<boolean | null>(null);
   // Crédito, débito o American Express: el banco liquida cada uno por separado,
   // así que el cajero lo marca al cobrar. No se deduce del plástico porque el
   // BIN dice la marca, no si la tarjeta es de crédito o de débito.
@@ -357,6 +364,15 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [ventaCompletada, setVentaCompletada] = useState<VentaResp | null>(null);
   const [tipoCambio, setTipoCambio] = useState(0);
   const [modalCobro, setModalCobro] = useState(false);
+  useEffect(() => {
+    if (!modalCobro) return;
+    const abort = new AbortController();
+    fetch("/api/equipos-caja", { signal: abort.signal })
+      .then(async r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => setExigirAutorizacion(d.equipo?.configuracion?.exigirAutorizacion === true))
+      .catch(() => { /* El servidor exige la regla vigente al guardar la venta. */ });
+    return () => abort.abort();
+  }, [modalCobro]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // --- Caja: apertura, retiro de efectivo y corte ---
@@ -888,6 +904,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const dolaresInsuficientes = nDolaresMxn > 0 && valorDolaresMxn - nDolaresMxn < -0.01;
 
   const errorPago = useMemo(() => {
+    if (nTarjeta > 0) {
+      try { autorizacionTarjeta(autorizacion); } catch (e) { return (e as Error).message; }
+      if (exigirAutorizacion && !autorizacion.trim()) return "Captura la autorización del comprobante aprobado en la terminal.";
+    }
     if (nDolaresMxn > 0 && !reglasDolares.aceptaPagos) return "Por ahora no se están recibiendo pagos en dólares.";
     if (nDolaresMxn > 0 && tipoCambio <= 0) {
       return "Matriz todavía no configura el tipo de cambio; no se puede cobrar en dólares.";
@@ -915,6 +935,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     nDolaresUsd,
     valorDolaresMxn,
     dolaresInsuficientes,
+    nTarjeta,
+    autorizacion,
+    exigirAutorizacion,
     faltaTerminal,
     faltaTipoTarjeta,
     nEfectivo,
@@ -1008,6 +1031,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     if (metodo !== "tarjeta") {
       setTerminalId("");
       setTarjetaTipo("");
+    setAutorizacion("");
     }
     if (metodo !== "vales") {
       setValeLectura("");
@@ -1068,8 +1092,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   function confirmarPesaje() {
     if (!pesaje) return;
-    const peso = Number(pesoInput);
-    if (!peso || peso <= 0) return;
+    const peso = pesoEnKg(pesoInput);
+    if (peso === null) return;
     agregarAlCarrito(pesaje, peso);
     setPesaje(null);
     setPesoInput("");
@@ -1210,6 +1234,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setDolaresRecibidos("");
     setTerminalId("");
     setTarjetaTipo("");
+    setAutorizacion("");
     setValeLectura("");
     setValeInfo(null);
     setValeEmisorId("");
@@ -1274,6 +1299,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setDolaresRecibidos("");
     setTerminalId(terminales.length === 1 ? terminales[0]._id : "");
     setTarjetaTipo("");
+    setAutorizacion("");
     setModalCobro(true);
   }
 
@@ -1366,6 +1392,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       ...(p.montoUsd ? { montoUsd: p.montoUsd } : {}),
       ...(p.terminalId ? { terminalId: p.terminalId } : {}),
       ...(p.tarjetaTipo ? { tarjetaTipo: p.tarjetaTipo } : {}),
+      ...(p.metodoPago === "tarjeta" && autorizacion.trim() ? { autorizacion: autorizacion.trim() } : {}),
       ...(p.valeEmisorId ? { valeEmisorId: p.valeEmisorId } : {}),
       ...(p.valeUltimos4 ? { valeUltimos4: p.valeUltimos4 } : {}),
     }));
@@ -2181,7 +2208,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
               {metodoRapido !== "efectivo" && metodoRapido !== "efectivo_usd" ? (
                 <p className="rounded-lg bg-black/3 px-3 py-2 text-sm text-black/60">
-                  Se cobrarán <strong>{formatMoney(total)}</strong> con {ETIQUETAS_METODO[metodoRapido].toLowerCase()}.
+                  Se registrarán <strong>{formatMoney(total)}</strong> con {ETIQUETAS_METODO[metodoRapido].toLowerCase()}.
                 </p>
               ) : null}
             </div>
@@ -2396,6 +2423,15 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             </p>
           ) : null}
 
+          {nTarjeta > 0 && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-2 text-sm text-amber-950"><strong>Terminal independiente:</strong> cobra {formatMoney(nTarjeta)} en la terminal bancaria y espera APROBADO antes de registrar la venta. Este botón no envía dinero al banco. Si hay rechazo o duda, confirma el estado en la terminal antes de reintentar.</p>
+            <FormField label={`Autorización del comprobante${exigirAutorizacion ? " (obligatoria)" : " (opcional)"}`}>
+              <Input aria-label="Autorización del comprobante" value={autorizacion} maxLength={12} autoComplete="off" onChange={e => setAutorizacion(e.target.value)} placeholder="Ej. 123456" />
+            </FormField>
+            <p className="mt-2 text-xs text-amber-950">Solo el folio de autorización. No captures número de tarjeta, NIP ni CVV. Cancelar la venta en Titos no cancela el cargo bancario.</p>
+            {exigirAutorizacion === null && <p className="mt-2 text-xs">No se ha confirmado la regla de esta sucursal. Captura la autorización para facilitar la conciliación.</p>}
+          </div>}
+
           {errorCredito ? (
             <p className="mb-2 flex items-start gap-1.5 rounded-lg bg-red-50 p-2.5 text-xs font-semibold text-red-700">
               <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -2434,7 +2470,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               Cancelar
             </Button>
             <Button onClick={cobrar} disabled={!puedeCobrar || procesando}>
-              {procesando ? "Procesando..." : total === 0 ? "Registrar sin cobro" : "Cobrar"}
+              {procesando ? "Procesando..." : total === 0 ? "Registrar sin cobro" : nTarjeta > 0 ? "Registrar venta" : "Cobrar"}
             </Button>
           </div>
         </Modal>
@@ -2442,9 +2478,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
       {pesaje ? (
         <Modal open onClose={() => setPesaje(null)} title={`Capturar peso — ${pesaje.nombre}`} icon={ScanLine}>
-          <p className="mb-3 text-sm text-black/50">Este producto se vende por kilogramo. Captura el peso pesado.</p>
+          <p className="mb-3 text-sm text-black/70">Copia el peso neto estable del visor en kilogramos. Si la báscula ya descontó la tara, no la restes otra vez. La lectura automática del equipo aún no está habilitada.</p>
           <FormField label="Peso (kg)">
             <Input
+              aria-label="Peso (kg)"
               type="number"
               min="0"
               step="0.001"
@@ -2456,11 +2493,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               }}
             />
           </FormField>
+          <p role="status" className="mt-3 text-sm font-medium">{pesoEnKg(pesoInput) !== null ? `${pesoEnKg(pesoInput)!.toFixed(3)} kg × ${formatMoney(pesaje.precioVenta)} = ${formatMoney(pesoEnKg(pesoInput)! * pesaje.precioVenta)} antes de promociones` : "Usa un peso mayor a cero, con hasta 3 decimales."}</p>
+          <Link href={rutaEquipos} className="mt-3 inline-block py-2 text-sm underline">Ver guía de báscula y pruebas de equipos</Link>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setPesaje(null)}>
               Cancelar
             </Button>
-            <Button onClick={confirmarPesaje} disabled={!pesoInput || Number(pesoInput) <= 0}>
+            <Button onClick={confirmarPesaje} disabled={pesoEnKg(pesoInput) === null}>
               Agregar al carrito
             </Button>
           </div>
@@ -2511,6 +2550,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 <span>
                   {ETIQUETAS_METODO[p.metodoPago]}
                   {p.tarjetaTipo ? ` — ${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]}` : ""}
+                  {p.autorizacion ? ` · Autorización capturada: ${p.autorizacion}` : ""}
                   {p.montoUsd ? ` — ${p.montoUsd.toFixed(2)} USD` : ""}
                   {p.terminalAlias ? ` — ${p.terminalAlias}` : ""}
                   {p.valeEmisorNombre ? ` — ${p.valeEmisorNombre}` : ""}

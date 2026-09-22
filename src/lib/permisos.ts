@@ -120,6 +120,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/matriz/pedidos": "pedidos.surtir",
   "/matriz/facturas": "facturas.administrar",
   "/matriz/configuracion": "configuracion.editar",
+  "/matriz/equipos-caja": "configuracion.editar",
   "/matriz/bitacora": "bitacora.ver",
   "/matriz/usuarios": "usuarios.administrar",
   "/matriz/whatsapp": "configuracion.editar",
@@ -135,6 +136,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/sucursal/pedidos": "pedidos.recibir",
   "/sucursal/usuarios": "sucursal.usuarios",
   "/sucursal/ajustes": "sucursal.ajustes",
+  "/sucursal/equipos-caja": "pos.vender",
 };
 
 /** Permiso exigido por una ruta, tomando la coincidencia más específica. */
