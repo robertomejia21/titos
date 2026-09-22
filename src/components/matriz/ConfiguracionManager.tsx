@@ -1,5 +1,7 @@
 "use client";
 import { REGLAS_OPERACION, type ReglasOperacion } from "@/lib/reglasOperacion";
+import { EMISOR_VACIO, emisorCompleto, type EmisorFiscal } from "@/lib/emisorFiscal";
+import { REGIMENES_FISCALES } from "@/lib/facturacion";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -139,6 +141,7 @@ export function ConfiguracionManager() {
   const [tipoCambioActualizadoEn, setTipoCambioActualizadoEn] = useState<string | null>(null);
   const [tipoCambioActualizadoPor, setTipoCambioActualizadoPor] = useState("");
   const [tasaIvaFactura, setTasaIvaFactura] = useState("0");
+  const [emisorFiscal, setEmisorFiscal] = useState<EmisorFiscal>({ ...EMISOR_VACIO });
   const [alertasActivas, setAlertasActivas] = useState(true);
   const [horasLimiteSurtido, setHorasLimiteSurtido] = useState("24");
   const [horasLimiteRecepcion, setHorasLimiteRecepcion] = useState("24");
@@ -204,6 +207,7 @@ export function ConfiguracionManager() {
     setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
     setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
     setTasaIvaFactura(String(data.tasaIvaFactura ?? 0));
+    setEmisorFiscal({ ...EMISOR_VACIO, ...(data.emisorFiscal ?? {}) });
     setAlertasActivas(data.alertas?.activas !== false);
     setHorasLimiteSurtido(String(data.alertas?.horasLimiteSurtido ?? 24));
     setHorasLimiteRecepcion(String(data.alertas?.horasLimiteRecepcion ?? 24));
@@ -242,6 +246,7 @@ export function ConfiguracionManager() {
         fondoCajaMxn: Number(fondoCajaMxn),
         reglasOperacion,
         tasaIvaFactura: Number(tasaIvaFactura),
+        emisorFiscal,
         dolares: {
           aceptaPagos: aceptaDolares,
           denominacionMaxima: Number(denominacionMaximaUsd) || 0,
@@ -639,6 +644,66 @@ export function ConfiguracionManager() {
             {resultadoCorreccion && <p role="status">{resultadoCorreccion}</p>}
           </div>}
           <p className="text-sm text-black/70">Una devolución se registra el día del reembolso. Las notas de crédito fiscales siguen pendientes de integración con facturación y timbrado.</p>
+        </section>}
+
+        {/* Datos fiscales del emisor. Solo hacen falta para timbrar: la factura
+            del sistema se genera sin ellos, el CFDI no. Van aquí y no en cada
+            sucursal porque todas las tiendas emiten con el mismo RFC. */}
+        {!cargandoConfig && <section className="mt-5 space-y-4 border-t border-black/10 pt-4" aria-labelledby="emisor-fiscal">
+          <h3 id="emisor-fiscal" className="font-semibold text-titos-green-900">Datos fiscales de la empresa</h3>
+          <p className="text-sm text-black/70">
+            Con estos datos se arma el CFDI que se manda a timbrar. Tienen que coincidir exactamente con la
+            Constancia de Situación Fiscal y con el sello digital (CSD) cargado en el PAC: si algo no empata, el
+            SAT rechaza todas las facturas.
+          </p>
+          {!emisorCompleto(emisorFiscal) && (
+            <p className="rounded border border-amber-700 bg-amber-50 p-3 text-sm" role="status">
+              Mientras estén incompletos no se puede timbrar. La facturación del sistema sigue funcionando igual.
+            </p>
+          )}
+          <FormGrid>
+            <FormField label="RFC de la empresa">
+              <Input
+                value={emisorFiscal.rfc}
+                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, rfc: e.target.value.toUpperCase() })}
+                placeholder="XAXX010101000"
+                maxLength={13}
+              />
+            </FormField>
+            <FormField label="Razón social">
+              <Input
+                value={emisorFiscal.razonSocial}
+                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, razonSocial: e.target.value })}
+                placeholder="Como aparece en la Constancia de Situación Fiscal"
+              />
+            </FormField>
+            <FormField label="Régimen fiscal">
+              <select
+                aria-label="Régimen fiscal de la empresa"
+                className="mt-1 block w-full rounded border border-black/20 p-2"
+                value={emisorFiscal.regimenFiscal}
+                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, regimenFiscal: e.target.value })}
+              >
+                <option value="">Sin definir</option>
+                {REGIMENES_FISCALES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Código postal del domicilio fiscal">
+              <Input
+                value={emisorFiscal.codigoPostal}
+                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, codigoPostal: e.target.value })}
+                placeholder="21000"
+                maxLength={5}
+                inputMode="numeric"
+              />
+            </FormField>
+          </FormGrid>
+          <p className="text-sm text-black/70">
+            La razón social va sin el régimen de capital: se escribe &ldquo;PROVEEDORA VANFER&rdquo;, no
+            &ldquo;PROVEEDORA VANFER S.A. DE C.V.&rdquo;. Se guardan junto con los ajustes generales.
+          </p>
         </section>}
 
         {/* Cuánto de una venta se puede liquidar en billete verde. Va aquí,

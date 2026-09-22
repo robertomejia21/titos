@@ -41,6 +41,21 @@ function cargarLogoBytes() {
 type Columna = { header: string; width: number; align?: "left" | "right" };
 type Tabla = { titulo?: string; columnas: Columna[]; filas: string[][] };
 
+/**
+ * Bloque fiscal de un CFDI timbrado: el QR de verificación del SAT junto a los
+ * sellos y la cadena original. Sin esto el PDF no es representación impresa
+ * válida, solo un resumen bonito.
+ */
+type SelloFiscal = {
+  /** PNG del QR en base64, tal como lo devuelve el PAC. */
+  qrBase64?: string;
+  datos: { etiqueta: string; valor: string }[];
+  /** Cadena original del complemento de certificación. Va a renglón suelto. */
+  cadenaOriginal?: string;
+  selloCFDI?: string;
+  selloSAT?: string;
+};
+
 type TablaPDFOpciones = {
   titulo: string;
   subtitulo: string[];
@@ -48,9 +63,41 @@ type TablaPDFOpciones = {
   totalLabel: string;
   totalValor: string;
   tablaExtra?: Tabla;
+  selloFiscal?: SelloFiscal;
 };
 
 export { formatMoney };
+
+/** Recorta un texto para que quepa en `ancho` puntos, con elipsis. */
+function truncarAlAncho(texto: string, ancho: number, size: number, font: PDFFont) {
+  if (font.widthOfTextAtSize(texto, size) <= ancho) return texto;
+  let corte = texto;
+  while (corte.length > 1 && font.widthOfTextAtSize(`${corte}…`, size) > ancho) {
+    corte = corte.slice(0, -1);
+  }
+  return `${corte}…`;
+}
+
+/**
+ * Parte una cadena larga en renglones que quepan en `ancho`. Corta por
+ * caracteres y no por palabras a propósito: los sellos y la cadena original son
+ * base64 y hashes, no prosa.
+ */
+function partirEnRenglones(texto: string, ancho: number, size: number, font: PDFFont) {
+  const renglones: string[] = [];
+  let actual = "";
+  for (const caracter of texto) {
+    const tentativa = actual + caracter;
+    if (font.widthOfTextAtSize(tentativa, size) > ancho) {
+      renglones.push(actual);
+      actual = caracter;
+    } else {
+      actual = tentativa;
+    }
+  }
+  if (actual) renglones.push(actual);
+  return renglones;
+}
 
 export async function generarTablaPDF(opciones: TablaPDFOpciones): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -217,6 +264,73 @@ export async function generarTablaPDF(opciones: TablaPDFOpciones): Promise<Uint8
   if (opciones.tablaExtra && opciones.tablaExtra.filas.length > 0) {
     if (y < CONTENT_BOTTOM + 40) nuevaPagina();
     dibujarTabla(opciones.tablaExtra);
+  }
+
+  // Bloque fiscal del CFDI timbrado: QR de verificación del SAT a la izquierda,
+  // UUID y sellos a su derecha, cadena original abajo. El orden no es estético:
+  // es el que traen las representaciones impresas que la gente ya conoce.
+  const sello = opciones.selloFiscal;
+  if (sello) {
+    if (y < CONTENT_BOTTOM + 150) nuevaPagina();
+    y -= 6;
+    escribir("Comprobante Fiscal Digital por Internet (CFDI)", { size: 11, font: fontBold, color: VERDE_OSCURO });
+    y -= 6;
+    linea(VERDE_OSCURO, 1);
+    y -= 14;
+
+    const topeBloque = y;
+    let qrAncho = 0;
+    if (sello.qrBase64) {
+      try {
+        const qr = await pdf.embedPng(Buffer.from(sello.qrBase64, "base64"));
+        const dims = qr.scaleToFit(96, 96);
+        page.drawImage(qr, { x: MARGIN, y: topeBloque - dims.height + 10, width: dims.width, height: dims.height });
+        qrAncho = dims.width + 14;
+      } catch {
+        // Un QR ilegible no debe impedir imprimir la factura: el XML sigue
+        // siendo el documento válido y el UUID va escrito abajo.
+        escribir("(no se pudo dibujar el código QR)", { size: 7.5, color: GRIS_CLARO });
+      }
+    }
+
+    const xDatos = MARGIN + qrAncho;
+    for (const dato of sello.datos) {
+      escribir(dato.etiqueta, { size: 7.5, font: fontBold, x: xDatos, color: GRIS_TEXTO });
+      y -= 9;
+      escribir(truncarAlAncho(dato.valor, PAGE_WIDTH - MARGIN - xDatos, 8, fontRegular), {
+        size: 8,
+        x: xDatos,
+        color: GRIS_TEXTO,
+      });
+      y -= 13;
+    }
+
+    y = Math.min(y, topeBloque - 100) - 6;
+
+    for (const [etiqueta, valor] of [
+      ["Sello digital del CFDI", sello.selloCFDI],
+      ["Sello digital del SAT", sello.selloSAT],
+      ["Cadena original del complemento de certificación digital del SAT", sello.cadenaOriginal],
+    ] as [string, string | undefined][]) {
+      if (!valor) continue;
+      if (y < CONTENT_BOTTOM + 30) nuevaPagina();
+      escribir(etiqueta, { size: 7.5, font: fontBold, color: GRIS_TEXTO });
+      y -= 9;
+      for (const renglon of partirEnRenglones(valor, PAGE_WIDTH - MARGIN * 2, 6.5, fontRegular)) {
+        if (y < CONTENT_BOTTOM + 14) nuevaPagina();
+        escribir(renglon, { size: 6.5, color: GRIS_CLARO });
+        y -= 8;
+      }
+      y -= 6;
+    }
+
+    if (y < CONTENT_BOTTOM + 20) nuevaPagina();
+    escribir("Este documento es una representación impresa de un CFDI.", {
+      size: 7.5,
+      font: fontBold,
+      color: GRIS_TEXTO,
+    });
+    y -= 12;
   }
 
   const paginas = pdf.getPages();

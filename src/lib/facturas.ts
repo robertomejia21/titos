@@ -26,6 +26,21 @@ export const METODOS_PAGO_SAT = [
 export const FORMAS_PAGO_SAT_VALORES = FORMAS_PAGO_SAT.map((f) => f.value);
 export const METODOS_PAGO_SAT_VALORES = METODOS_PAGO_SAT.map((m) => m.value);
 
+/**
+ * Motivos de cancelación del SAT. Vive aquí y no junto al cliente del PAC
+ * porque lo pinta un componente de cliente: el módulo que habla con SW no debe
+ * acabar en el bundle del navegador.
+ * El 01 exige además el UUID del comprobante que sustituye al cancelado.
+ */
+export const MOTIVOS_CANCELACION = [
+  { value: "01", label: "01 — Comprobante emitido con errores con relación" },
+  { value: "02", label: "02 — Comprobante emitido con errores sin relación" },
+  { value: "03", label: "03 — No se llevó a cabo la operación" },
+  { value: "04", label: "04 — Operación nominativa relacionada en la factura global" },
+] as const;
+
+export type MotivoCancelacion = (typeof MOTIVOS_CANCELACION)[number]["value"];
+
 /** Clave genérica del SAT para productos que no están en el catálogo. */
 export const CLAVE_PROD_SERV_GENERICA = "01010101";
 

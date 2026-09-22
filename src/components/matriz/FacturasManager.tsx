@@ -30,7 +30,7 @@ import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/component
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
-import { FORMAS_PAGO_SAT, METODOS_PAGO_SAT } from "@/lib/facturas";
+import { MOTIVOS_CANCELACION, FORMAS_PAGO_SAT, METODOS_PAGO_SAT } from "@/lib/facturas";
 
 export type VentaFacturable = {
   _id: string;
@@ -83,7 +83,15 @@ export type Factura = {
   comentarios: Comentario[];
   estado: "generada" | "cancelada";
   motivoCancelacion: string;
-  timbrado: { estado: string; uuid: string; proveedor: string };
+  timbrado: {
+    estado: string;
+    uuid: string;
+    proveedor: string;
+    error?: string;
+    fechaTimbrado?: string | null;
+    motivoCancelacionSat?: string;
+    folioSustitucion?: string;
+  };
   creadoPorNombre: string;
   createdAt: string;
 };
@@ -143,6 +151,14 @@ export function FacturasManager() {
   const [textoComentario, setTextoComentario] = useState("");
   const [facturaACancelar, setFacturaACancelar] = useState<Factura | null>(null);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  // Cancelar una factura timbrada exige motivo del catálogo del SAT, y el 01
+  // además el UUID de la que la sustituye.
+  const [motivoSat, setMotivoSat] = useState("02");
+  const [folioSustitucion, setFolioSustitucion] = useState("");
+  const [timbrandoId, setTimbrandoId] = useState<string | null>(null);
+  // Lo que impide timbrar, tal como lo reporta el servidor. Se revisa antes de
+  // emitir porque un timbre gastado no se recupera.
+  const [problemasTimbrado, setProblemasTimbrado] = useState<string[]>([]);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const [procesando, setProcesando] = useState(false);
 
@@ -283,6 +299,47 @@ export function FacturasManager() {
     setComentandoId(null);
   }
 
+  /**
+   * Revisa y timbra. Son dos llamadas a propósito: la primera solo arma el CFDI
+   * y reporta lo que falta, sin gastar timbre. Un CFDI ya timbrado no se
+   * corrige, se cancela y se vuelve a emitir.
+   */
+  async function timbrarFactura(id: string) {
+    setErrorAccion(null);
+    setProblemasTimbrado([]);
+    setTimbrandoId(id);
+
+    const revision = await fetch(`/api/facturas/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "revisarTimbrado" }),
+    });
+    const datosRevision = await revision.json().catch(() => ({}));
+    if (!revision.ok || !datosRevision.listaParaTimbrar) {
+      setTimbrandoId(null);
+      setProblemasTimbrado(datosRevision.problemas ?? []);
+      setErrorAccion(datosRevision.error || "La factura todavía no se puede timbrar");
+      return;
+    }
+
+    const res = await fetch(`/api/facturas/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "timbrar" }),
+    });
+    setTimbrandoId(null);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setProblemasTimbrado(data.problemas ?? []);
+      setErrorAccion(data.error || "No se pudo timbrar la factura");
+      return;
+    }
+
+    const actualizada: Factura = await res.json();
+    setFacturas((prev) => prev.map((f) => (f._id === actualizada._id ? actualizada : f)));
+  }
+
   async function cancelarFactura() {
     if (!facturaACancelar) return;
     if (!motivoCancelacion.trim()) {
@@ -294,7 +351,13 @@ export function FacturasManager() {
     const res = await fetch(`/api/facturas/${facturaACancelar._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "cancelar", motivo: motivoCancelacion.trim() }),
+      body: JSON.stringify({
+        accion: "cancelar",
+        motivo: motivoCancelacion.trim(),
+        ...(facturaACancelar.timbrado?.estado === "timbrada"
+          ? { motivoSat, folioSustitucion: folioSustitucion.trim() }
+          : {}),
+      }),
     });
     setProcesando(false);
 
@@ -496,7 +559,13 @@ export function FacturasManager() {
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-black/55">
                         <Stamp className="h-3 w-3" />
-                        {f.timbrado?.estado === "timbrada" ? "Timbrada" : "Sin timbrar"}
+                        {f.timbrado?.estado === "timbrada"
+                          ? "Timbrada"
+                          : f.timbrado?.estado === "cancelada_sat"
+                            ? "Cancelada ante el SAT"
+                            : f.timbrado?.estado === "error"
+                              ? "Error al timbrar"
+                              : "Sin timbrar"}
                       </span>
                     </button>
 
@@ -603,6 +672,19 @@ export function FacturasManager() {
                         </div>
 
                         {errorAccion ? <p className="text-sm text-red-600">{errorAccion}</p> : null}
+                        {problemasTimbrado.length > 0 ? (
+                          <ul className="list-disc space-y-1 rounded border border-amber-700 bg-amber-50 p-3 pl-7 text-sm">
+                            {problemasTimbrado.map((problema, i) => (
+                              <li key={i}>{problema}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {f.timbrado?.uuid ? (
+                          <p className="rounded bg-black/3 p-3 text-sm">
+                            <span className="text-black/45">Folio fiscal (UUID):</span>{" "}
+                            <span className="font-mono">{f.timbrado.uuid}</span>
+                          </p>
+                        ) : null}
 
                         <div className="flex flex-wrap gap-2 border-t border-black/5 pt-3">
                           <Button
@@ -627,13 +709,38 @@ export function FacturasManager() {
                               </span>
                             </Button>
                           </a>
+                          {f.timbrado?.uuid ? (
+                            <a href={`/api/facturas/${f._id}/xml`} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="secondary">
+                                <span className="flex items-center gap-1.5">
+                                  <Download className="h-4 w-4" />
+                                  Descargar XML
+                                </span>
+                              </Button>
+                            </a>
+                          ) : null}
+                          {f.estado === "generada" && f.timbrado?.estado !== "timbrada" ? (
+                            <Button
+                              size="sm"
+                              onClick={() => timbrarFactura(f._id)}
+                              disabled={timbrandoId === f._id}
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <Stamp className="h-4 w-4" />
+                                {timbrandoId === f._id ? "Timbrando..." : "Timbrar ante el SAT"}
+                              </span>
+                            </Button>
+                          ) : null}
                           {f.estado === "generada" ? (
                             <Button
                               size="sm"
                               variant="danger"
                               onClick={() => {
                                 setMotivoCancelacion("");
+                                setMotivoSat("02");
+                                setFolioSustitucion("");
                                 setErrorAccion(null);
+                                setProblemasTimbrado([]);
                                 setFacturaACancelar(f);
                               }}
                             >
@@ -813,6 +920,39 @@ export function FacturasManager() {
             {formatMoney(facturaACancelar.total)}. La venta {facturaACancelar.ventaFolio} vuelve a quedar disponible
             para facturarse.
           </p>
+
+          {facturaACancelar.timbrado?.estado === "timbrada" ? (
+            <div className="mb-3 space-y-3 rounded border border-amber-700 bg-amber-50 p-3">
+              <p className="text-sm">
+                Esta factura está timbrada ante el SAT (UUID{" "}
+                <span className="font-mono">{facturaACancelar.timbrado.uuid}</span>). Se cancela primero allá y
+                solo si el SAT la acepta se marca cancelada aquí. Fuera del mes en curso, la cancelación requiere
+                que el receptor la acepte.
+              </p>
+              <label className="block text-sm">
+                Motivo de cancelación del SAT
+                <select
+                  className="mt-1 block w-full rounded border border-black/20 p-2"
+                  value={motivoSat}
+                  onChange={(e) => setMotivoSat(e.target.value)}
+                >
+                  {MOTIVOS_CANCELACION.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+              {motivoSat === "01" ? (
+                <label className="block text-sm">
+                  UUID de la factura que sustituye a esta
+                  <Input
+                    value={folioSustitucion}
+                    onChange={(e) => setFolioSustitucion(e.target.value)}
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                  />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
           <FormField label="Motivo de la cancelación">
             <Input
               autoFocus

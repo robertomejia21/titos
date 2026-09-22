@@ -122,3 +122,56 @@ Para el CFDI global real falta integrar PAC, emisor/CSD, validación de impuesto
 - https://wwwmat.sat.gob.mx/consultas/35025/formato-de-factura-electronica-%28anexo-20%29
 
 Prueba aislada: `npx tsx scripts/check-factura-global.ts`.
+
+## Integración con SW sapien (22 septiembre 2026)
+
+PAC elegido: SW sapien. Cuenta de producción a nombre de PROVEEDORA VANFER, RFC emisor
+PVA0307221P2, 20,000 timbres contratados. Las credenciales viven en el entorno
+(`SW_USER` / `SW_PASSWORD`), nunca en el repositorio. El ambiente de pruebas de SW usa
+credenciales distintas que no se solicitaron; el enlace se verificó contra producción con
+autenticación y consulta de saldo, sin emitir.
+
+### Lo implementado
+
+`src/lib/sw.ts` es la única puerta al PAC: autentica contra `/v2/security/authenticate`
+reutilizando el token en memoria, timbra en `/v4/cfdi33/issue/json/v4` y cancela en
+`/cfdi33/cancel/{rfc}/{uuid}/{motivo}/{folioSustitucion}`. El contrato se tomó del SDK oficial
+(github.com/lunasoft/sw-sdk-nodejs), no de la documentación publicada, que se renderiza vacía.
+
+`timbrar()` está detrás de `SW_TIMBRADO_HABILITADO`. Mientras valga distinto de `1` se niega a
+emitir aunque algo la llame. El timbrado manda el folio como `customId` para que un reintento no
+emita dos CFDI de la misma venta.
+
+`src/lib/cfdi.ts` arma el comprobante desde una `Factura`. Los impuestos salen de
+`Producto.fiscal` renglón por renglón, no de la tasa global: distingue tasa 0 (traslada en ceros)
+de exento (no traslada), calcula el IVA sobre la base más el IEPS, admite IEPS por porcentaje y
+por cuota, y agrupa los totales por impuesto, factor y tasa. Si algún producto tiene el IVA o el
+IEPS en "pendiente", o si los impuestos calculados no cuadran con el total de la factura, levanta
+`ErrorCfdi` con la lista completa y no se timbra. Ese cuadre es lo que impide emitir una factura
+vieja calculada con la tasa global mientras los productos ya tienen tasas propias.
+
+Los datos del emisor viven en `Configuracion.emisorFiscal` (RFC, razón social, régimen, CP), con
+captura en Configuración de matriz. `Sucursal.codigoPostal` da el `LugarExpedicion` y, vacío, se
+usa el CP de la empresa.
+
+En Facturación: botón de timbrar que primero revisa (`accion: "revisarTimbrado"`, sin gastar
+timbre) y luego emite, descarga del XML, UUID visible, y cancelación que ante una factura timbrada
+exige motivo del SAT y, en el motivo 01, el UUID sustituto. El XML timbrado se guarda íntegro en
+`Factura.timbrado.xml`: es el documento con valor fiscal y se conserva cinco años. El PDF lleva
+bloque fiscal con QR, folio fiscal, sellos y cadena original.
+
+Pruebas: `npm run check:cfdi` (armado del CFDI, sin red ni base de datos) y `npm run check:sw`
+(autenticación y saldo contra el PAC).
+
+### Lo que falta antes de emitir
+
+1. Cargar el CSD en el portal de SW. El endpoint sella del lado del PAC: sin CSD el timbrado falla
+   ahí, no en este código.
+2. Capturar el emisor en Configuración de matriz.
+3. Completar los datos fiscales de los productos. Los que tengan IVA o IEPS en "pendiente"
+   bloquean su factura, por diseño.
+4. Poner `SW_TIMBRADO_HABILITADO=1` y emitir un lote pequeño antes de abrirlo a todos.
+
+Sigue pendiente: envío por correo del XML y PDF (hoy se le pide al PAC como copia al receptor,
+sin plantilla propia), validación del RFC contra la LCO antes de timbrar, y el CFDI global real,
+que es un camino aparte del de la global interna descrita arriba.

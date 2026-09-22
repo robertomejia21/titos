@@ -6,6 +6,10 @@ const SucursalSchema = new Schema(
     nombre: { type: String, required: true },
     clave: { type: String, trim: true, unique: true, sparse: true },
     direccion: { type: String, default: "" },
+    // CP de la tienda. Es el LugarExpedicion del CFDI: el SAT quiere el lugar
+    // donde se emitió, no el domicilio fiscal de la empresa. Vacío = se usa el
+    // CP del emisor, que es lo correcto mientras solo factura matriz.
+    codigoPostal: { type: String, default: "", trim: true },
     whatsapp: { type: String, default: "" },
     zonaHoraria: { type: String, enum: ZONAS_HORARIAS.map((z) => z.value), default: ZONA_HORARIA_DEFAULT },
     // El mostrador de la matriz: la matriz también vende al público que llega al

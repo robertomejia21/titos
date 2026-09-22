@@ -56,6 +56,24 @@ const TimbradoSchema = new Schema(
     fechaTimbrado: { type: Date, default: null },
     proveedor: { type: String, default: "" },
     error: { type: String, default: "" },
+    // El XML timbrado es EL documento con valor fiscal; el PDF es solo su
+    // representación impresa. Hay que conservarlo cinco años, así que se
+    // guarda íntegro aquí y no se regenera nunca: un CFDI no se vuelve a armar,
+    // se conserva tal como el SAT lo certificó.
+    xml: { type: String, default: "" },
+    selloCFDI: { type: String, default: "" },
+    selloSAT: { type: String, default: "" },
+    noCertificadoSAT: { type: String, default: "" },
+    cadenaOriginalSAT: { type: String, default: "" },
+    // QR de verificación que devuelve el PAC, en base64. Va en el PDF fiscal.
+    qrCode: { type: String, default: "" },
+    // Cancelación ante el SAT. Es distinta de la cancelación del sistema: esta
+    // lleva motivo del catálogo (01 a 04) y deja acuse.
+    motivoCancelacionSat: { type: String, default: "" },
+    // Solo en el motivo 01: UUID de la factura que sustituye a esta.
+    folioSustitucion: { type: String, default: "" },
+    canceladoSatEn: { type: Date, default: null },
+    acuseCancelacion: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -98,6 +116,9 @@ FacturaSchema.index({ ventaId: 1, estado: 1 });
 FacturaSchema.index({ sucursalId: 1, createdAt: -1 });
 FacturaSchema.index({ "receptor.rfc": 1 });
 FacturaSchema.index({ corte: 1 });
+// Para localizar una factura por su UUID fiscal, que es como la identifican el
+// SAT, el receptor y el PAC. Disperso porque la mayoría no está timbrada.
+FacturaSchema.index({ "timbrado.uuid": 1 }, { sparse: true });
 
 export type Factura = InferSchemaType<typeof FacturaSchema> & { _id: string };
 
