@@ -6,7 +6,8 @@
 
 import assert from "node:assert/strict";
 import { ErrorCfdi, construirCfdi, type FacturaLike, type FiscalPorProducto } from "../src/lib/cfdi";
-import type { EmisorFiscal } from "../src/lib/emisorFiscal";
+import { emisorCompleto, emisorDesde, type EmisorFiscal } from "../src/lib/emisorFiscal";
+import Configuracion from "../src/models/Configuracion";
 import type { FiscalProducto } from "../src/lib/fiscalProducto";
 
 const emisor: EmisorFiscal = {
@@ -232,6 +233,33 @@ prueba("sello y certificado van vacíos: los pone el PAC", () => {
   assert.equal(at(cfdi, "Sello"), "");
   assert.equal(at(cfdi, "NoCertificado"), "");
   assert.equal(at(cfdi, "Certificado"), "");
+});
+
+prueba("emisor guardado en Mongoose se lee completo", () => {
+  // Regresión: `{...config.emisorFiscal}` sobre un documento de Mongoose copia
+  // las propiedades internas del subdocumento y deja los campos vacíos, así que
+  // el sistema creía que nunca se habían capturado y se negaba a timbrar.
+  const config = new Configuracion({
+    emisorFiscal: {
+      rfc: "PVA0307221P2",
+      razonSocial: "PROVEEDORA VANFER",
+      regimenFiscal: "601",
+      codigoPostal: "21050",
+    },
+  });
+  const leido = emisorDesde(config.emisorFiscal);
+  assert.equal(leido.rfc, "PVA0307221P2");
+  assert.equal(leido.razonSocial, "PROVEEDORA VANFER");
+  assert.equal(leido.regimenFiscal, "601");
+  assert.equal(leido.codigoPostal, "21050");
+  assert.ok(emisorCompleto(leido), "un emisor capturado debe contar como completo");
+  const cfdi = construirCfdi(factura(), leido, new Map([["leche", fiscal({})]]));
+  assert.equal(at(cfdi, "Emisor.Rfc"), "PVA0307221P2");
+});
+
+prueba("emisor sin capturar sigue contando como incompleto", () => {
+  const vacio = emisorDesde(new Configuracion({}).emisorFiscal);
+  assert.equal(emisorCompleto(vacio), false);
 });
 
 prueba("CP de la sucursal manda sobre el del emisor", () => {
