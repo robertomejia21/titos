@@ -29,6 +29,15 @@ function baseUrl() {
   return `https://${INSTANCE_ID.slice(0, 4)}.api.green-api.com`;
 }
 
+// sendFileByUpload es el único endpoint que va al host de medios; el resto usa
+// el de API. Si no se configura, se deriva cambiando "api" por "media".
+function mediaUrl() {
+  const override = process.env.GREEN_API_MEDIA_HOST;
+  if (override) return override.replace(/\/$/, "");
+  const api = baseUrl();
+  return api.includes(".api.") ? api.replace(".api.", ".media.") : api.replace("//api.", "//media.");
+}
+
 function chatId(phone: string) {
   return `${phone.replace(/\D/g, "")}@c.us`;
 }
@@ -126,9 +135,10 @@ export async function getQR(): Promise<{ qr: string | null }> {
     throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
   }
   const data = await res.json();
-  if (data.type === "alreadyLogged") return { qr: null };
+  // "timeout" es normal mientras se genera el código: el modal reintenta solo.
+  if (data.type === "alreadyLogged" || data.type === "timeout") return { qr: null };
   if (data.type !== "qrCode") {
-    throw new Error(data.message || "Green API no devolvió un código QR");
+    throw new Error(data.message || `Green API devolvió "${data.type}" en vez de un código QR`);
   }
   return { qr: `data:image/png;base64,${data.message}` };
 }
@@ -161,19 +171,19 @@ export async function sendFileByUrl(phone: string, urlFile: string, fileName: st
 
 export async function sendFileByUpload(phone: string, fileBase64: string, fileName: string, caption: string) {
   requireEnv();
-  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/sendFileByUpload/${API_TOKEN}`;
-  const boundary = "----GreenApiBoundary" + Date.now();
-  const body = [
-    `--${boundary}\r\nContent-Disposition: form-data; name="chatId"\r\n\r\n${chatId(phone)}`,
-    `--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}`,
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\nContent-Transfer-Encoding: base64\r\n\r\n${fileBase64}`,
-    `--${boundary}--`,
-  ].join("\r\n");
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-    body,
-  });
+  const url = `${mediaUrl()}/waInstance${INSTANCE_ID}/sendFileByUpload/${API_TOKEN}`;
+  // FormData pone el boundary y manda el PDF como binario: armarlo a mano y
+  // mandarlo en base64 llegaba corrupto.
+  const form = new FormData();
+  form.append("chatId", chatId(phone));
+  form.append("fileName", fileName);
+  form.append("caption", caption);
+  form.append(
+    "file",
+    new Blob([new Uint8Array(Buffer.from(fileBase64, "base64"))], { type: "application/pdf" }),
+    fileName
+  );
+  const res = await fetch(url, { method: "POST", body: form });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
