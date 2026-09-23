@@ -67,34 +67,37 @@ export async function sendMessage(phone: string, message: string) {
   return res.json() as Promise<{ idMessage: string }>;
 }
 
-export async function getChats() {
-  requireEnv();
-  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getChats/${API_TOKEN}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
-  }
-  return res.json() as Promise<
-    { id: string; name: string; lastMessageTimestamp: number }[]
-  >;
-}
+export type UltimoMensaje = {
+  chatId?: string;
+  timestamp?: number;
+  senderName?: string;
+  chatName?: string;
+};
 
-// Green API restringe getChats en instancias ya autorizadas (responde 401), así
-// que el listado de conversaciones se arma con los últimos mensajes entrantes y
-// salientes, que sí están disponibles.
+// Los mensajes que entraron y salieron por esta instancia: la única fuente que
+// prueba que hubo conversación. No se usa getChats porque WhatsApp sincroniza
+// ahí la agenda del teléfono y devuelve contactos con los que nunca se escribió.
 export async function getLastMessages(minutes = 44640 /* ~31 días */) {
   requireEnv();
   const inc = `${baseUrl()}/waInstance${INSTANCE_ID}/lastIncomingMessages/${API_TOKEN}?minutes=${minutes}`;
   const out = `${baseUrl()}/waInstance${INSTANCE_ID}/lastOutgoingMessages/${API_TOKEN}?minutes=${minutes}`;
-  type UltimoMensaje = { chatId?: string; timestamp?: number; senderName?: string; chatName?: string };
   const traer = async (url: string) => {
     const res = await fetch(url);
-    if (!res.ok) return [] as UltimoMensaje[];
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+    }
     return (await res.json().catch(() => [])) as UltimoMensaje[];
   };
-  const [entrantes, salientes] = await Promise.all([traer(inc), traer(out)]);
-  return [...entrantes, ...salientes];
+  // Si sólo falla una de las dos, la lista sigue con la otra; si fallan ambas se
+  // propaga el error, porque "sin conversaciones" y "la API no responde" no
+  // pueden verse igual en pantalla.
+  const [entrantes, salientes] = await Promise.allSettled([traer(inc), traer(out)]);
+  if (entrantes.status === "rejected" && salientes.status === "rejected") throw entrantes.reason;
+  return [
+    ...(entrantes.status === "fulfilled" ? entrantes.value : []),
+    ...(salientes.status === "fulfilled" ? salientes.value : []),
+  ];
 }
 
 // La agenda del teléfono vinculado: `contactName` es el nombre como está
@@ -121,6 +124,50 @@ export function nombreDeContacto(
   agenda?: { name?: string; contactName?: string }
 ) {
   return agenda?.contactName || nombrePerfil || agenda?.name || numero;
+}
+
+export type Conversacion = {
+  chatId: string;
+  numero: string;
+  nombre: string;
+  nombrePerfil: string;
+  ultimoMensaje: number;
+};
+
+/**
+ * Arma el listado del monitor: un renglón por chat con mensajes reales, del más
+ * reciente al más viejo. La agenda entra sólo para ponerle nombre a esos chats,
+ * nunca para agregar renglones: un contacto guardado en el teléfono con el que
+ * no se ha conversado no es una conversación y no aparece.
+ */
+export function conversacionesDe(
+  mensajes: UltimoMensaje[],
+  agenda: { id: string; name?: string; contactName?: string }[] = []
+): Conversacion[] {
+  const porId = new Map(agenda.map((c) => [c.id, c]));
+  const porChat = new Map<string, Conversacion>();
+
+  for (const m of mensajes) {
+    // Sólo chats de persona: los grupos (@g.us) y las difusiones no son
+    // conversaciones que el monitor deba contestar.
+    if (!m.chatId?.endsWith("@c.us")) continue;
+    const ts = m.timestamp ?? 0;
+    const previo = porChat.get(m.chatId);
+    if (previo && previo.ultimoMensaje >= ts) continue;
+
+    const numero = m.chatId.replace("@c.us", "");
+    const enAgenda = porId.get(m.chatId);
+    const nombrePerfil = m.chatName || m.senderName || enAgenda?.name || "";
+    porChat.set(m.chatId, {
+      chatId: m.chatId,
+      numero,
+      nombrePerfil,
+      nombre: nombreDeContacto(numero, nombrePerfil, enAgenda),
+      ultimoMensaje: ts,
+    });
+  }
+
+  return [...porChat.values()].sort((a, b) => b.ultimoMensaje - a.ultimoMensaje);
 }
 
 // `urlAvatar` viene vacío cuando el contacto no tiene foto o la tiene
