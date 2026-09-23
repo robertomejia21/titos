@@ -97,6 +97,49 @@ export async function getLastMessages(minutes = 44640 /* ~31 días */) {
   return [...entrantes, ...salientes];
 }
 
+// La agenda del teléfono vinculado: `contactName` es el nombre como está
+// guardado ahí, `name` el del perfil de WhatsApp. El monitor prefiere el
+// primero para que la lista se lea igual que en el teléfono.
+export async function getContacts() {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getContacts/${API_TOKEN}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json() as Promise<
+    { id: string; name?: string; contactName?: string; type?: string }[]
+  >;
+}
+
+// Precedencia de nombres tal como la resuelve el teléfono: manda la agenda,
+// luego el nombre que la persona trae en su perfil, y al final el número pelón.
+export function nombreDeContacto(
+  numero: string,
+  nombrePerfil: string,
+  agenda?: { name?: string; contactName?: string }
+) {
+  return agenda?.contactName || nombrePerfil || agenda?.name || numero;
+}
+
+// `urlAvatar` viene vacío cuando el contacto no tiene foto o la tiene
+// restringida por privacidad; quien llama decide el respaldo.
+export async function getAvatar(chatIdStr: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getAvatar/${API_TOKEN}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chatId: chatIdStr }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json() as Promise<{ urlAvatar?: string; available?: boolean }>;
+}
+
 export async function getChatHistory(chatIdStr: string, count = 100) {
   requireEnv();
   const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getChatHistory/${API_TOKEN}`;

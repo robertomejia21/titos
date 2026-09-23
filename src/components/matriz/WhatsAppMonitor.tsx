@@ -3,15 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  MessageCircle, Search, RefreshCw, Wifi, WifiOff, ArrowLeft, Send,
-  Settings, QrCode, Loader2,
+  Search, RefreshCw, Wifi, WifiOff, ArrowLeft, Send,
+  Settings, QrCode, Loader2, User,
 } from "lucide-react";
 import { Button, Card, Input, EmptyState, Modal } from "@/components/ui";
 import { sendMessage } from "./whatsappMonitorActions";
 
 type Contacto = {
   chatId: string;
+  /** Nombre de la agenda del teléfono vinculado; si no está guardado, el del perfil o el número. */
   nombre: string;
+  numero: string;
+  /** El que la persona se puso en WhatsApp; se muestra sólo si difiere del de la agenda. */
+  nombrePerfil: string;
   ultimoMensaje: number;
 };
 
@@ -54,6 +58,45 @@ function mensajeConexion(error: string): string {
 }
 
 const AVISO = "rounded-lg bg-titos-orange-100 px-3 py-2 text-xs text-titos-orange-700";
+
+/* ── Avatar ── */
+
+function iniciales(nombre: string) {
+  const palabras = nombre.trim().split(/\s+/).filter((p) => /\p{L}/u.test(p));
+  return palabras.slice(0, 2).map((p) => [...p][0].toUpperCase()).join("");
+}
+
+// La foto llega por /api/whatsapp-monitor/avatar; mientras carga —o si el
+// contacto no tiene foto, que es lo normal cuando la restringe por privacidad—
+// se ve debajo el respaldo: iniciales del nombre de la agenda, o una silueta
+// cuando sólo se conoce el número.
+function Avatar({ contacto }: { contacto: Contacto }) {
+  const [sinFoto, setSinFoto] = useState(false);
+  const letras = iniciales(contacto.nombre);
+
+  return (
+    <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-titos-green-100 text-titos-green-700 sm:h-10 sm:w-10">
+      {/* aria-hidden: el nombre ya lo dice el renglón, las iniciales sólo
+          ensuciarían el texto que lee un lector de pantalla. */}
+      {letras ? (
+        <span aria-hidden className="text-sm font-semibold">{letras}</span>
+      ) : (
+        <User aria-hidden className="h-4 w-4 sm:h-5 sm:w-5" />
+      )}
+      {sinFoto ? null : (
+        <Image
+          src={`/api/whatsapp-monitor/avatar?chatId=${encodeURIComponent(contacto.chatId)}`}
+          alt=""
+          width={40}
+          height={40}
+          unoptimized
+          onError={() => setSinFoto(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+    </span>
+  );
+}
 
 /* ── QR Modal ── */
 
@@ -247,7 +290,7 @@ function ConversacionView({
     if (!texto.trim() || enviando) return;
     setEnviando(true);
     try {
-      await sendMessage(contacto.chatId.replace("@c.us", ""), texto.trim());
+      await sendMessage(contacto.numero, texto.trim());
       setTexto("");
       await cargar();
     } catch { /* user sees message didn't appear */ }
@@ -262,12 +305,17 @@ function ConversacionView({
         <button onClick={onVolver} className="shrink-0 rounded-lg p-1.5 text-black/40 hover:bg-titos-green-100 hover:text-titos-green-700 sm:p-2" aria-label="Volver">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-titos-green-100 text-titos-green-700 sm:h-10 sm:w-10">
-          <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-        </span>
+        <Avatar contacto={contacto} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-titos-green-900 sm:text-base">{contacto.nombre}</p>
-          <p className="truncate text-xs text-black/40">{contacto.chatId.replace("@c.us", "")}</p>
+          <p className="truncate text-xs text-black/40">
+            {contacto.numero}
+            {/* Como en WhatsApp: el nombre del perfil se antepone con ~ cuando
+                no coincide con el guardado en la agenda. */}
+            {contacto.nombrePerfil && contacto.nombrePerfil !== contacto.nombre
+              ? ` · ~${contacto.nombrePerfil}`
+              : ""}
+          </p>
         </div>
         <button onClick={cargar} disabled={cargando} className="shrink-0 rounded-lg p-1.5 text-black/40 hover:bg-titos-green-100 hover:text-titos-green-700 disabled:opacity-50 sm:p-2" aria-label="Actualizar">
           <RefreshCw className={`h-4 w-4 ${cargando ? "animate-spin" : ""}`} />
@@ -478,12 +526,10 @@ export function WhatsAppMonitor() {
                 onClick={() => setSeleccionado(c)}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-titos-green-100/40 active:bg-titos-green-100/60 sm:px-4 sm:py-3"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-titos-green-100 text-titos-green-700 sm:h-10 sm:w-10">
-                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                </span>
+                <Avatar contacto={c} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-titos-green-900">{c.nombre}</p>
-                  <p className="truncate text-xs text-black/40">{c.chatId.replace("@c.us", "")}</p>
+                  <p className="truncate text-xs text-black/40">{c.numero}</p>
                 </div>
                 <span className="shrink-0 text-[11px] text-black/30 sm:text-xs">{formatFecha(c.ultimoMensaje)}</span>
               </button>
