@@ -2033,15 +2033,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               ) : null}
             </div>
 
-            {/* El cajero cobra igual, pero alguien tiene que enterarse de que a
-                ese producto le faltan los datos fiscales: su factura va a quedar
-                bloqueada hasta que compras los complete. */}
-            {totalesFiscales.sinDatosFiscales.length > 0 ? (
-              <p className="rounded-lg border border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
-                Sin impuestos por falta de datos fiscales: {totalesFiscales.sinDatosFiscales.join(", ")}. Se cobra
-                el precio de lista y la venta no se podrá facturar hasta completarlos.
-              </p>
-            ) : null}
+            {/* Aquí iba un aviso cuando a un producto le faltaban datos
+                fiscales. Se quitó: hoy la mayoría del catálogo está sin
+                capturar, así que saldría en casi toda venta y el cajero
+                aprendería a ignorarlo en dos días. Además no es suyo el
+                trabajo de completarlo. El dato se sigue guardando en cada
+                renglón (Venta.items[].sinDatosFiscales) y sale donde sí se
+                puede actuar: en el diagnóstico fiscal y al intentar timbrar,
+                que enumera los productos que faltan. */}
 
             <div className="rounded-lg bg-linear-to-b from-sky-500 to-sky-600 px-3 py-2 text-right text-white">
               <p className="text-sm font-bold uppercase tracking-wide">Total pesos</p>

@@ -81,7 +81,7 @@ function ProductoFormModal({
 }) {
   const editando = producto != null;
   const [form, setForm] = useState(producto ? formDesdeProducto(producto) : emptyForm);
-  const [fiscal, setFiscal] = useState<FiscalProducto>(producto?.fiscal ?? { ...FISCAL_INICIAL, precioImpuestos: producto ? "pendiente" : "sin_impuestos" });
+  const [fiscal, setFiscal] = useState<FiscalProducto>(producto?.fiscal ?? { ...FISCAL_INICIAL, precioImpuestos: producto ? "pendiente" : "incluidos" });
   const [alias, setAlias] = useState<string[]>(producto?.alias ?? []);
   const [aliasInput, setAliasInput] = useState("");
   const [saving, setSaving] = useState(false);

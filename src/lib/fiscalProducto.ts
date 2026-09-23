@@ -5,7 +5,11 @@ export type FiscalProducto = {
   claveProdServ: string;
   precioImpuestos: "pendiente" | "sin_impuestos" | "incluidos";
 };
-export const FISCAL_INICIAL: FiscalProducto = { iva: "pendiente", iepsTipo: "pendiente", iepsValor: 0, claveProdServ: "", precioImpuestos: "sin_impuestos" };
+// Un producto nuevo nace con el precio ya con impuestos: es como se exhibe en
+// tienda (el precio del anaquel es el total a pagar) y como se captura el
+// catálogo. Si naciera "sin_impuestos" la caja empezaría a cobrar por encima
+// del precio de lista en cuanto alguien diera de alta un producto sin fijarse.
+export const FISCAL_INICIAL: FiscalProducto = { iva: "pendiente", iepsTipo: "pendiente", iepsValor: 0, claveProdServ: "", precioImpuestos: "incluidos" };
 export function validarFiscalProducto(valor: unknown): FiscalProducto {
   if (!valor || typeof valor !== "object") throw new Error("Revisa los datos fiscales del producto.");
   const f = valor as FiscalProducto;
