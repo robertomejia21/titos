@@ -3,7 +3,7 @@ import { REGLAS_OPERACION, type ReglasOperacion } from "@/lib/reglasOperacion";
 import { EMISOR_VACIO, emisorCompleto, type EmisorFiscal } from "@/lib/emisorFiscal";
 import { REGIMENES_FISCALES } from "@/lib/facturacion";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormGrid, FormField, Input } from "@/components/ui";
 import {
   Clock,
@@ -14,12 +14,77 @@ import {
   ShieldCheck,
   BellRing,
   PackageX,
+  Save,
+  Receipt,
+  ClipboardList,
+  Banknote,
+  type LucideIcon,
   UserCog,
 } from "lucide-react";
 import { DIAS_SEMANA, DIA_LABEL } from "@/lib/dias";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { MotivosPosManager } from "@/components/matriz/MotivosPosManager";
+
+/**
+ * Encabezado de tarjeta. El `id` es el ancla a la que salta el buscador global
+ * (src/lib/busqueda.ts), así que no se renombra sin actualizar allá.
+ */
+function TituloSeccion({
+  id,
+  icono: Icono,
+  titulo,
+  children,
+}: {
+  id: string;
+  icono: LucideIcon;
+  titulo: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="mb-4">
+      <h2 id={id} className="flex items-center gap-2 font-semibold text-titos-green-900">
+        <Icono className="h-4 w-4" />
+        {titulo}
+      </h2>
+      {children ? <p className="mt-1 text-sm text-black/50">{children}</p> : null}
+    </div>
+  );
+}
+
+/** Pie con el botón de guardar de una sección y el aviso de su último intento. */
+function PieGuardar({
+  clave,
+  onGuardar,
+  guardandoSeccion,
+  avisoSeccion,
+  deshabilitado,
+  etiqueta = "Guardar",
+}: {
+  clave: string;
+  onGuardar: () => void;
+  guardandoSeccion: string | null;
+  avisoSeccion: { clave: string; texto: string; error: boolean } | null;
+  deshabilitado?: boolean;
+  etiqueta?: string;
+}) {
+  const guardando = guardandoSeccion === clave;
+  const aviso = avisoSeccion?.clave === clave ? avisoSeccion : null;
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-black/5 pt-3.5">
+      <Button onClick={onGuardar} disabled={guardando || deshabilitado}>
+        <span className="flex items-center gap-1.5">
+          <Save className="h-4 w-4" /> {guardando ? "Guardando..." : etiqueta}
+        </span>
+      </Button>
+      {aviso ? (
+        <p role="status" className={`text-sm ${aviso.error ? "text-red-600" : "text-titos-green-700"}`}>
+          {aviso.texto}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export function ConfiguracionManager() {
   const zonaHoraria = useZonaHoraria();
@@ -58,8 +123,11 @@ export function ConfiguracionManager() {
   const [porcentajeMaximoUsd, setPorcentajeMaximoUsd] = useState("0");
   const [montoMaximoUsd, setMontoMaximoUsd] = useState("0");
   const [cargandoConfig, setCargandoConfig] = useState(true);
-  const [guardando, setGuardando] = useState(false);
-  const [mensaje, setMensaje] = useState<string | null>(null);
+  // Cada tarjeta guarda lo suyo. Antes un solo botón mandaba todo junto, y eso
+  // reescribía el sello de quién movió el tipo de cambio aunque solo se hubiera
+  // tocado una casilla de otra sección.
+  const [guardandoSeccion, setGuardandoSeccion] = useState<string | null>(null);
+  const [avisoSeccion, setAvisoSeccion] = useState<{ clave: string; texto: string; error: boolean } | null>(null);
 
   const [nipConfigurado, setNipConfigurado] = useState(false);
   const [nip, setNip] = useState("");
@@ -117,43 +185,33 @@ export function ConfiguracionManager() {
     setDiasLaborales((prev) => (prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]));
   }
 
-  async function guardarAjustes() {
-    setGuardando(true);
-    setMensaje(null);
+  /**
+   * Guarda solo los campos de una sección. La API aplica cada llave por
+   * separado, así que mandar el subconjunto deja intacto todo lo demás.
+   */
+  async function guardarSeccion(clave: string, datos: Record<string, unknown>) {
+    setGuardandoSeccion(clave);
+    setAvisoSeccion(null);
     const res = await fetch("/api/configuracion", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        diasLaborales,
-        horaCorte,
-        tipoCambio: Number(tipoCambio),
-        fondoCajaMxn: Number(fondoCajaMxn),
-        reglasOperacion,
-        tasaIvaFactura: Number(tasaIvaFactura),
-        emisorFiscal,
-        dolares: {
-          aceptaPagos: aceptaDolares,
-          denominacionMaxima: Number(denominacionMaximaUsd) || 0,
-          porcentajeMaximo: Number(porcentajeMaximoUsd) || 0,
-          montoMaximoUsd: Number(montoMaximoUsd) || 0,
-        },
-      }),
+      body: JSON.stringify(datos),
     });
-    setGuardando(false);
+    setGuardandoSeccion(null);
 
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setMensaje(data.error || "No se pudieron guardar los ajustes");
+      const error = await res.json().catch(() => ({}));
+      setAvisoSeccion({ clave, texto: error.error || "No se pudo guardar.", error: true });
       return;
     }
 
     // La respuesta trae el sello recién puesto al tipo de cambio.
     const data = await res.json().catch(() => null);
-    if (data) {
+    if (data && "tipoCambio" in datos) {
       setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
       setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
     }
-    setMensaje("Ajustes guardados.");
+    setAvisoSeccion({ clave, texto: "Guardado.", error: false });
   }
 
   async function guardarAlertas() {
@@ -343,263 +401,349 @@ export function ConfiguracionManager() {
   })();
 
   return (
-    <div className="space-y-6">
+    <div className="grid items-start gap-5 xl:grid-cols-2">
+      {/* Dos columnas en pantalla grande. items-start evita que una tarjeta
+        corta se estire hasta igualar la altura de su vecina. Las secciones
+        anchas se marcan con xl:col-span-2. */}
+
+      {/* ───────────── Días y horario ───────────── */}
       <Card>
-        <h2 id="horarios" className="mb-1 font-semibold text-titos-green-900">Días y horario laborales</h2>
-        <p className="mb-4 text-sm text-black/50">
-          Define los días de operación y la hora de corte de pedidos del día.
-        </p>
+        <TituloSeccion id="horarios" icono={CalendarCheck} titulo="Días y horario laborales">
+          Días de operación y hora de corte de los pedidos del día.
+        </TituloSeccion>
 
         {cargandoConfig ? (
           <p className="text-sm text-black/50">Cargando...</p>
         ) : (
-          <FormGrid>
-            <FormField label="Fondo de apertura de caja (MXN)">
-              <Input aria-label="Fondo de apertura de caja" type="number" min="0" max="1000000" step="0.01" value={fondoCajaMxn} onChange={(e) => setFondoCajaMxn(e.target.value)} />
-              <p className="mt-1 text-sm text-black/70">Mismo fondo para todas las cajas. Se aplica a nuevas aperturas; las cajas abiertas conservan su fondo. Solo administración puede cambiarlo.</p>
-            </FormField>
-            <FormField label="Días laborales">
-              <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-black/10 p-3">
-                {DIAS_SEMANA.map((dia) => (
-                  <label key={dia} className="flex items-center gap-1.5 text-sm text-black/70">
-                    <input type="checkbox" checked={diasLaborales.includes(dia)} onChange={() => alternarDia(dia)} />
-                    {DIA_LABEL[dia]}
-                  </label>
-                ))}
-              </div>
-            </FormField>
-            <FormField label="Hora de corte de pedidos">
-              <Input icon={Clock} type="time" value={horaCorte} onChange={(e) => setHoraCorte(e.target.value)} />
-            </FormField>
-            <FormField label="Tipo de cambio (pesos por dólar)">
-              <Input id="tipo-cambio"
-                icon={DollarSign}
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={tipoCambio}
-                onChange={(e) => setTipoCambio(e.target.value)}
-                placeholder="17.00"
-              />
-              {/* Sin esta línea nadie se entera de que el tipo de cambio lleva
-                  tres semanas sin moverse hasta que el corte no cuadra. */}
-              <p className="mt-1 text-xs text-black/40">
-                {tipoCambioActualizadoEn
-                  ? `Última actualización: ${formatFechaHora(tipoCambioActualizadoEn, zonaHoraria)}${
-                      tipoCambioActualizadoPor ? ` por ${tipoCambioActualizadoPor}` : ""
-                    }.`
-                  : "Todavía no se ha ajustado a mano: se está usando el valor con el que arrancó el sistema."}{" "}
-                Se aplica a los cobros en dólares desde el momento en que se guarda; cada venta se queda con el tipo de
-                cambio que tenía al cobrarse.
-              </p>
-            </FormField>
-            <FormField label="Pagos en dólares">
-              <div className="space-y-2 rounded-lg border border-black/10 p-3">
-                <label className="flex items-center gap-2 text-sm text-black/70">
-                  <input
-                    type="checkbox"
-                    checked={aceptaDolares}
-                    onChange={(e) => setAceptaDolares(e.target.checked)}
-                  />
-                  Recibir dólares en billete en el punto de venta
-                </label>
-                <div>
-                  <label className="mb-1 block text-xs text-black/50">
-                    Denominación máxima aceptada (0 = se aceptan todos los billetes)
-                  </label>
-                  <Input
-                    icon={DollarSign}
-                    type="number"
-                    min="0"
-                    step="1"
-                    disabled={!aceptaDolares}
-                    value={denominacionMaximaUsd}
-                    onChange={(e) => setDenominacionMaximaUsd(e.target.value)}
-                    placeholder="0"
-                  />
-                  <p className="mt-1 text-xs text-black/40">
-                    Hoy se aceptan todos. Si más adelante se decide no recibir billetes de cierta denominación, se
-                    pone el tope aquí y el punto de venta se lo avisa al cajero. El cambio siempre se entrega en pesos.
-                  </p>
+          <>
+            <div className="space-y-3.5">
+              <FormField label="Días laborales">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-black/10 p-3">
+                  {DIAS_SEMANA.map((dia) => (
+                    <label key={dia} className="flex items-center gap-1.5 text-sm text-black/70">
+                      <input type="checkbox" checked={diasLaborales.includes(dia)} onChange={() => alternarDia(dia)} />
+                      {DIA_LABEL[dia]}
+                    </label>
+                  ))}
                 </div>
-              </div>
-            </FormField>
-            <FormField label="Tasa de IVA para facturas (%)">
-              <Input id="iva-facturas"
-                icon={Percent}
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={tasaIvaFactura}
-                onChange={(e) => setTasaIvaFactura(e.target.value)}
-                placeholder="0"
-              />
-            </FormField>
-          </FormGrid>
+              </FormField>
+              <FormField label="Hora de corte de pedidos">
+                <Input icon={Clock} type="time" value={horaCorte} onChange={(e) => setHoraCorte(e.target.value)} />
+              </FormField>
+            </div>
+            <PieGuardar
+              clave="horarios"
+              guardandoSeccion={guardandoSeccion}
+              avisoSeccion={avisoSeccion}
+              onGuardar={() => guardarSeccion("horarios", { diasLaborales, horaCorte })}
+            />
+          </>
         )}
+      </Card>
 
-        {!cargandoConfig && <section className="mt-5 space-y-4 border-t border-black/10 pt-4" aria-labelledby="reglas-operacion">
-          <h3 id="reglas-operacion" className="font-semibold text-titos-green-900">Compras, cortes y devoluciones</h3>
-          <p className="text-sm text-black/70">Estas reglas se guardan con los ajustes generales. Los documentos ya registrados conservan sus importes.</p>
-          <label className="block text-sm">Costos de compra
-            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.costosCompra} onChange={e=>setReglasOperacion({...reglasOperacion,costosCompra:e.target.value as ReglasOperacion["costosCompra"]})}>
-              <option value="pendiente">Pendiente de definir</option><option value="sin_impuestos">Capturar costo sin impuestos</option><option value="incluidos">Capturar costo con impuestos incluidos</option>
-            </select>
-          </label>
-          <label className="block text-sm">Base para calcular IVA en compras
-            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.baseIvaCompra} onChange={e=>setReglasOperacion({...reglasOperacion,baseIvaCompra:e.target.value as ReglasOperacion["baseIvaCompra"]})}>
-              <option value="pendiente">Pendiente de confirmar con contabilidad</option><option value="costo">Solo costo del producto</option><option value="costo_ieps">Costo más IEPS</option>
-            </select>
-          </label>
-          <p className="text-sm text-black/70">La tasa de cada producto proviene del catálogo. Servicio y descuento son ajustes separados sin impuestos. Estas opciones corresponden a compras; no activan impuestos en el punto de venta.</p>
-          <label className="block text-sm">Si existe un turno de un día anterior sin cerrar
-            <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.turnoAnterior} onChange={e=>setReglasOperacion({...reglasOperacion,turnoAnterior:e.target.value as ReglasOperacion["turnoAnterior"]})}>
-              <option value="advertir">Mostrar aviso y permitir continuar</option><option value="bloquear">Exigir cerrar el turno antes de vender en línea</option>
-            </select>
-          </label>
-          <label className="flex gap-2 text-sm"><input type="checkbox" checked={reglasOperacion.permitirCorreccionDia} onChange={e=>setReglasOperacion({...reglasOperacion,permitirCorreccionDia:e.target.checked})} />Permitir a administración corregir el día de reporte de una venta</label>
-          <p className="text-sm text-black/70">Conserva la fecha original, el dinero y el corte de caja. Guarda el motivo, usuario y fecha del cambio. No admite ventas con factura vigente. Primero guarda los ajustes para habilitarlo.</p>
-          {reglasOperacion.permitirCorreccionDia && <div className="space-y-2 rounded border border-amber-700 bg-amber-50 p-3">
-            <label className="block">Folio completo de venta<Input value={folioCorregir} onChange={e=>setFolioCorregir(e.target.value)} /></label>
-            <label className="block">Nuevo día de reporte<Input type="date" value={diaCorregir} onChange={e=>setDiaCorregir(e.target.value)} /></label>
-            <label className="block">Motivo de la corrección<textarea className="block w-full rounded border p-2" minLength={10} maxLength={1000} value={motivoCorregir} onChange={e=>setMotivoCorregir(e.target.value)} /></label>
-            <p className="text-sm">Esta corrección cambia los reportes de ambos días. No agrega efectivo para pagar devoluciones ni recalcula cajas cerradas.</p>
-            <Button disabled={corrigiendo || !folioCorregir || !diaCorregir || motivoCorregir.trim().length<10} onClick={async()=>{
-              setCorrigiendo(true);setResultadoCorreccion("");
-              try { const r=await fetch("/api/ventas/corregir-dia",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folio:folioCorregir,dia:diaCorregir,motivo:motivoCorregir})});const data=await r.json();setResultadoCorreccion(r.ok ? `${data.folio}: ${data.diaAnterior} → ${data.diaNuevo}. ${data.mensaje}` : data.error); }
-              catch {setResultadoCorreccion("No se pudo confirmar el resultado. Revisa la venta antes de reintentar.");} finally {setCorrigiendo(false);}
-            }}>{corrigiendo ? "Guardando corrección..." : "Corregir día y guardar motivo"}</Button>
-            {resultadoCorreccion && <p role="status">{resultadoCorreccion}</p>}
-          </div>}
-          <p className="text-sm text-black/70">Una devolución se registra el día del reembolso. Las notas de crédito fiscales siguen pendientes de integración con facturación y timbrado.</p>
-        </section>}
+      {/* ───────────── Caja y tipo de cambio ───────────── */}
+      <Card>
+        <TituloSeccion id="caja" icono={Banknote} titulo="Caja y tipo de cambio">
+          Con cuánto abre cada caja y a cuánto se recibe el dólar.
+        </TituloSeccion>
 
-        {/* Datos fiscales del emisor. Solo hacen falta para timbrar: la factura
-            del sistema se genera sin ellos, el CFDI no. Van aquí y no en cada
-            sucursal porque todas las tiendas emiten con el mismo RFC. */}
-        {!cargandoConfig && <section className="mt-5 space-y-4 border-t border-black/10 pt-4" aria-labelledby="emisor-fiscal">
-          <h3 id="emisor-fiscal" className="font-semibold text-titos-green-900">Datos fiscales de la empresa</h3>
-          <p className="text-sm text-black/70">
-            Con estos datos se arma el CFDI que se manda a timbrar. Tienen que coincidir exactamente con la
-            Constancia de Situación Fiscal y con el sello digital (CSD) cargado en el PAC: si algo no empata, el
-            SAT rechaza todas las facturas.
-          </p>
-          {!emisorCompleto(emisorFiscal) && (
-            <p className="rounded border border-amber-700 bg-amber-50 p-3 text-sm" role="status">
-              Mientras estén incompletos no se puede timbrar. La facturación del sistema sigue funcionando igual.
-            </p>
-          )}
-          <FormGrid>
-            <FormField label="RFC de la empresa">
-              <Input
-                value={emisorFiscal.rfc}
-                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, rfc: e.target.value.toUpperCase() })}
-                placeholder="XAXX010101000"
-                maxLength={13}
-              />
-            </FormField>
-            <FormField label="Razón social">
-              <Input
-                value={emisorFiscal.razonSocial}
-                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, razonSocial: e.target.value })}
-                placeholder="Como aparece en la Constancia de Situación Fiscal"
-              />
-            </FormField>
-            <FormField label="Régimen fiscal">
-              <select
-                aria-label="Régimen fiscal de la empresa"
-                className="mt-1 block w-full rounded border border-black/20 p-2"
-                value={emisorFiscal.regimenFiscal}
-                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, regimenFiscal: e.target.value })}
-              >
-                <option value="">Sin definir</option>
-                {REGIMENES_FISCALES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Código postal del domicilio fiscal">
-              <Input
-                value={emisorFiscal.codigoPostal}
-                onChange={(e) => setEmisorFiscal({ ...emisorFiscal, codigoPostal: e.target.value })}
-                placeholder="21000"
-                maxLength={5}
-                inputMode="numeric"
-              />
-            </FormField>
-          </FormGrid>
-          <p className="text-sm text-black/70">
-            La razón social va sin el régimen de capital: se escribe &ldquo;PROVEEDORA VANFER&rdquo;, no
-            &ldquo;PROVEEDORA VANFER S.A. DE C.V.&rdquo;. Se guardan junto con los ajustes generales.
-          </p>
-        </section>}
-
-        {/* Cuánto de una venta se puede liquidar en billete verde. Va aquí,
-            pegado al tipo de cambio, porque los dos se revisan juntos: quien
-            ajusta el tipo de cambio es quien decide cuántos dólares aguanta la
-            caja ese día. */}
-        {!cargandoConfig ? (
-          <div className="mt-5 border-t border-black/10 pt-4">
-            <h3 id="limites-dolares" className="mb-1 font-semibold text-titos-green-900">Límite de aceptación de dólares</h3>
-            <p className="mb-3 text-sm text-black/50">
-              Hasta cuánto de una venta se acepta en dólares. Son dos topes independientes y se aplican los dos: gana
-              el que se alcance primero. El punto de venta avisa al cajero antes de cobrar y el servidor lo vuelve a
-              validar, así que no se puede saltar desde el navegador.
-            </p>
-
-            <FormGrid>
-              <FormField label="Porcentaje máximo del total de la venta (%)">
-                <Input
-                  icon={Percent}
+        {cargandoConfig ? (
+          <p className="text-sm text-black/50">Cargando...</p>
+        ) : (
+          <>
+            <div className="space-y-3.5">
+              <FormField label="Fondo de apertura de caja (MXN)">
+                <Input aria-label="Fondo de apertura de caja" type="number" min="0" max="1000000" step="0.01" value={fondoCajaMxn} onChange={(e) => setFondoCajaMxn(e.target.value)} />
+                <p className="mt-1 text-sm text-black/70">Mismo fondo para todas las cajas. Se aplica a nuevas aperturas; las cajas abiertas conservan su fondo. Solo administración puede cambiarlo.</p>
+              </FormField>
+              <FormField label="Tipo de cambio (pesos por dólar)">
+                <Input id="tipo-cambio"
+                  icon={DollarSign}
                   type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  disabled={!aceptaDolares}
-                  value={porcentajeMaximoUsd}
-                  onChange={(e) => setPorcentajeMaximoUsd(e.target.value)}
-                  placeholder="0"
+                  min="0.01"
+                  step="0.01"
+                  value={tipoCambio}
+                  onChange={(e) => setTipoCambio(e.target.value)}
+                  placeholder="17.00"
                 />
+                {/* Sin esta línea nadie se entera de que el tipo de cambio lleva
+                    tres semanas sin moverse hasta que el corte no cuadra. */}
                 <p className="mt-1 text-xs text-black/40">
-                  0 = sin tope, la venta completa se puede pagar en dólares. Con 50, una venta de $1,000 admite como
-                  máximo $500 en dólares y el resto va en otra forma de pago.
+                  {tipoCambioActualizadoEn
+                    ? `Última actualización: ${formatFechaHora(tipoCambioActualizadoEn, zonaHoraria)}${
+                        tipoCambioActualizadoPor ? ` por ${tipoCambioActualizadoPor}` : ""
+                      }.`
+                    : "Todavía no se ha ajustado a mano: se está usando el valor con el que arrancó el sistema."}{" "}
+                  Se aplica a los cobros en dólares desde el momento en que se guarda; cada venta se queda con el tipo de
+                  cambio que tenía al cobrarse.
                 </p>
               </FormField>
-              <FormField label="Monto máximo en dólares por venta (USD)">
+            </div>
+            <PieGuardar
+              clave="caja"
+              guardandoSeccion={guardandoSeccion}
+              avisoSeccion={avisoSeccion}
+              onGuardar={() =>
+                guardarSeccion("caja", { tipoCambio: Number(tipoCambio), fondoCajaMxn: Number(fondoCajaMxn) })
+              }
+            />
+          </>
+        )}
+      </Card>
+
+      {/* ───────────── Pagos en dólares ───────────── */}
+      <Card>
+        <TituloSeccion id="limites-dolares" icono={DollarSign} titulo="Pagos en dólares">
+          Hasta cuánto de una venta se acepta en billete verde. Los dos topes se aplican: gana el que se
+          alcance primero. El punto de venta avisa al cajero y el servidor lo vuelve a validar, así que no se
+          puede saltar desde el navegador.
+        </TituloSeccion>
+
+        {cargandoConfig ? (
+          <p className="text-sm text-black/50">Cargando...</p>
+        ) : (
+          <>
+            <div className="space-y-3.5">
+              <label className="flex items-center gap-2 text-sm text-black/70">
+                <input
+                  type="checkbox"
+                  checked={aceptaDolares}
+                  onChange={(e) => setAceptaDolares(e.target.checked)}
+                />
+                Recibir dólares en billete en el punto de venta
+              </label>
+
+              <FormField label="Denominación máxima aceptada (0 = todos los billetes)">
                 <Input
                   icon={DollarSign}
                   type="number"
                   min="0"
                   step="1"
                   disabled={!aceptaDolares}
-                  value={montoMaximoUsd}
-                  onChange={(e) => setMontoMaximoUsd(e.target.value)}
+                  value={denominacionMaximaUsd}
+                  onChange={(e) => setDenominacionMaximaUsd(e.target.value)}
                   placeholder="0"
                 />
                 <p className="mt-1 text-xs text-black/40">
-                  0 = sin tope. Es el candado del cajón: limita cuántos billetes verdes se acumulan en un solo cobro,
-                  sin importar de cuánto sea la venta.
+                  Hoy se aceptan todos. Si más adelante se decide no recibir billetes de cierta denominación, se
+                  pone el tope aquí y el punto de venta se lo avisa al cajero. El cambio siempre se entrega en pesos.
+                </p>
+              </FormField>
+
+              <FormGrid>
+                <FormField label="Porcentaje máximo del total de la venta (%)">
+                  <Input
+                    icon={Percent}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    disabled={!aceptaDolares}
+                    value={porcentajeMaximoUsd}
+                    onChange={(e) => setPorcentajeMaximoUsd(e.target.value)}
+                    placeholder="0"
+                  />
+                  <p className="mt-1 text-xs text-black/40">
+                    0 = sin tope, la venta completa se puede pagar en dólares. Con 50, una venta de $1,000 admite como
+                    máximo $500 en dólares y el resto va en otra forma de pago.
+                  </p>
+                </FormField>
+                <FormField label="Monto máximo en dólares por venta (USD)">
+                  <Input
+                    icon={DollarSign}
+                    type="number"
+                    min="0"
+                    step="1"
+                    disabled={!aceptaDolares}
+                    value={montoMaximoUsd}
+                    onChange={(e) => setMontoMaximoUsd(e.target.value)}
+                    placeholder="0"
+                  />
+                  <p className="mt-1 text-xs text-black/40">
+                    0 = sin tope. Es el candado del cajón: limita cuántos billetes verdes se acumulan en un solo cobro,
+                    sin importar de cuánto sea la venta.
+                  </p>
+                </FormField>
+              </FormGrid>
+
+              <p className="rounded-lg bg-black/3 px-3 py-2 text-xs text-black/50">{resumenTopesDolares}</p>
+            </div>
+            <PieGuardar
+              clave="dolares"
+              guardandoSeccion={guardandoSeccion}
+              avisoSeccion={avisoSeccion}
+              onGuardar={() =>
+                guardarSeccion("dolares", {
+                  dolares: {
+                    aceptaPagos: aceptaDolares,
+                    denominacionMaxima: Number(denominacionMaximaUsd) || 0,
+                    porcentajeMaximo: Number(porcentajeMaximoUsd) || 0,
+                    montoMaximoUsd: Number(montoMaximoUsd) || 0,
+                  },
+                })
+              }
+            />
+          </>
+        )}
+      </Card>
+
+      {/* ───────────── Facturación ───────────── */}
+      {/* La tasa global y los datos del emisor viven juntos porque los dos se
+          revisan cuando alguien va a timbrar. Los datos fiscales van aquí y no
+          en cada sucursal porque todas las tiendas emiten con el mismo RFC. */}
+      <Card className="xl:col-span-2">
+        <TituloSeccion id="facturacion" icono={Receipt} titulo="Facturación">
+          Con estos datos se arma el CFDI que se manda a timbrar. Tienen que coincidir exactamente con la
+          Constancia de Situación Fiscal y con el sello digital (CSD) cargado en el PAC: si algo no empata, el
+          SAT rechaza todas las facturas.
+        </TituloSeccion>
+
+        {cargandoConfig ? (
+          <p className="text-sm text-black/50">Cargando...</p>
+        ) : (
+          <>
+            {!emisorCompleto(emisorFiscal) && (
+              <p className="mb-4 rounded border border-amber-700 bg-amber-50 p-3 text-sm" role="status">
+                Mientras los datos de la empresa estén incompletos no se puede timbrar. La facturación del
+                sistema sigue funcionando igual.
+              </p>
+            )}
+
+            <h3 id="emisor-fiscal" className="mb-3 text-sm font-semibold text-black/70">Datos fiscales de la empresa</h3>
+            <FormGrid className="xl:grid-cols-4">
+              <FormField label="RFC de la empresa">
+                <Input
+                  value={emisorFiscal.rfc}
+                  onChange={(e) => setEmisorFiscal({ ...emisorFiscal, rfc: e.target.value.toUpperCase() })}
+                  placeholder="XAXX010101000"
+                  maxLength={13}
+                />
+              </FormField>
+              <FormField label="Razón social">
+                <Input
+                  value={emisorFiscal.razonSocial}
+                  onChange={(e) => setEmisorFiscal({ ...emisorFiscal, razonSocial: e.target.value })}
+                  placeholder="Sin el régimen de capital"
+                />
+              </FormField>
+              <FormField label="Régimen fiscal">
+                <select
+                  aria-label="Régimen fiscal de la empresa"
+                  className="mt-1 block w-full rounded border border-black/20 p-2"
+                  value={emisorFiscal.regimenFiscal}
+                  onChange={(e) => setEmisorFiscal({ ...emisorFiscal, regimenFiscal: e.target.value })}
+                >
+                  <option value="">Sin definir</option>
+                  {REGIMENES_FISCALES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Código postal del domicilio fiscal">
+                <Input
+                  value={emisorFiscal.codigoPostal}
+                  onChange={(e) => setEmisorFiscal({ ...emisorFiscal, codigoPostal: e.target.value })}
+                  placeholder="21000"
+                  maxLength={5}
+                  inputMode="numeric"
+                />
+              </FormField>
+            </FormGrid>
+            <p className="mt-2 text-sm text-black/70">
+              La razón social va sin el régimen de capital: se escribe &ldquo;PROVEEDORA VANFER&rdquo;, no
+              &ldquo;PROVEEDORA VANFER S.A. DE C.V.&rdquo;.
+            </p>
+
+            <h3 className="mb-3 mt-5 text-sm font-semibold text-black/70">Impuestos</h3>
+            <FormGrid className="xl:grid-cols-4">
+              <FormField label="Tasa de IVA para facturas (%)">
+                <Input id="iva-facturas"
+                  icon={Percent}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={tasaIvaFactura}
+                  onChange={(e) => setTasaIvaFactura(e.target.value)}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-black/40">
+                  Tasa con la que se genera la factura del sistema. El CFDI que se timbra usa la tasa de cada
+                  producto del catálogo, no esta.
                 </p>
               </FormField>
             </FormGrid>
 
-            <p className="mt-3 rounded-lg bg-black/3 px-3 py-2 text-xs text-black/50">{resumenTopesDolares}</p>
-          </div>
-        ) : null}
-
-        {mensaje ? <p className="mt-3 text-sm text-titos-green-700">{mensaje}</p> : null}
-
-        <div className="mt-4">
-          <Button onClick={guardarAjustes} disabled={guardando || cargandoConfig}>
-            <span className="flex items-center gap-1.5">
-              <CalendarCheck className="h-4 w-4" /> {guardando ? "Guardando..." : "Guardar ajustes"}
-            </span>
-          </Button>
-        </div>
+            <PieGuardar
+              clave="facturacion"
+              guardandoSeccion={guardandoSeccion}
+              avisoSeccion={avisoSeccion}
+              onGuardar={() =>
+                guardarSeccion("facturacion", { tasaIvaFactura: Number(tasaIvaFactura), emisorFiscal })
+              }
+            />
+          </>
+        )}
       </Card>
 
-      <Card>
+      {/* ───────────── Compras, cortes y devoluciones ───────────── */}
+      <Card className="xl:col-span-2">
+        <TituloSeccion id="reglas-operacion" icono={ClipboardList} titulo="Compras, cortes y devoluciones">
+          Los documentos ya registrados conservan sus importes: estas reglas aplican de aquí en adelante.
+        </TituloSeccion>
+
+        {cargandoConfig ? (
+          <p className="text-sm text-black/50">Cargando...</p>
+        ) : (
+          <>
+            <FormGrid>
+              <label className="block text-sm">Costos de compra
+                <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.costosCompra} onChange={e=>setReglasOperacion({...reglasOperacion,costosCompra:e.target.value as ReglasOperacion["costosCompra"]})}>
+                  <option value="pendiente">Pendiente de definir</option><option value="sin_impuestos">Capturar costo sin impuestos</option><option value="incluidos">Capturar costo con impuestos incluidos</option>
+                </select>
+              </label>
+              <label className="block text-sm">Base para calcular IVA en compras
+                <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.baseIvaCompra} onChange={e=>setReglasOperacion({...reglasOperacion,baseIvaCompra:e.target.value as ReglasOperacion["baseIvaCompra"]})}>
+                  <option value="pendiente">Pendiente de confirmar con contabilidad</option><option value="costo">Solo costo del producto</option><option value="costo_ieps">Costo más IEPS</option>
+                </select>
+              </label>
+              <label className="block text-sm sm:col-span-2">Si existe un turno de un día anterior sin cerrar
+                <select className="mt-1 block w-full rounded border border-black/20 p-2" value={reglasOperacion.turnoAnterior} onChange={e=>setReglasOperacion({...reglasOperacion,turnoAnterior:e.target.value as ReglasOperacion["turnoAnterior"]})}>
+                  <option value="advertir">Mostrar aviso y permitir continuar</option><option value="bloquear">Exigir cerrar el turno antes de vender en línea</option>
+                </select>
+              </label>
+            </FormGrid>
+            <p className="mt-2 text-sm text-black/70">La tasa de cada producto proviene del catálogo. Servicio y descuento son ajustes separados sin impuestos. Estas opciones corresponden a compras; no activan impuestos en el punto de venta.</p>
+
+            <div className="mt-4 space-y-2 border-t border-black/5 pt-4">
+              <label className="flex gap-2 text-sm"><input type="checkbox" checked={reglasOperacion.permitirCorreccionDia} onChange={e=>setReglasOperacion({...reglasOperacion,permitirCorreccionDia:e.target.checked})} />Permitir a administración corregir el día de reporte de una venta</label>
+              <p className="text-sm text-black/70">Conserva la fecha original, el dinero y el corte de caja. Guarda el motivo, usuario y fecha del cambio. No admite ventas con factura vigente. Primero guarda los ajustes para habilitarlo.</p>
+              {reglasOperacion.permitirCorreccionDia && <div className="space-y-2 rounded border border-amber-700 bg-amber-50 p-3">
+                <label className="block">Folio completo de venta<Input value={folioCorregir} onChange={e=>setFolioCorregir(e.target.value)} /></label>
+                <label className="block">Nuevo día de reporte<Input type="date" value={diaCorregir} onChange={e=>setDiaCorregir(e.target.value)} /></label>
+                <label className="block">Motivo de la corrección<textarea className="block w-full rounded border p-2" minLength={10} maxLength={1000} value={motivoCorregir} onChange={e=>setMotivoCorregir(e.target.value)} /></label>
+                <p className="text-sm">Esta corrección cambia los reportes de ambos días. No agrega efectivo para pagar devoluciones ni recalcula cajas cerradas.</p>
+                <Button disabled={corrigiendo || !folioCorregir || !diaCorregir || motivoCorregir.trim().length<10} onClick={async()=>{
+                  setCorrigiendo(true);setResultadoCorreccion("");
+                  try { const r=await fetch("/api/ventas/corregir-dia",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folio:folioCorregir,dia:diaCorregir,motivo:motivoCorregir})});const data=await r.json();setResultadoCorreccion(r.ok ? `${data.folio}: ${data.diaAnterior} → ${data.diaNuevo}. ${data.mensaje}` : data.error); }
+                  catch {setResultadoCorreccion("No se pudo confirmar el resultado. Revisa la venta antes de reintentar.");} finally {setCorrigiendo(false);}
+                }}>{corrigiendo ? "Guardando corrección..." : "Corregir día y guardar motivo"}</Button>
+                {resultadoCorreccion && <p role="status">{resultadoCorreccion}</p>}
+              </div>}
+              <p className="text-sm text-black/70">Una devolución se registra el día del reembolso. Las notas de crédito fiscales siguen pendientes de integración con facturación y timbrado.</p>
+            </div>
+
+            <PieGuardar
+              clave="reglas"
+              guardandoSeccion={guardandoSeccion}
+              avisoSeccion={avisoSeccion}
+              onGuardar={() => guardarSeccion("reglas", { reglasOperacion })}
+            />
+          </>
+        )}
+      </Card>
+
+      <Card className="xl:col-span-2">
         <h2 id="alertas-pedidos" className="mb-1 flex items-center gap-2 font-semibold text-titos-green-900">
           <BellRing className="h-4.5 w-4.5 text-titos-green-700" />
           Alertas de pedidos atrasados
@@ -835,7 +979,9 @@ export function ConfiguracionManager() {
         </div>
       </Card>
 
-      <MotivosPosManager />
+      <div className="xl:col-span-2">
+        <MotivosPosManager />
+      </div>
     </div>
   );
 }
