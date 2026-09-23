@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, unauthorized, forbidden } from "@/lib/apiAuth";
-import { getQR } from "@/lib/greenApi";
+import { getQR, greenApiDiag } from "@/lib/greenApi";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -11,6 +11,10 @@ export async function GET(req: NextRequest) {
     const data = await getQR();
     return NextResponse.json({ qr: data.qr, pairingCode: null });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
+    const diag = greenApiDiag();
+    return NextResponse.json({
+      qr: null,
+      error: `${(err as Error).message} · instancia:${diag.hasInstance ? "sí" : "NO"} token:${diag.hasToken ? "sí" : "NO"} host:${diag.host}`,
+    });
   }
 }

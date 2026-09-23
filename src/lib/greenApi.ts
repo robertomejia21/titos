@@ -1,10 +1,24 @@
-const INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID ?? "";
-const API_TOKEN = process.env.GREEN_API_TOKEN ?? "";
+// Se leen en cada llamada, no al cargar el módulo: si el bundle se evalúa en
+// build (sin variables de entorno) los valores quedarían vacíos para siempre.
+let INSTANCE_ID = "";
+let API_TOKEN = "";
 
 function requireEnv() {
+  INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID ?? "";
+  API_TOKEN = process.env.GREEN_API_TOKEN ?? "";
   if (!INSTANCE_ID || !API_TOKEN) {
     throw new Error("Green API no está configurada (faltan GREEN_API_INSTANCE_ID o GREEN_API_TOKEN)");
   }
+}
+
+/** Diagnóstico sin secretos: qué ve el servidor desplegado. */
+export function greenApiDiag() {
+  const id = process.env.GREEN_API_INSTANCE_ID ?? "";
+  return {
+    hasInstance: !!id,
+    hasToken: !!process.env.GREEN_API_TOKEN,
+    host: process.env.GREEN_API_HOST?.replace(/\/$/, "") ?? `https://${id.slice(0, 4)}.api.green-api.com`,
+  };
 }
 
 function baseUrl() {

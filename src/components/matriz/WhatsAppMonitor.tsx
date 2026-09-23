@@ -53,12 +53,11 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
     setError(null);
     const res = await fetch("/api/whatsapp/qr");
     setCargando(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
       setError(data.error || "No se pudo obtener el código QR");
       return;
     }
-    const data = await res.json();
     setQr(data.qr);
   }, []);
 
@@ -116,10 +115,12 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
 
 function SettingsPanel({
   estadoWA,
+  errorWA,
   cargandoEstado,
   onRefresh,
 }: {
   estadoWA: string;
+  errorWA: string;
   cargandoEstado: boolean;
   onRefresh: () => void;
 }) {
@@ -170,6 +171,10 @@ function SettingsPanel({
           <Button variant="danger" size="sm" onClick={() => setConfirmandoDesconectar(true)}>Desconectar</Button>
         )}
       </div>
+
+      {errorWA ? (
+        <p className="mt-3 break-words rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{errorWA}</p>
+      ) : null}
 
       {mostrarQR ? (
         <QRModal
@@ -304,6 +309,7 @@ export function WhatsAppMonitor() {
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [estado, setEstado] = useState("cargando");
   const [estadoWA, setEstadoWA] = useState("close");
+  const [errorWA, setErrorWA] = useState("");
   const [cargandoEstado, setCargandoEstado] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -330,11 +336,12 @@ export function WhatsAppMonitor() {
     setCargandoEstado(true);
     try {
       const res = await fetch("/api/whatsapp/estado");
-      if (res.ok) {
-        const data = await res.json();
-        setEstadoWA(data.estado ?? "close");
-      }
-    } catch { /* keep previous */ }
+      const data = await res.json().catch(() => ({}));
+      setEstadoWA(data.estado ?? "close");
+      setErrorWA(data.error ?? "");
+    } catch {
+      setErrorWA("No se pudo consultar el estado de WhatsApp");
+    }
     setCargandoEstado(false);
   }, []);
 
@@ -396,6 +403,7 @@ export function WhatsAppMonitor() {
           <div className="mb-4">
             <SettingsPanel
               estadoWA={estadoWA}
+              errorWA={errorWA}
               cargandoEstado={cargandoEstado}
               onRefresh={() => { cargarEstadoWA(); cargar(); }}
             />
