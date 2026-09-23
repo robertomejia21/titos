@@ -41,6 +41,20 @@ function formatHora(ts: number) {
 const normalizar = (texto: string) =>
   texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+// Traduce las fallas técnicas de Green API a algo sobre lo que se pueda actuar:
+// el código HTTP en pantalla no le dice nada a quien opera el sistema.
+function mensajeConexion(error: string): string {
+  if (!error) return "";
+  if (/\b(401|403)\b|no está configurada/i.test(error)) {
+    return "No se pudieron validar las credenciales de Green API. Revísalas en la configuración del proyecto y vuelve a desplegar.";
+  }
+  // Bloqueada, suspendida o en reposo ya vienen redactadas desde el servidor.
+  if (/bloquead|suspendid|reposo/i.test(error)) return error;
+  return "No se pudo consultar el estado de WhatsApp. Vuelve a intentarlo en un momento.";
+}
+
+const AVISO = "rounded-lg bg-titos-orange-100 px-3 py-2 text-xs text-titos-orange-700";
+
 /* ── QR Modal ── */
 
 function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: () => void }) {
@@ -64,6 +78,7 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
   // El QR de Green API caduca a los ~20s: se renueva solo mientras el modal
   // esté abierto, si no da tiempo de escanearlo.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial del QR al abrir el modal
     pedirQR();
     const t = setInterval(pedirQR, 15000);
     return () => clearInterval(t);
@@ -91,8 +106,8 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
             <Loader2 className="h-8 w-8 animate-spin text-titos-green-600" />
           </div>
         ) : error ? (
-          <div className="flex h-64 w-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="flex h-64 w-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-titos-orange-500/40 bg-titos-orange-100 p-4">
+            <p className="text-sm text-titos-orange-700">{mensajeConexion(error)}</p>
           </div>
         ) : qr ? (
           <Image src={qr} alt="Código QR de WhatsApp" width={256} height={256} className="rounded-xl border border-black/10" unoptimized />
@@ -143,11 +158,11 @@ function SettingsPanel({
       <div className="flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            conectado ? "bg-titos-green-100 text-titos-green-700" : "bg-red-100 text-red-700"
+            conectado ? "bg-titos-green-100 text-titos-green-700" : "bg-titos-orange-100 text-titos-orange-700"
           }`}
         >
           {conectado ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          {cargandoEstado ? "Consultando…" : conectado ? "Conectado" : "Desconectado"}
+          {cargandoEstado ? "Consultando…" : conectado ? "Conectado" : "Sin vincular"}
         </span>
 
         <Button variant="ghost" size="sm" onClick={onRefresh} disabled={cargandoEstado}>
@@ -173,7 +188,12 @@ function SettingsPanel({
       </div>
 
       {errorWA ? (
-        <p className="mt-3 break-words rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{errorWA}</p>
+        <p className={`mt-3 break-words ${AVISO}`}>{mensajeConexion(errorWA)}</p>
+      ) : !conectado && !cargandoEstado ? (
+        <p className={`mt-3 ${AVISO}`}>
+          WhatsApp todavía no está vinculado. Pulsa <strong>Vincular QR</strong> y escanea el código desde el
+          teléfono que usará el sistema para enviar mensajes.
+        </p>
       ) : null}
 
       {mostrarQR ? (
@@ -215,7 +235,10 @@ function ConversacionView({
     setCargando(false);
   }, [contacto.chatId]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial del historial
+    cargar();
+  }, [cargar]);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [mensajes]);
@@ -345,7 +368,11 @@ export function WhatsAppMonitor() {
     setCargandoEstado(false);
   }, []);
 
-  useEffect(() => { cargar(); cargarEstadoWA(); }, [cargarEstadoWA]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial del monitor
+    cargar();
+    cargarEstadoWA();
+  }, [cargarEstadoWA]);
 
   const contactosFiltrados = useMemo(() => {
     if (!busqueda.trim()) return contactos;
@@ -373,11 +400,11 @@ export function WhatsAppMonitor() {
             <h2 className="text-base font-semibold text-titos-green-900 sm:text-lg">Conversaciones</h2>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                estadoConectado ? "bg-titos-green-100 text-titos-green-700" : "bg-red-100 text-red-700"
+                estadoConectado ? "bg-titos-green-100 text-titos-green-700" : "bg-titos-orange-100 text-titos-orange-700"
               }`}
             >
               {estadoConectado ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {estadoConectado ? "Conectado" : estado === "cargando" ? "Conectando…" : "Desconectado"}
+              {estadoConectado ? "Conectado" : estado === "cargando" ? "Conectando…" : "Sin vincular"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -411,7 +438,9 @@ export function WhatsAppMonitor() {
         ) : null}
 
         {error ? (
-          <div className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</div>
+          <div className="mb-4 rounded-lg bg-titos-orange-100 px-3 py-2.5 text-sm text-titos-orange-700">
+            {mensajeConexion(error)}
+          </div>
         ) : null}
 
         <div className="mb-3">
@@ -431,7 +460,15 @@ export function WhatsAppMonitor() {
         </p>
 
         {!cargando && contactosFiltrados.length === 0 ? (
-          <EmptyState message={busqueda ? "Sin resultados para esta búsqueda." : "No hay conversaciones recientes."} />
+          <EmptyState
+            message={
+              busqueda
+                ? "Sin resultados para esta búsqueda."
+                : estadoConectado
+                  ? "No hay conversaciones recientes."
+                  : "Vincula WhatsApp desde el engrane para ver aquí las conversaciones."
+            }
+          />
         ) : (
           <div className="space-y-1">
             {contactosFiltrados.map((c) => (
