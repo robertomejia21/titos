@@ -11,10 +11,10 @@ export async function GET(req: NextRequest) {
     const data = await getQR();
     return NextResponse.json({ qr: data.qr, pairingCode: null });
   } catch (err) {
-    const diag = greenApiDiag();
+    const d = greenApiDiag();
     return NextResponse.json({
       qr: null,
-      error: `${(err as Error).message} · instancia:${diag.hasInstance ? "sí" : "NO"} token:${diag.hasToken ? "sí" : "NO"} host:${diag.host}`,
+      error: `${(err as Error).message} · instancia:${d.instancia} host:${d.host} token:largo=${d.tokenLargo} fin=${d.tokenFin}${d.tokenConEspacios ? " ⚠️CON-ESPACIOS" : ""}`,
     });
   }
 }

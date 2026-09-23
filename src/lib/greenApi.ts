@@ -4,25 +4,35 @@ let INSTANCE_ID = "";
 let API_TOKEN = "";
 
 function requireEnv() {
-  INSTANCE_ID = process.env.GREEN_API_INSTANCE_ID ?? "";
-  API_TOKEN = process.env.GREEN_API_TOKEN ?? "";
+  // .trim(): pegar el token en el panel de Vercel suele arrastrar un salto de
+  // línea, y Green API responde 401 sin que se note de dónde viene.
+  INSTANCE_ID = (process.env.GREEN_API_INSTANCE_ID ?? "").trim();
+  API_TOKEN = (process.env.GREEN_API_TOKEN ?? "").trim();
   if (!INSTANCE_ID || !API_TOKEN) {
     throw new Error("Green API no está configurada (faltan GREEN_API_INSTANCE_ID o GREEN_API_TOKEN)");
   }
 }
 
-/** Diagnóstico sin secretos: qué ve el servidor desplegado. */
+/**
+ * Diagnóstico sin secretos: qué ve el servidor desplegado. Del token sólo se
+ * publican largo y últimos 4 (como los de una tarjeta), que es lo justo para
+ * comparar si el valor de Vercel es el mismo que el de local sin exponerlo.
+ */
 export function greenApiDiag() {
   const id = process.env.GREEN_API_INSTANCE_ID ?? "";
+  const raw = process.env.GREEN_API_TOKEN ?? "";
   return {
-    hasInstance: !!id,
-    hasToken: !!process.env.GREEN_API_TOKEN,
+    instancia: id || "FALTA",
     host: process.env.GREEN_API_HOST?.replace(/\/$/, "") ?? `https://${id.slice(0, 4)}.api.green-api.com`,
+    tokenLargo: raw.length,
+    tokenFin: raw.slice(-4) || "—",
+    // Un espacio o salto de línea pegado al valor en Vercel da 401 sin que se vea.
+    tokenConEspacios: raw !== raw.trim(),
   };
 }
 
 function baseUrl() {
-  const override = process.env.GREEN_API_HOST;
+  const override = process.env.GREEN_API_HOST?.trim();
   if (override) {
     return override.replace(/\/$/, "");
   }
