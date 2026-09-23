@@ -75,7 +75,7 @@ function LoginForm() {
             <h2 className="mt-1 text-2xl font-bold text-titos-green-900">Inicia sesión</h2>
             <p className="mt-1 text-sm text-black/50">Accede con tu cuenta de matriz o sucursal.</p>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <form data-davinci-login="true" onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-black/70">Usuario</label>
                 <Input
@@ -93,6 +93,7 @@ function LoginForm() {
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
