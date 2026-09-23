@@ -57,6 +57,8 @@ import {
 } from "@/lib/offlinePos";
 
 import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
+import { impuestosDeLinea, totalesDeVenta } from "@/lib/impuestosVenta";
+import type { FiscalProducto } from "@/lib/fiscalProducto";
 
 type Producto = {
   _id: string;
@@ -68,6 +70,7 @@ type Producto = {
   unidad: "pieza" | "kg";
   precioVenta: number;
   requierePesaje: boolean;
+  fiscal?: FiscalProducto;
 };
 
 type LineaVenta = {
@@ -162,6 +165,10 @@ type VentaResp = {
   fecha?: string;
   items: VentaItemResp[];
   total: number;
+  // Desglose fiscal que devuelve el servidor; el ticket lo imprime.
+  baseGravable?: number;
+  totalIeps?: number;
+  totalIva?: number;
   pagos: PagoResp[];
   montoRecibido: number | null;
   cambio: number | null;
@@ -732,8 +739,26 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     return { productoId: l.productoId, cantidad: Number(l.cantidad) || 0, precio: l.precioUnitario, unidad: l.unidad, categoria: producto?.categoria, area: producto?.area };
   }), [carrito, productos]);
   const precioPromocion = calcularPromociones(itemsParaPrecio, promociones, fechaEnZona(new Date(), zonaHoraria));
-  const total = precioPromocion.total;
   const descuentosPorProducto = new Map(precioPromocion.lineas.map((l) => [l.productoId, l]));
+
+  // Los impuestos se calculan aquí solo para que el cajero vea lo que va a
+  // cobrar. Cuánto se cobra de verdad lo decide el servidor con los datos del
+  // catálogo: este cálculo usa la misma función para que no se contradigan.
+  const fiscales = useMemo(() => {
+    const porProducto = new Map(productos.map((p) => [p._id, p.fiscal]));
+    return precioPromocion.lineas.map((l) => ({
+      nombre: productos.find((p) => p._id === l.productoId)?.nombre ?? l.productoId,
+      impuestos: impuestosDeLinea(
+        l.total,
+        carrito
+          .filter((c) => c.productoId === l.productoId)
+          .reduce((suma, c) => suma + (Number(c.cantidad) || 0), 0),
+        porProducto.get(l.productoId),
+      ),
+    }));
+  }, [precioPromocion.lineas, productos, carrito]);
+  const totalesFiscales = useMemo(() => totalesDeVenta(fiscales), [fiscales]);
+  const total = totalesFiscales.total;
 
 
   const totalDolares = tipoCambio > 0 ? total / tipoCambio : null;
@@ -1994,7 +2019,29 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 <span className="font-semibold uppercase text-black/50">Descuento</span>
                 <span className="font-bold text-black/70">{formatMoney(precioPromocion.descuento)}</span>
               </div>
+              {totalesFiscales.ieps > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold uppercase text-black/50">IEPS</span>
+                  <span className="font-bold text-black/70">{formatMoney(totalesFiscales.ieps)}</span>
+                </div>
+              ) : null}
+              {totalesFiscales.iva > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold uppercase text-black/50">IVA</span>
+                  <span className="font-bold text-black/70">{formatMoney(totalesFiscales.iva)}</span>
+                </div>
+              ) : null}
             </div>
+
+            {/* El cajero cobra igual, pero alguien tiene que enterarse de que a
+                ese producto le faltan los datos fiscales: su factura va a quedar
+                bloqueada hasta que compras los complete. */}
+            {totalesFiscales.sinDatosFiscales.length > 0 ? (
+              <p className="rounded-lg border border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
+                Sin impuestos por falta de datos fiscales: {totalesFiscales.sinDatosFiscales.join(", ")}. Se cobra
+                el precio de lista y la venta no se podrá facturar hasta completarlos.
+              </p>
+            ) : null}
 
             <div className="rounded-lg bg-linear-to-b from-sky-500 to-sky-600 px-3 py-2 text-right text-white">
               <p className="text-sm font-bold uppercase tracking-wide">Total pesos</p>

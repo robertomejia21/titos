@@ -20,6 +20,7 @@ import { motivoRechazoDolares, obtenerConfiguracion, reglasDolaresDe } from "@/l
 import { alertarInventarioEnCero, type ProductoAgotado } from "@/lib/alertasInventario";
 import { esTipoTarjeta, type TipoTarjeta } from "@/lib/tarjetas";
 import { resolverVentas2ParaVenta } from "@/lib/ventas2";
+import { impuestosDeLinea, totalesDeVenta } from "@/lib/impuestosVenta";
 import {
   ajustarStockPuntoVenta,
   contextoPuntoVenta,
@@ -265,6 +266,7 @@ export async function POST(req: NextRequest) {
   }), JSON.parse(JSON.stringify(reglas)) as ReglaPromocion[], todayCorte(zonaHoraria));
   const lineaPrecio = new Map(precio.lineas.map((p) => [p.productoId, p]));
   const ventaItems = [];
+  const lineasImpuestos: { nombre: string; impuestos: ReturnType<typeof impuestosDeLinea> }[] = [];
   let total = 0;
 
   for (const item of itemsUnicos) {
@@ -283,8 +285,13 @@ export async function POST(req: NextRequest) {
     // que hay que ajustar) y compras recibe el aviso.
 
     const calculo = lineaPrecio.get(item.productoId)!;
-    const subtotal = calculo.total;
+    // Los impuestos se calculan aquí y no en el navegador: el mostrador los
+    // muestra para que el cajero sepa qué va a cobrar, pero cuánto se cobra de
+    // verdad lo decide el servidor con los datos del catálogo.
+    const impuestos = impuestosDeLinea(calculo.total, cantidad, producto.fiscal);
+    const subtotal = impuestos.total;
     total += subtotal;
+    lineasImpuestos.push({ nombre: producto.nombre, impuestos });
     ventaItems.push({
       productoId: producto._id,
       sku: producto.sku,
@@ -297,8 +304,14 @@ export async function POST(req: NextRequest) {
       promocionId: calculo.promocionId || null,
       promocionNombre: calculo.promocionNombre,
       subtotal,
+      base: impuestos.base,
+      ieps: impuestos.ieps,
+      iva: impuestos.iva,
+      sinDatosFiscales: impuestos.sinDatos,
     });
   }
+
+  const totalesFiscales = totalesDeVenta(lineasImpuestos);
 
   if (total > 0 && pagos.length === 0) return badRequest("Debes capturar al menos una forma de pago");
   const sumaPagos = pagos.reduce((sum, p) => sum + p.monto, 0);
@@ -343,6 +356,10 @@ export async function POST(req: NextRequest) {
       corte: todayCorte(zonaHoraria),
       items: ventaItems,
       total: Number(total.toFixed(2)),
+      baseGravable: totalesFiscales.base,
+      totalIeps: totalesFiscales.ieps,
+      totalIva: totalesFiscales.iva,
+      totalImpuestos: totalesFiscales.impuestos,
       subtotalSinDescuento: precio.bruto,
       descuento: precio.descuento,
       pagos,

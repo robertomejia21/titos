@@ -83,6 +83,10 @@ export type ItemVentaLike = {
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
+  /** Desglose que dejó el punto de venta. Las ventas viejas no lo traen. */
+  base?: number;
+  ieps?: number;
+  iva?: number;
 };
 
 export type ConceptoFactura = {
@@ -100,12 +104,44 @@ export type ConceptoFactura = {
 /**
  * Desglosa los renglones de la venta en conceptos de factura.
  *
- * Los precios del punto de venta ya llevan el IVA incluido, así que aquí se
- * separan: el valor unitario del concepto es el precio sin impuesto y el IVA se
- * calcula sobre la suma. La diferencia de centavos del redondeo se absorbe en el
- * IVA para que el total de la factura sea exactamente el de la venta.
+ * Hay dos caminos, y el que manda es lo que la venta traiga guardado:
+ *
+ * 1. Ventas cobradas desde que el mostrador calcula impuestos: cada renglón ya
+ *    trae su base y sus impuestos, calculados con los datos fiscales de SU
+ *    producto. Se usan tal cual, porque son los que se le cobraron al cliente.
+ * 2. Ventas anteriores: no hay desglose guardado, así que se separa el IVA del
+ *    precio con la tasa global, que es como se venía haciendo. Cambiar esto
+ *    retroactivamente movería el desglose de facturas ya emitidas.
+ *
+ * En ambos casos el total de la factura es exactamente el de la venta.
  */
 export function desglosarFactura(items: ItemVentaLike[], totalVenta: number, tasaIva: number) {
+  const total = redondear(totalVenta);
+
+  // Basta con que un renglón traiga desglose para usar el camino nuevo: una
+  // venta se cobró entera con una u otra regla, nunca mezclada.
+  if (items.some((i) => typeof i.base === "number" && i.base > 0)) {
+    const conceptos: ConceptoFactura[] = items.map((item) => {
+      const base = redondear(item.base ?? item.subtotal);
+      return {
+        productoId: item.productoId ?? null,
+        claveProdServ: CLAVE_PROD_SERV_GENERICA,
+        claveUnidad: CLAVE_UNIDAD[item.unidad] ?? "H87",
+        sku: item.sku,
+        descripcion: item.nombreProducto,
+        unidad: item.unidad,
+        cantidad: item.cantidad,
+        valorUnitario: redondear(base / item.cantidad),
+        importe: base,
+      };
+    });
+    const subtotal = redondear(conceptos.reduce((sum, c) => sum + c.importe, 0));
+    // Lo que no es base es impuesto. Se calcula por resta y no sumando ieps+iva
+    // para que subtotal + iva dé exactamente el total cobrado, sin centavos
+    // perdidos: un CFDI que no cuadra al centavo lo rechaza el SAT.
+    return { conceptos, subtotal, iva: redondear(total - subtotal), total };
+  }
+
   const factor = 1 + tasaIva / 100;
 
   const conceptos: ConceptoFactura[] = items.map((item) => {
@@ -124,7 +160,6 @@ export function desglosarFactura(items: ItemVentaLike[], totalVenta: number, tas
   });
 
   const subtotal = redondear(conceptos.reduce((sum, c) => sum + c.importe, 0));
-  const total = redondear(totalVenta);
   const iva = redondear(total - subtotal);
 
   return { conceptos, subtotal, iva, total };
