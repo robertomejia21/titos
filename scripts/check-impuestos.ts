@@ -8,6 +8,7 @@
 
 import assert from "node:assert/strict";
 import { impuestosDeLinea, totalesDeVenta } from "../src/lib/impuestosVenta";
+import { desglosarFactura, type ItemVentaLike } from "../src/lib/facturas";
 import type { FiscalProducto } from "../src/lib/fiscalProducto";
 
 function fiscal(p: Partial<FiscalProducto>): FiscalProducto {
@@ -136,6 +137,53 @@ prueba("totales de una venta mezclada", () => {
   assert.equal(t.impuestos, 16);
   assert.equal(t.total, 151);
   assert.deepEqual(t.sinDatosFiscales, ["Sin capturar"], "debe nombrar al producto incompleto");
+});
+
+/** Renglón de una venta vieja: sin desglose guardado. */
+function itemViejo(over: Partial<ItemVentaLike> = {}): ItemVentaLike {
+  return { productoId: "p", sku: "GALA", nombreProducto: "Aderezo", unidad: "pieza", cantidad: 1, precioUnitario: 85, subtotal: 85, ...over };
+}
+
+prueba("venta vieja, producto con IVA: separa en vez de sumar", () => {
+  // La venta se cobró en 85 y la factura no puede salir por otro importe: el
+  // cliente ya pagó. Se separa el impuesto de esos 85.
+  const d = desglosarFactura([itemViejo()], 85, 0, new Map([["p", fiscal({ iva: "8", precioImpuestos: "incluidos" })]]));
+  assert.equal(d.total, 85, "la factura vale lo que se cobró");
+  assert.equal(d.subtotal, 78.7);
+  assert.equal(d.iva, 6.3);
+});
+
+prueba("venta vieja marcada sin_impuestos: tampoco suma", () => {
+  // Cómo esté marcado el producto hoy no cambia lo que se cobró en su momento.
+  const d = desglosarFactura([itemViejo()], 85, 0, new Map([["p", fiscal({ iva: "8", precioImpuestos: "sin_impuestos" })]]));
+  assert.equal(d.total, 85, "no se le puede facturar al cliente más de lo que pagó");
+  assert.equal(d.subtotal, 78.7);
+});
+
+prueba("venta vieja sin tasas conocidas: cae a la tasa global", () => {
+  const d = desglosarFactura([itemViejo()], 85, 0, new Map());
+  assert.equal(d.subtotal, 85);
+  assert.equal(d.iva, 0);
+  assert.equal(d.total, 85);
+});
+
+prueba("venta vieja con producto en pendiente: cae a la tasa global", () => {
+  const d = desglosarFactura([itemViejo()], 85, 0, new Map([["p", fiscal({ iva: "pendiente" })]]));
+  assert.equal(d.subtotal, 85);
+  assert.equal(d.total, 85);
+});
+
+prueba("venta nueva: manda el desglose que guardó la caja", () => {
+  const linea = impuestosDeLinea(85, 1, fiscal({ iva: "8", precioImpuestos: "incluidos" }));
+  const d = desglosarFactura(
+    [itemViejo({ base: linea.base, ieps: linea.ieps, iva: linea.iva })],
+    85,
+    0,
+    // Aunque se pasen tasas distintas gana lo guardado: es lo que se cobró.
+    new Map([["p", fiscal({ iva: "16", precioImpuestos: "incluidos" })]]),
+  );
+  assert.equal(d.subtotal, 78.7);
+  assert.equal(d.total, 85);
 });
 
 let fallas = 0;

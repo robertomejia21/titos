@@ -4,6 +4,9 @@
 // Este archivo lo consumen también los componentes de cliente, así que no debe
 // importar nada que arrastre mongoose al bundle del navegador.
 
+import { impuestosDeLinea } from "./impuestosVenta";
+import type { FiscalProducto } from "./fiscalProducto";
+
 function redondear(monto: number) {
   return Math.round(monto * 100) / 100;
 }
@@ -109,13 +112,21 @@ export type ConceptoFactura = {
  * 1. Ventas cobradas desde que el mostrador calcula impuestos: cada renglón ya
  *    trae su base y sus impuestos, calculados con los datos fiscales de SU
  *    producto. Se usan tal cual, porque son los que se le cobraron al cliente.
- * 2. Ventas anteriores: no hay desglose guardado, así que se separa el IVA del
- *    precio con la tasa global, que es como se venía haciendo. Cambiar esto
- *    retroactivamente movería el desglose de facturas ya emitidas.
+ * 2. Ventas anteriores: no guardaron desglose. Lo que el cliente pagó fue el
+ *    precio tal cual, así que el impuesto se SEPARA de ese importe con las
+ *    tasas del producto (nunca se suma encima: el total de la factura tiene
+ *    que ser lo que se cobró, no lo que se cobraría hoy).
+ * 3. Ventas anteriores cuyo producto ya no existe o no tiene tasas: se cae a
+ *    la tasa global, que es como se venía haciendo.
  *
- * En ambos casos el total de la factura es exactamente el de la venta.
+ * En los tres casos el total de la factura es exactamente el de la venta.
  */
-export function desglosarFactura(items: ItemVentaLike[], totalVenta: number, tasaIva: number) {
+export function desglosarFactura(
+  items: ItemVentaLike[],
+  totalVenta: number,
+  tasaIva: number,
+  fiscalPorProducto?: Map<string, FiscalProducto>,
+) {
   const total = redondear(totalVenta);
 
   // Basta con que un renglón traiga desglose para usar el camino nuevo: una
@@ -145,6 +156,29 @@ export function desglosarFactura(items: ItemVentaLike[], totalVenta: number, tas
   const factor = 1 + tasaIva / 100;
 
   const conceptos: ConceptoFactura[] = items.map((item) => {
+    // Con las tasas del producto a la mano se separa el impuesto de lo que se
+    // cobró. `incluidos` fuerza la separación a propósito: da igual cómo esté
+    // marcado hoy, esa venta se cobró al precio de lista y la factura no puede
+    // salir por un importe distinto al que pagó el cliente.
+    const fiscal = fiscalPorProducto?.get(String(item.productoId ?? ""));
+    if (fiscal && fiscal.iva !== "pendiente" && fiscal.iepsTipo !== "pendiente") {
+      const separado = impuestosDeLinea(item.subtotal, item.cantidad, {
+        ...fiscal,
+        precioImpuestos: "incluidos",
+      });
+      return {
+        productoId: item.productoId ?? null,
+        claveProdServ: fiscal.claveProdServ || CLAVE_PROD_SERV_GENERICA,
+        claveUnidad: CLAVE_UNIDAD[item.unidad] ?? "H87",
+        sku: item.sku,
+        descripcion: item.nombreProducto,
+        unidad: item.unidad,
+        cantidad: item.cantidad,
+        valorUnitario: redondear(separado.base / item.cantidad),
+        importe: separado.base,
+      };
+    }
+
     const valorUnitario = redondear(item.precioUnitario / factor);
     return {
       productoId: item.productoId ?? null,
