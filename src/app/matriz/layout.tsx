@@ -19,7 +19,7 @@ export default async function MatrizLayout({ children }: { children: React.React
 
   return (
     <ZonaHorariaProvider zona={zonaHoraria}>
-      <div className="flex min-h-screen flex-col md:flex-row">
+      <div data-davinci-session="authenticated" className="flex min-h-screen flex-col md:flex-row">
         <Sidebar role="matriz" nombre={session.nombre} permisos={permisosDeSesion(session)} permisosIndividuales={session.permisosIndividuales} />
         <MatrizMain>{children}</MatrizMain>
       </div>
