@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose, { isValidObjectId } from "mongoose";
+import Producto from "@/models/Producto";
+import type { FiscalProducto } from "@/lib/fiscalProducto";
 import { ErrorFacturaGlobal } from "@/lib/facturaGlobal";
 import { connectDB } from "@/lib/db";
 import Factura from "@/models/Factura";
@@ -129,10 +131,25 @@ export async function POST(req: NextRequest) {
     return badRequest("Tasa de IVA inválida");
 
   const pagos = (venta.pagos ?? []) as { metodoPago: string; monto: number }[];
+
+  // Las tasas de los productos que aparecen en la venta. Hacen falta para las
+  // ventas que se cobraron antes de que el mostrador calculara impuestos: sin
+  // ellas el desglose sale con la tasa global y el CFDI no cuadra.
+  const ventaItems = (venta.items ?? []) as unknown as ItemVentaLike[];
+  const productosVenta = await Producto.find({
+    _id: { $in: ventaItems.map((i) => i.productoId).filter(Boolean) },
+  })
+    .select("_id fiscal")
+    .lean<{ _id: mongoose.Types.ObjectId; fiscal?: FiscalProducto }[]>();
+  const fiscalPorProducto = new Map(
+    productosVenta.filter((p) => p.fiscal).map((p) => [String(p._id), p.fiscal as FiscalProducto]),
+  );
+
   const { conceptos, subtotal, iva, total } = desglosarFactura(
-    (venta.items ?? []) as unknown as ItemVentaLike[],
+    ventaItems,
     venta.total,
     tasaIva,
+    fiscalPorProducto,
   );
 
   const sucursal = await Sucursal.findById(venta.sucursalId)

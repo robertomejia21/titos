@@ -57,6 +57,9 @@ import {
 } from "@/lib/offlinePos";
 
 import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
+import { buscarProducto } from "@/lib/buscarProducto";
+import { impuestosDeLinea, totalesDeVenta } from "@/lib/impuestosVenta";
+import type { FiscalProducto } from "@/lib/fiscalProducto";
 
 type Producto = {
   _id: string;
@@ -68,6 +71,7 @@ type Producto = {
   unidad: "pieza" | "kg";
   precioVenta: number;
   requierePesaje: boolean;
+  fiscal?: FiscalProducto;
 };
 
 type LineaVenta = {
@@ -162,6 +166,10 @@ type VentaResp = {
   fecha?: string;
   items: VentaItemResp[];
   total: number;
+  // Desglose fiscal que devuelve el servidor; el ticket lo imprime.
+  baseGravable?: number;
+  totalIeps?: number;
+  totalIva?: number;
   pagos: PagoResp[];
   montoRecibido: number | null;
   cambio: number | null;
@@ -358,6 +366,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [clientes, setClientes] = useState<ClienteConCredito[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Productos que coinciden con lo tecleado cuando el texto no identifica uno
+  // solo. Se le muestran al cajero para que elija: adivinar aquí es cobrar
+  // el producto equivocado.
+  const [candidatos, setCandidatos] = useState<Producto[]>([]);
+  /** Lo mismo para la consulta de precio (F2). */
+  const [precioCandidatos, setPrecioCandidatos] = useState<Producto[]>([]);
   const cobroEnCurso = useRef(false);
   const [avisoImpresion, setAvisoImpresion] = useState("");
   const [procesando, setProcesando] = useState(false);
@@ -732,8 +746,26 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     return { productoId: l.productoId, cantidad: Number(l.cantidad) || 0, precio: l.precioUnitario, unidad: l.unidad, categoria: producto?.categoria, area: producto?.area };
   }), [carrito, productos]);
   const precioPromocion = calcularPromociones(itemsParaPrecio, promociones, fechaEnZona(new Date(), zonaHoraria));
-  const total = precioPromocion.total;
   const descuentosPorProducto = new Map(precioPromocion.lineas.map((l) => [l.productoId, l]));
+
+  // Los impuestos se calculan aquí solo para que el cajero vea lo que va a
+  // cobrar. Cuánto se cobra de verdad lo decide el servidor con los datos del
+  // catálogo: este cálculo usa la misma función para que no se contradigan.
+  const fiscales = useMemo(() => {
+    const porProducto = new Map(productos.map((p) => [p._id, p.fiscal]));
+    return precioPromocion.lineas.map((l) => ({
+      nombre: productos.find((p) => p._id === l.productoId)?.nombre ?? l.productoId,
+      impuestos: impuestosDeLinea(
+        l.total,
+        carrito
+          .filter((c) => c.productoId === l.productoId)
+          .reduce((suma, c) => suma + (Number(c.cantidad) || 0), 0),
+        porProducto.get(l.productoId),
+      ),
+    }));
+  }, [precioPromocion.lineas, productos, carrito]);
+  const totalesFiscales = useMemo(() => totalesDeVenta(fiscales), [fiscales]);
+  const total = totalesFiscales.total;
 
 
   const totalDolares = tipoCambio > 0 ? total / tipoCambio : null;
@@ -1065,29 +1097,48 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     });
   }
 
-  function buscarPorCodigo(codigo: string) {
-    return productos.find((p) => p.sku.trim().toLowerCase() === codigo.trim().toLowerCase());
-  }
-
-  function procesarCodigo(e: React.FormEvent) {
-    e.preventDefault();
-    const valor = codigo.trim();
-    setCodigo("");
-    if (!valor) return;
-
-    const producto = buscarPorCodigo(valor);
-    if (!producto) {
-      setError(`No se encontró ningún producto con el código "${valor}"`);
-      return;
-    }
+  /** Agrega el producto, o pide el peso si se vende por kilo. */
+  function agregarOPesar(producto: Producto) {
     setError(null);
-
+    setCandidatos([]);
     if (producto.requierePesaje) {
       setPesaje(producto);
       setPesoInput("");
       return;
     }
     agregarAlCarrito(producto, 1);
+  }
+
+  /**
+   * Entra por aquí tanto el escáner de código de barras como el cajero
+   * escribiendo el nombre. Un SKU exacto siempre gana, así que un escaneo no
+   * puede terminar agregando otro producto; si el texto no identifica uno solo,
+   * se muestran las candidatas en vez de elegir por el cajero.
+   */
+  function procesarCodigo(e: React.FormEvent) {
+    e.preventDefault();
+    const valor = codigo.trim();
+    if (!valor) return;
+
+    const { exacto, coincidencias } = buscarProducto(productos, valor);
+
+    if (exacto) {
+      setCodigo("");
+      agregarOPesar(exacto);
+      return;
+    }
+
+    if (coincidencias.length > 0) {
+      // El texto se deja en la casilla: el cajero puede afinar la búsqueda
+      // agregando una palabra en vez de volver a escribir todo.
+      setError(null);
+      setCandidatos(coincidencias);
+      return;
+    }
+
+    setCodigo("");
+    setCandidatos([]);
+    setError(`No se encontró ningún producto con "${valor}"`);
   }
 
   function confirmarPesaje() {
@@ -1691,7 +1742,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   function buscarPrecio(e: React.FormEvent) {
     e.preventDefault();
     if (!precioCodigo.trim()) return;
-    setPrecioResultado(buscarPorCodigo(precioCodigo) ?? null);
+    // Misma regla que la casilla del carrito: el SKU exacto manda, y si el
+    // nombre no identifica uno solo se muestran las candidatas.
+    const { exacto, coincidencias } = buscarProducto(productos, precioCodigo);
+    setPrecioResultado(exacto);
+    setPrecioCandidatos(exacto ? [] : coincidencias);
   }
 
   const productosDisponibles = useMemo(
@@ -1867,7 +1922,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 autoFocus
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
-                placeholder="Escanea o escribe el código y presiona Enter"
+                onKeyDown={(e) => { if (e.key === "Escape" && candidatos.length > 0) { e.stopPropagation(); setCandidatos([]); setCodigo(""); } }}
+                placeholder="Escanea, o escribe el código o el nombre y presiona Enter"
                 className="rounded-r-none border-r-0 text-base"
               />
               <button
@@ -1888,6 +1944,40 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             />
           </div>
         </div>
+        {/* Cuando lo tecleado coincide con varios productos no se adivina: se
+            listan para que el cajero elija. Cobrar el equivocado es peor que
+            un clic más. */}
+        {candidatos.length > 0 ? (
+          <div className="border-b border-black/5 bg-amber-50/60 px-3 py-2">
+            <p className="mb-1.5 text-xs font-semibold text-black/60">
+              Varios productos coinciden con &ldquo;{codigo.trim()}&rdquo;. Elige uno:
+            </p>
+            <ul className="divide-y divide-black/5 overflow-hidden rounded-lg border border-black/10 bg-white">
+              {candidatos.map((p) => (
+                <li key={p._id}>
+                  <button
+                    type="button"
+                    onClick={() => { setCodigo(""); agregarOPesar(p); inputRef.current?.focus(); }}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-sky-50"
+                  >
+                    <span>
+                      <span className="font-medium">{p.nombre}</span>
+                      <span className="block text-xs text-black/40">SKU: {p.sku}</span>
+                    </span>
+                    <span className="shrink-0 font-semibold text-titos-green-900">{formatMoney(p.precioVenta)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => { setCandidatos([]); setCodigo(""); inputRef.current?.focus(); }}
+              className="mt-1.5 text-xs font-semibold text-black/50 underline"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : null}
         {error ? <p className="border-b border-black/5 px-4 py-2 text-sm text-red-600">{error}</p> : null}
 
         {/* Cuerpo: tabla + panel derecho */}
@@ -1994,7 +2084,28 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 <span className="font-semibold uppercase text-black/50">Descuento</span>
                 <span className="font-bold text-black/70">{formatMoney(precioPromocion.descuento)}</span>
               </div>
+              {totalesFiscales.ieps > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold uppercase text-black/50">IEPS</span>
+                  <span className="font-bold text-black/70">{formatMoney(totalesFiscales.ieps)}</span>
+                </div>
+              ) : null}
+              {totalesFiscales.iva > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold uppercase text-black/50">IVA</span>
+                  <span className="font-bold text-black/70">{formatMoney(totalesFiscales.iva)}</span>
+                </div>
+              ) : null}
             </div>
+
+            {/* Aquí iba un aviso cuando a un producto le faltaban datos
+                fiscales. Se quitó: hoy la mayoría del catálogo está sin
+                capturar, así que saldría en casi toda venta y el cajero
+                aprendería a ignorarlo en dos días. Además no es suyo el
+                trabajo de completarlo. El dato se sigue guardando en cada
+                renglón (Venta.items[].sinDatosFiscales) y sale donde sí se
+                puede actuar: en el diagnóstico fiscal y al intentar timbrar,
+                que enumera los productos que faltan. */}
 
             <div className="rounded-lg bg-linear-to-b from-sky-500 to-sky-600 px-3 py-2 text-right text-white">
               <p className="text-sm font-bold uppercase tracking-wide">Total pesos</p>
@@ -2673,7 +2784,30 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               Consulta rápida: el producto <strong>no</strong> se agrega al carrito a menos que lo pidas.
             </p>
           ) : precioResultado === null ? (
-            <p className="text-sm text-red-600">No se encontró ningún producto con ese código.</p>
+            precioCandidatos.length > 0 ? (
+              <div>
+                <p className="mb-2 text-sm text-black/60">Varios productos coinciden. Elige uno:</p>
+                <ul className="divide-y divide-black/5 rounded-lg border border-black/10">
+                  {precioCandidatos.map((p) => (
+                    <li key={p._id}>
+                      <button
+                        type="button"
+                        onClick={() => { setPrecioResultado(p); setPrecioCandidatos([]); }}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-black/3"
+                      >
+                        <span>
+                          <span className="font-medium">{p.nombre}</span>
+                          <span className="block text-xs text-black/40">SKU: {p.sku}</span>
+                        </span>
+                        <span className="font-semibold text-titos-green-900">{formatMoney(p.precioVenta)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-red-600">No se encontró ningún producto con ese código o nombre.</p>
+            )
           ) : (
             <>
               <div className="rounded-xl bg-titos-green-100 p-4">

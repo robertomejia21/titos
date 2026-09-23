@@ -45,6 +45,29 @@ export type VentaFacturable = {
   articulos: number;
 };
 
+/** Lo que se ve en el modal antes de facturar: qué se vendió exactamente. */
+type VentaDetalle = {
+  _id: string;
+  folio: string;
+  fecha: string;
+  clienteNombre?: string;
+  total: number;
+  baseGravable?: number;
+  totalIeps?: number;
+  totalIva?: number;
+  items: {
+    sku: string;
+    nombreProducto: string;
+    unidad: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+    descuento?: number;
+    promocionNombre?: string;
+  }[];
+  pagos: { metodoPago: string; monto: number }[];
+};
+
 type Receptor = {
   razonSocial: string;
   rfc: string;
@@ -139,6 +162,12 @@ export function FacturasManager() {
 
   // Alta de factura
   const [ventaAFacturar, setVentaAFacturar] = useState<VentaFacturable | null>(null);
+  // Detalle de la venta que se está revisando antes de facturar. Se pide al
+  // abrir y no con la lista: son hasta 600 ventas y casi ninguna se abre.
+  const [ventaVista, setVentaVista] = useState<VentaFacturable | null>(null);
+  const [detalle, setDetalle] = useState<VentaDetalle | null>(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteFacturacion[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [receptor, setReceptor] = useState<Receptor>(RECEPTOR_VACIO);
@@ -208,6 +237,22 @@ export function FacturasManager() {
   }, [cargar]);
 
   /** Al facturar, se traen los clientes de la sucursal de esa venta para poder heredar sus datos fiscales. */
+  /** Abre el detalle de una venta para revisarla antes de facturarla. */
+  async function verVenta(venta: VentaFacturable) {
+    setVentaVista(venta);
+    setDetalle(null);
+    setErrorDetalle(null);
+    setCargandoDetalle(true);
+    const res = await fetch(`/api/ventas/${venta._id}`);
+    setCargandoDetalle(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorDetalle(data.error || "No se pudo cargar el detalle de la venta");
+      return;
+    }
+    setDetalle(await res.json());
+  }
+
   async function abrirAlta(venta: VentaFacturable) {
     setVentaAFacturar(venta);
     setReceptor(RECEPTOR_VACIO);
@@ -489,7 +534,12 @@ export function FacturasManager() {
                 </thead>
                 <tbody>
                   {ventas.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((v) => (
-                    <tr key={v._id} className="border-b border-black/5">
+                    <tr
+                      key={v._id}
+                      onClick={() => verVenta(v)}
+                      title="Ver lo que se vendió"
+                      className="cursor-pointer border-b border-black/5 transition-colors hover:bg-titos-green-100/40"
+                    >
                       <td className="py-2 pr-3 font-medium text-titos-green-900">
                         {v.folio}
                         {v.esVentas2 ? (
@@ -506,7 +556,7 @@ export function FacturasManager() {
                         {formatMoney(v.total)}
                       </td>
                       <td className="py-2 text-right">
-                        <Button size="sm" onClick={() => abrirAlta(v)}>
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); abrirAlta(v); }}>
                           Facturar
                         </Button>
                       </td>
@@ -787,6 +837,116 @@ export function FacturasManager() {
         </div>
         <p className="mt-3 text-sm text-black/70">Antes de contratar, confirmar volumen de facturas, RFC emisores, vigencia de folios y condiciones de cancelación. Las tarifas enlazadas pueden cambiar.</p>
       </Card>
+
+      {/* Detalle de la venta antes de facturar: hasta ahora se facturaba sin
+          poder ver qué traía el ticket. */}
+      {ventaVista ? (
+        <Modal
+          open
+          onClose={() => setVentaVista(null)}
+          title={`Venta ${ventaVista.folio}`}
+          icon={ReceiptText}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setVentaVista(null)}>
+                Cerrar
+              </Button>
+              <Button
+                onClick={() => {
+                  const venta = ventaVista;
+                  setVentaVista(null);
+                  abrirAlta(venta);
+                }}
+              >
+                Facturar esta venta
+              </Button>
+            </>
+          }
+        >
+          <p className="mb-3 text-sm text-black/55">
+            {formatFechaHora(ventaVista.fecha, zonaHoraria, "—")} · {ventaVista.sucursalNombre} ·{" "}
+            {ventaVista.clienteNombre || "Público en general"}
+          </p>
+
+          {cargandoDetalle ? (
+            <p className="text-sm text-black/50">Cargando lo vendido...</p>
+          ) : errorDetalle ? (
+            <p className="text-sm text-red-600">{errorDetalle}</p>
+          ) : detalle ? (
+            <>
+              <div className="overflow-x-auto rounded-lg border border-black/10">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-black/10 bg-black/2 text-black/50">
+                      <th className="px-3 py-2">Producto</th>
+                      <th className="px-2 py-2 text-right">Cant.</th>
+                      <th className="px-2 py-2 text-right">P. unitario</th>
+                      <th className="px-3 py-2 text-right">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detalle.items.map((i, n) => (
+                      <tr key={`${i.sku}-${n}`} className="border-b border-black/5 last:border-0">
+                        <td className="px-3 py-2">
+                          <span className="font-medium text-black/80">{i.nombreProducto}</span>
+                          <span className="block text-xs text-black/40">SKU: {i.sku}</span>
+                          {i.descuento ? (
+                            <span className="block text-xs text-titos-orange-700">
+                              {i.promocionNombre || "Promoción"}: −{formatMoney(i.descuento)}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-2 text-right text-black/60">
+                          {i.cantidad} {i.unidad}
+                        </td>
+                        <td className="px-2 py-2 text-right text-black/60">{formatMoney(i.precioUnitario)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-titos-green-900">
+                          {formatMoney(i.subtotal)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-3 space-y-1 text-sm">
+                {/* Solo las ventas cobradas con impuestos traen desglose. */}
+                {(detalle.totalIva ?? 0) > 0 || (detalle.totalIeps ?? 0) > 0 ? (
+                  <>
+                    <div className="flex justify-between text-black/55">
+                      <span>Subtotal</span>
+                      <span>{formatMoney(detalle.baseGravable ?? 0)}</span>
+                    </div>
+                    {(detalle.totalIeps ?? 0) > 0 ? (
+                      <div className="flex justify-between text-black/55">
+                        <span>IEPS</span>
+                        <span>{formatMoney(detalle.totalIeps ?? 0)}</span>
+                      </div>
+                    ) : null}
+                    {(detalle.totalIva ?? 0) > 0 ? (
+                      <div className="flex justify-between text-black/55">
+                        <span>IVA</span>
+                        <span>{formatMoney(detalle.totalIva ?? 0)}</span>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+                <div className="flex justify-between border-t border-black/10 pt-1 font-semibold text-titos-green-900">
+                  <span>Total</span>
+                  <span>{formatMoney(detalle.total)}</span>
+                </div>
+              </div>
+
+              {detalle.pagos?.length ? (
+                <p className="mt-3 text-xs text-black/50">
+                  Se pagó con:{" "}
+                  {detalle.pagos.map((p) => `${p.metodoPago} ${formatMoney(p.monto)}`).join(" · ")}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </Modal>
+      ) : null}
 
       {ventaAFacturar ? (
         <Modal

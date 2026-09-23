@@ -48,6 +48,12 @@ export type VentaTicket = {
   fecha?: string | Date | null;
   items: ItemTicket[];
   total: number;
+  // Desglose fiscal. Van opcionales porque las ventas registradas antes de que
+  // el mostrador cobrara impuestos no los traen, y su ticket debe reimprimirse
+  // igual que siempre en vez de mostrar ceros que confundan.
+  baseGravable?: number;
+  totalIeps?: number;
+  totalIva?: number;
   pagos: PagoTicket[];
   montoRecibido?: number | null;
   cambio?: number | null;
@@ -203,6 +209,13 @@ function cuerpoTicket(
       <div class="sep"></div>
       ${items}
       <div class="sep"></div>
+      ${(venta.totalIva ?? 0) > 0 || (venta.totalIeps ?? 0) > 0
+        ? [
+            fila("Subtotal", pesos(venta.baseGravable ?? 0)),
+            (venta.totalIeps ?? 0) > 0 ? fila("IEPS", pesos(venta.totalIeps ?? 0)) : "",
+            (venta.totalIva ?? 0) > 0 ? fila("IVA", pesos(venta.totalIva ?? 0)) : "",
+          ].join("")
+        : ""}
       ${fila("TOTAL", pesos(venta.total), "fuerte")}
       <div class="sep"></div>
       ${venta.pagos.map(detallePago).join("")}
