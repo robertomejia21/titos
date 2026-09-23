@@ -101,6 +101,8 @@ export async function getStateInstance() {
   return res.json() as Promise<{ stateInstance: string }>;
 }
 
+// Green API devuelve el QR como base64 pelón (sin el prefijo "data:"), y usa
+// el campo `type` para avisar que ya está vinculada o que hubo un error.
 export async function getQR(): Promise<{ qr: string | null }> {
   requireEnv();
   const url = `${baseUrl()}/waInstance${INSTANCE_ID}/qr/${API_TOKEN}`;
@@ -110,7 +112,11 @@ export async function getQR(): Promise<{ qr: string | null }> {
     throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
   }
   const data = await res.json();
-  return { qr: data.message ?? null };
+  if (data.type === "alreadyLogged") return { qr: null };
+  if (data.type !== "qrCode") {
+    throw new Error(data.message || "Green API no devolvió un código QR");
+  }
+  return { qr: `data:image/png;base64,${data.message}` };
 }
 
 export async function logout() {

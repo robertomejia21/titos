@@ -62,7 +62,13 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
     setQr(data.qr);
   }, []);
 
-  useEffect(() => { pedirQR(); }, [pedirQR]);
+  // El QR de Green API caduca a los ~20s: se renueva solo mientras el modal
+  // esté abierto, si no da tiempo de escanearlo.
+  useEffect(() => {
+    pedirQR();
+    const t = setInterval(pedirQR, 15000);
+    return () => clearInterval(t);
+  }, [pedirQR]);
 
   useEffect(() => {
     const intervalo = setInterval(async () => {
@@ -81,7 +87,7 @@ function QRModal({ onClose, onConectado }: { onClose: () => void; onConectado: (
           Abre WhatsApp en el teléfono →{" "}
           <span className="font-medium">Dispositivos vinculados → Vincular un dispositivo</span> y escanea este código.
         </p>
-        {cargando ? (
+        {cargando && !qr ? (
           <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-dashed border-black/10">
             <Loader2 className="h-8 w-8 animate-spin text-titos-green-600" />
           </div>
