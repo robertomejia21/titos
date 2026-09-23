@@ -38,9 +38,9 @@ const AGENDA = [
 ];
 
 const MENSAJES: UltimoMensaje[] = [
-  { chatId: "5216641112233@c.us", timestamp: 100, chatName: "Rob" },
-  { chatId: "5216641112233@c.us", timestamp: 300, chatName: "Rob" },
-  { chatId: "5216645554433@c.us", timestamp: 200, senderName: "Almacén" },
+  { chatId: "5216641112233@c.us", timestamp: 100, chatName: "Rob", type: "incoming", textMessage: "¿Ya salió el pedido?" },
+  { chatId: "5216641112233@c.us", timestamp: 300, chatName: "Rob", type: "outgoing", textMessage: "Sale hoy a las 4" },
+  { chatId: "5216645554433@c.us", timestamp: 200, senderName: "Almacén", type: "incoming", typeMessage: "imageMessage" },
   { chatId: "120363000000000000@g.us", timestamp: 400, chatName: "Grupo de avisos" },
   { chatId: undefined, timestamp: 500 },
 ];
@@ -71,6 +71,19 @@ check(
   "sin agenda legible el listado sigue, con el nombre de perfil",
   conversacionesDe(MENSAJES).map((c) => c.nombre),
   ["Rob", "Almacén"]
+);
+
+/* ── Adelanto del último mensaje en el renglón ── */
+
+check(
+  "lo que mandamos nosotros se marca con Tú:",
+  lista[0].ultimoTexto,
+  "Tú: Sale hoy a las 4"
+);
+check(
+  "un mensaje sin texto se nombra por lo que es",
+  lista[1].ultimoTexto,
+  "Imagen"
 );
 
 console.log(fallos === 0 ? "\nTodo bien" : `\n${fallos} falla(s)`);

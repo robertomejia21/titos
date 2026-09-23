@@ -72,6 +72,11 @@ export type UltimoMensaje = {
   timestamp?: number;
   senderName?: string;
   chatName?: string;
+  type?: "incoming" | "outgoing";
+  typeMessage?: string;
+  textMessage?: string;
+  extendedTextMessage?: { text?: string };
+  caption?: string;
 };
 
 // Los mensajes que entraron y salieron por esta instancia: la única fuente que
@@ -100,10 +105,22 @@ export async function getLastMessages(minutes = 44640 /* ~31 días */) {
   ];
 }
 
-// La agenda del teléfono vinculado: `contactName` es el nombre como está
-// guardado ahí, `name` el del perfil de WhatsApp. El monitor prefiere el
-// primero para que la lista se lea igual que en el teléfono.
-export async function getContacts() {
+export type ContactoAgenda = { id: string; name?: string; contactName?: string; type?: string };
+
+// La agenda casi no cambia, y el monitor la consulta en cada sondeo: se guarda
+// unos minutos en memoria para no gastar una llamada cada vez. Es caché por
+// instancia del servidor y se pierde en cada arranque en frío, así que nunca se
+// queda pegada más de este rato.
+const AGENDA_TTL_MS = 10 * 60 * 1000;
+let agendaEnMemoria: { momento: number; datos: ContactoAgenda[] } | null = null;
+
+// `contactName` es el nombre como está guardado en el teléfono, `name` el del
+// perfil de WhatsApp. El monitor prefiere el primero para que la lista se lea
+// igual que en el teléfono.
+export async function getContacts(): Promise<ContactoAgenda[]> {
+  if (agendaEnMemoria && Date.now() - agendaEnMemoria.momento < AGENDA_TTL_MS) {
+    return agendaEnMemoria.datos;
+  }
   requireEnv();
   const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getContacts/${API_TOKEN}`;
   const res = await fetch(url);
@@ -111,9 +128,9 @@ export async function getContacts() {
     const detail = await res.text().catch(() => "");
     throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
   }
-  return res.json() as Promise<
-    { id: string; name?: string; contactName?: string; type?: string }[]
-  >;
+  const datos = (await res.json()) as ContactoAgenda[];
+  agendaEnMemoria = { momento: Date.now(), datos };
+  return datos;
 }
 
 // Precedencia de nombres tal como la resuelve el teléfono: manda la agenda,
@@ -132,7 +149,31 @@ export type Conversacion = {
   nombre: string;
   nombrePerfil: string;
   ultimoMensaje: number;
+  /** Adelanto del último mensaje para el renglón de la lista; vacío si no se pudo leer. */
+  ultimoTexto: string;
 };
+
+// Un mensaje sin texto (una foto, un audio) se nombra por lo que es, para que el
+// renglón diga algo en vez de quedarse en blanco.
+const TIPO_MENSAJE: Record<string, string> = {
+  imageMessage: "Imagen",
+  videoMessage: "Video",
+  audioMessage: "Audio",
+  documentMessage: "Documento",
+  stickerMessage: "Sticker",
+  locationMessage: "Ubicación",
+  contactMessage: "Contacto",
+  pollMessage: "Encuesta",
+};
+
+function adelantoDe(m: UltimoMensaje) {
+  const texto = m.textMessage || m.extendedTextMessage?.text || m.caption || TIPO_MENSAJE[m.typeMessage ?? ""] || "";
+  if (!texto) return "";
+  // 140 caracteres alcanzan de sobra para un renglón truncado y evitan mandar
+  // el mensaje entero de cada chat al navegador.
+  const corto = texto.replace(/\s+/g, " ").trim().slice(0, 140);
+  return m.type === "outgoing" ? `Tú: ${corto}` : corto;
+}
 
 /**
  * Arma el listado del monitor: un renglón por chat con mensajes reales, del más
@@ -142,7 +183,7 @@ export type Conversacion = {
  */
 export function conversacionesDe(
   mensajes: UltimoMensaje[],
-  agenda: { id: string; name?: string; contactName?: string }[] = []
+  agenda: ContactoAgenda[] = []
 ): Conversacion[] {
   const porId = new Map(agenda.map((c) => [c.id, c]));
   const porChat = new Map<string, Conversacion>();
@@ -164,6 +205,7 @@ export function conversacionesDe(
       nombrePerfil,
       nombre: nombreDeContacto(numero, nombrePerfil, enAgenda),
       ultimoMensaje: ts,
+      ultimoTexto: adelantoDe(m),
     });
   }
 
