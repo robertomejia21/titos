@@ -20,7 +20,7 @@ export default async function SucursalLayout({ children }: { children: React.Rea
 
   return (
     <ZonaHorariaProvider zona={zonaHoraria}>
-      <div className="flex min-h-screen flex-col md:flex-row">
+      <div data-davinci-session="authenticated" className="flex min-h-screen flex-col md:flex-row">
         <Sidebar
           role="sucursal"
           nombre={session.nombre}
