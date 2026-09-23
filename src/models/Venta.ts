@@ -18,7 +18,20 @@ const VentaItemSchema = new Schema(
     unidad: { type: String, enum: ["pieza", "kg"], required: true },
     cantidad: { type: Number, required: true },
     precioUnitario: { type: Number, required: true },
+    // Lo que este renglón le cuesta al cliente, impuestos incluidos. Es lo que
+    // suma al total de la venta, y por eso su significado no cambió cuando se
+    // empezaron a cobrar impuestos: cortes, arqueos y reportes siguen igual.
     subtotal: { type: Number, required: true },
+    // Desglose del renglón. `base` es el importe gravable e `ieps`/`iva` lo que
+    // se le sumó encima (o lo que venía adentro, si el precio ya los traía).
+    // base + ieps + iva === subtotal, al centavo: si no cuadra, el SAT rechaza
+    // el CFDI. En ventas anteriores a los impuestos vienen en cero.
+    base: { type: Number, default: 0 },
+    ieps: { type: Number, default: 0 },
+    iva: { type: Number, default: 0 },
+    // El producto no tenía los datos fiscales completos y se cobró sin
+    // impuesto. La venta se pudo hacer, pero no se va a poder timbrar.
+    sinDatosFiscales: { type: Boolean, default: false },
     precioLista: Number,
     descuento: { type: Number, default: 0 },
     promocionId: { type: Schema.Types.ObjectId, ref: "Promocion", default: null },
@@ -88,6 +101,11 @@ const VentaSchema = new Schema(
     versionFacturacion: { type: Number, default: 0 },
     facturaGlobalId: { type: Schema.Types.ObjectId, ref: "FacturaGlobal", default: null },
     total: { type: Number, required: true },
+    // Totales fiscales de la venta, sumando los renglones.
+    baseGravable: { type: Number, default: 0 },
+    totalIeps: { type: Number, default: 0 },
+    totalIva: { type: Number, default: 0 },
+    totalImpuestos: { type: Number, default: 0 },
     subtotalSinDescuento: Number,
     descuento: { type: Number, default: 0 },
     // Pago mixto: la suma de pagos[].monto debe ser igual a total. Puede incluir
