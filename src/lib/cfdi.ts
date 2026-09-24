@@ -167,16 +167,53 @@ function impuestosDelConcepto(
 }
 
 /** Fecha de emisión en el formato del CFDI, sin zona horaria ni milisegundos. */
-function fechaCfdi(valor: Date | string | null | undefined) {
-  const fecha = valor ? new Date(valor) : new Date();
-  const base = Number.isNaN(fecha.getTime()) ? new Date() : fecha;
+export function fechaCfdi(
+  valor: Date | string | null | undefined,
+  lugarExpedicion = "",
+  ahora = new Date(),
+) {
+  const fecha = valor ? new Date(valor) : ahora;
+  const base = Number.isNaN(fecha.getTime()) ? ahora : fecha;
   // El SAT rechaza comprobantes con fecha futura y tolera hasta 72 horas de
   // atraso. Una factura vieja se timbra con la hora de emisión, no con la de
-  // la venta, y quien la emite ya sabe que está fuera de plazo.
-  const ahora = new Date();
-  const usada = base > ahora ? ahora : base;
-  const local = new Date(usada.getTime() - usada.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 19);
+  // la venta, y quien la emite ya sabe que está fuera de plazo. Se deja una
+  // hora de margen para que no caduque entre armarla y que llegue al PAC.
+  const limite = ahora.getTime() - 71 * 3600 * 1000;
+  const usada = base > ahora || base.getTime() < limite ? ahora : base;
+  return horaLocal(usada, zonaHoraria(lugarExpedicion));
+}
+
+/**
+ * Zona horaria del lugar de expedición. El SAT lee `Fecha` como hora local de
+ * ese CP, no como UTC; el servidor corre en UTC, así que sin esto la factura
+ * sale siete horas "en el futuro" en Mexicali y el PAC la rechaza.
+ */
+export function zonaHoraria(codigoPostal: string) {
+  const cp = Number(codigoPostal);
+  if (cp >= 21000 && cp <= 22999) return "America/Tijuana"; // Baja California
+  if (cp >= 23000 && cp <= 23999) return "America/Mazatlan"; // Baja California Sur
+  if (cp >= 83000 && cp <= 85999) return "America/Hermosillo"; // Sonora
+  if (cp >= 77000 && cp <= 77999) return "America/Cancun"; // Quintana Roo
+  return "America/Mexico_City";
+}
+
+/** `AAAA-MM-DDThh:mm:ss` en la zona dada, sin desfase ni milisegundos. */
+function horaLocal(fecha: Date, zona: string) {
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: zona,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(fecha)
+      .map((p) => [p.type, p.value]),
+  );
+  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}:${partes.second}`;
 }
 
 /**
@@ -291,7 +328,7 @@ export function construirCfdi(
     Version: "4.0",
     Serie: factura.serie || "A",
     Folio: factura.folio,
-    Fecha: fechaCfdi(factura.ventaFecha ?? factura.createdAt),
+    Fecha: fechaCfdi(factura.ventaFecha ?? factura.createdAt, lugarExpedicion),
     FormaPago: factura.formaPago,
     MetodoPago: factura.metodoPago,
     // Vacíos a propósito: el PAC sella con el CSD cargado en la cuenta.
