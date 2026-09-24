@@ -142,6 +142,13 @@ reutilizando el token en memoria, timbra en `/v4/cfdi33/issue/json/v4` y cancela
 emitir aunque algo la llame. El timbrado manda el folio como `customId` para que un reintento no
 emita dos CFDI de la misma venta.
 
+`SW_USER` / `SW_PASSWORD` tienen prioridad sobre `SW_TOKEN`: el token se pide a la misma `SW_URL`
+y por eso siempre es del ambiente al que se timbra. `SW_TOKEN` solo se usa si no hay usuario.
+En septiembre de 2026 producción respondía "S2000 - El saldo del cliente se ha agotado" con
+20,000 timbres disponibles; SW lo reprodujo con un token de pruebas contra la URL de producción.
+Cada rechazo del PAC lleva al final `[SW producción · usuario]` para ver de un vistazo contra
+qué ambiente y con qué credencial se timbró.
+
 `src/lib/cfdi.ts` arma el comprobante desde una `Factura`. Los impuestos salen de
 `Producto.fiscal` renglón por renglón, no de la tasa global: distingue tasa 0 (traslada en ceros)
 de exento (no traslada), calcula el IVA sobre la base más el IEPS, admite IEPS por porcentaje y

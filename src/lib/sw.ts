@@ -66,6 +66,30 @@ export function swConfigurado() {
 }
 
 /**
+ * True cuando se autentica con usuario y contraseña. Tiene prioridad sobre
+ * SW_TOKEN porque el token se pide a la misma SW_URL, así que siempre es del
+ * ambiente al que se timbra. Un SW_TOKEN fijo no garantiza eso: uno de pruebas
+ * contra producción hace que SW conteste "S2000 - saldo agotado".
+ */
+function usaUsuario() {
+  return Boolean(process.env.SW_USER && process.env.SW_PASSWORD);
+}
+
+/** Ambiente y credencial en uso, para que un rechazo diga contra qué se timbró. */
+export function ambienteSw() {
+  const ambiente = esProduccion() ? "producción" : "pruebas";
+  const credencial = usaUsuario() ? "usuario" : process.env.SW_TOKEN ? "SW_TOKEN" : "sin credencial";
+  return `SW ${ambiente} · ${credencial}`;
+}
+
+// Códigos con los que SW delata token y URL de ambientes distintos.
+const PISTAS: Record<string, string> = {
+  S2000:
+    "Si la cuenta sí tiene timbres, el token no es del mismo ambiente que SW_URL (pruebas contra producción o al revés).",
+  AU4102: "El token no es válido para este ambiente: revisa que SW_TOKEN y SW_URL sean del mismo.",
+};
+
+/**
  * Candado de emisión. Timbrar consume un timbre y crea un CFDI real ante el
  * SAT que ya no se borra, solo se cancela; mientras el mapper no esté revisado
  * el sistema no debe poder emitir aunque alguien llame a timbrar() por error.
@@ -86,16 +110,17 @@ export function olvidarToken() {
 }
 
 async function pedirToken(): Promise<string> {
-  // SW permite emitir un token permanente desde su portal. Si está configurado
-  // se usa tal cual y nunca se llama al servicio de autenticación.
-  if (process.env.SW_TOKEN) return process.env.SW_TOKEN;
-
-  const user = process.env.SW_USER;
-  const password = process.env.SW_PASSWORD;
-  if (!user || !password)
+  // SW permite emitir un token permanente desde su portal. Solo se usa si no
+  // hay usuario y contraseña: ver usaUsuario().
+  if (!usaUsuario()) {
+    if (process.env.SW_TOKEN) return process.env.SW_TOKEN;
     throw new ErrorSw(
       "Faltan credenciales de SW. Configura SW_USER y SW_PASSWORD (o SW_TOKEN).",
     );
+  }
+
+  const user = process.env.SW_USER!;
+  const password = process.env.SW_PASSWORD!;
 
   const res = await fetch(`${url()}/v2/security/authenticate`, {
     method: "POST",
@@ -118,7 +143,7 @@ async function pedirToken(): Promise<string> {
 
   if (!res.ok || json?.status !== "success" || !json?.data?.token)
     throw new ErrorSw(
-      json?.message || `No se pudo autenticar con SW (HTTP ${res.status}).`,
+      `${json?.message || `No se pudo autenticar con SW (HTTP ${res.status}).`} [${ambienteSw()}]`,
       json?.status || String(res.status),
       json?.messageDetail || "",
     );
@@ -158,12 +183,15 @@ async function leerRespuesta(res: Response, que: string) {
       cuerpo.slice(0, 500),
     );
   }
-  if (!res.ok || json?.status === "error")
+  if (!res.ok || json?.status === "error") {
+    const mensaje = json?.message || `SW rechazó la petición al ${que} (HTTP ${res.status}).`;
+    const pista = PISTAS[mensaje.match(/^([A-Z]+\d+)\s*-/)?.[1] ?? ""];
     throw new ErrorSw(
-      json?.message || `SW rechazó la petición al ${que} (HTTP ${res.status}).`,
+      `${mensaje} [${ambienteSw()}]`,
       json?.messageDetail?.match(/CFDI\d{5}/)?.[0] || json?.status || String(res.status),
-      json?.messageDetail || "",
+      [json?.messageDetail, pista].filter(Boolean).join(" "),
     );
+  }
   return json as RespuestaSw;
 }
 
@@ -204,7 +232,7 @@ export async function timbrar(
 
   // Un 401 casi siempre es token vencido antes de tiempo. Se reintenta una vez
   // con token nuevo; si vuelve a fallar, es credencial mala y debe verse.
-  if (res.status === 401 && !process.env.SW_TOKEN) {
+  if (res.status === 401 && usaUsuario()) {
     olvidarToken();
     const reintento = await fetch(`${url()}/v4/cfdi33/issue/json/v4`, {
       method: "POST",

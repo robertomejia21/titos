@@ -11,6 +11,7 @@
 
 import {
   ErrorSw,
+  ambienteSw,
   cancelar,
   certificados,
   esProduccion,
@@ -101,7 +102,8 @@ async function main() {
   console.log(`\nSW sapien — prueba de conexión`);
   console.log(`  ambiente: ${esProduccion() ? "PRODUCCIÓN" : "pruebas"}`);
   console.log(`  services: ${destino}`);
-  console.log(`  usuario:  ${process.env.SW_USER ? process.env.SW_USER.replace(/(.{3}).*(@.*)/, "$1***$2") : "(sin SW_USER)"}\n`);
+  console.log(`  usuario:  ${process.env.SW_USER ? process.env.SW_USER.replace(/(.{3}).*(@.*)/, "$1***$2") : "(sin SW_USER)"}`);
+  console.log(`  en uso:   ${ambienteSw()}\n`);
 
   if (!swConfigurado()) {
     console.error("  FALTA  No hay credenciales. Llena SW_USER y SW_PASSWORD en .env.local");
