@@ -30,7 +30,7 @@ import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/component
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
-import { MOTIVOS_CANCELACION, FORMAS_PAGO_SAT, METODOS_PAGO_SAT } from "@/lib/facturas";
+import { MOTIVOS_CANCELACION, FORMAS_PAGO_SAT, METODOS_PAGO_SAT, etiquetaImpuestos } from "@/lib/facturas";
 
 export type VentaFacturable = {
   _id: string;
@@ -666,7 +666,7 @@ export function FacturasManager() {
                             <span>{formatMoney(f.subtotal)}</span>
                           </li>
                           <li className="flex items-center justify-between py-1.5 text-black/60">
-                            <span>IVA {f.tasaIva}%</span>
+                            <span>{etiquetaImpuestos(f)}</span>
                             <span>{formatMoney(f.iva)}</span>
                           </li>
                           <li className="flex items-center justify-between py-1.5 font-semibold text-titos-green-900">
