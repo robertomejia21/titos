@@ -44,6 +44,19 @@ export const MOTIVOS_CANCELACION = [
 
 export type MotivoCancelacion = (typeof MOTIVOS_CANCELACION)[number]["value"];
 
+/**
+ * Rótulo del renglón de impuestos. `tasaIva` es la tasa global con que se
+ * generó la factura y ya no dice nada cuando cada producto trae la suya: una
+ * factura al 8% salía como "IVA 0%". Se nombra la tasa solo si los montos la
+ * confirman al centavo; si no (tasas mezcladas o IEPS), "Impuestos" a secas.
+ */
+export function etiquetaImpuestos(f: { subtotal: number; iva: number; tasaIva?: number }) {
+  if (!(f.subtotal > 0)) return "Impuestos";
+  const candidatas = [...new Set([f.tasaIva ?? 0, 0, 8, 16])];
+  const tasa = candidatas.find((t) => Math.abs(f.subtotal * (t / 100) - f.iva) <= 0.02);
+  return tasa === undefined ? "Impuestos" : `IVA ${tasa}%`;
+}
+
 /** Clave genérica del SAT para productos que no están en el catálogo. */
 export const CLAVE_PROD_SERV_GENERICA = "01010101";
 

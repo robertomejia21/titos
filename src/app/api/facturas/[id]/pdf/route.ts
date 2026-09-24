@@ -4,7 +4,7 @@ import Factura from "@/models/Factura";
 import { requireSession, unauthorized, forbidden, notFound } from "@/lib/apiAuth";
 import { generarTablaPDF, formatMoney } from "@/lib/pdf";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
-import { FORMAS_PAGO_SAT, METODOS_PAGO_SAT } from "@/lib/facturas";
+import { FORMAS_PAGO_SAT, METODOS_PAGO_SAT, etiquetaImpuestos } from "@/lib/facturas";
 import { formatFechaHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
 function etiqueta(catalogo: readonly { value: string; label: string }[], value: string) {
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ],
       filas: [
         ["Subtotal", formatMoney(factura.subtotal)],
-        [`IVA ${factura.tasaIva}%`, formatMoney(factura.iva)],
+        [etiquetaImpuestos(factura), formatMoney(factura.iva)],
       ],
     },
     totalLabel: "Total:",

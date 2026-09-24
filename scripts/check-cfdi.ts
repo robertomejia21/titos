@@ -5,7 +5,7 @@
 //   npm run check:cfdi
 
 import assert from "node:assert/strict";
-import { ErrorCfdi, construirCfdi, type FacturaLike, type FiscalPorProducto } from "../src/lib/cfdi";
+import { ErrorCfdi, construirCfdi, fechaCfdi, type FacturaLike, type FiscalPorProducto } from "../src/lib/cfdi";
 import { emisorCompleto, emisorDesde, type EmisorFiscal } from "../src/lib/emisorFiscal";
 import Configuracion from "../src/models/Configuracion";
 import type { FiscalProducto } from "../src/lib/fiscalProducto";
@@ -182,6 +182,20 @@ prueba("sin clave del producto usa la genérica", () => {
   assert.equal(at(cfdi, "Conceptos.0.ClaveProdServ"), "01010101");
 });
 
+prueba("IVA 8% con la clave genérica: no se timbra", () => {
+  const f = factura({ total: 54 });
+  const p = problemasDe(f, new Map([["leche", fiscal({ iva: "8" })]]));
+  assert.ok(p.some((x) => x.includes("franja fronteriza")), p.join(" "));
+});
+
+prueba("IVA 8% con clave del producto: timbra al 8%", () => {
+  const f = factura({ total: 54 });
+  const cfdi = construirCfdi(f, emisor, new Map([["leche", fiscal({ iva: "8", claveProdServ: "50131700" })]]));
+  assert.equal(at(cfdi, "Conceptos.0.ClaveProdServ"), "50131700");
+  assert.equal(at(cfdi, "Conceptos.0.Impuestos.Traslados.0.TasaOCuota"), "0.080000");
+  assert.equal(at(cfdi, "Total"), "54.00");
+});
+
 prueba("producto con IVA pendiente: no se timbra", () => {
   const p = problemasDe(factura(), new Map([["leche", fiscal({ iva: "pendiente" })]]));
   assert.ok(p.some((x) => x.includes("IVA pendiente")), p.join(" "));
@@ -217,15 +231,24 @@ prueba("receptor incompleto: reporta todo junto, no de uno en uno", () => {
 });
 
 prueba("fecha futura se recorta al momento de emitir", () => {
-  const futuro = new Date(Date.now() + 86400000).toISOString();
-  const cfdi = construirCfdi(
-    factura({ ventaFecha: futuro }),
-    emisor,
-    new Map([["leche", fiscal({})]]),
-  );
-  const fecha = String(at(cfdi, "Fecha"));
-  assert.ok(new Date(fecha) <= new Date(), "el SAT rechaza fechas futuras");
-  assert.match(fecha, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+  const ahora = new Date("2026-09-24T23:26:31Z");
+  const futuro = new Date(ahora.getTime() + 86400000);
+  assert.equal(fechaCfdi(futuro, "21050", ahora), "2026-09-24T16:26:31");
+});
+
+prueba("fecha en hora local del lugar de expedición, no en UTC", () => {
+  // El caso real: el servidor en UTC mandaba 23:25 y en Mexicali eran las 16:25.
+  const venta = "2026-09-24T23:25:44.000Z";
+  const ahora = new Date("2026-09-24T23:26:31Z");
+  assert.equal(fechaCfdi(venta, "21050", ahora), "2026-09-24T16:25:44", "Mexicali en horario de verano");
+  assert.equal(fechaCfdi(venta, "06600", ahora), "2026-09-24T17:25:44", "Ciudad de México");
+  const cfdi = construirCfdi(factura({ ventaFecha: venta }), emisor, new Map([["leche", fiscal({})]]));
+  assert.match(String(at(cfdi, "Fecha")), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+});
+
+prueba("venta de hace más de 72 horas se timbra con la hora de emisión", () => {
+  const ahora = new Date("2026-09-24T23:26:31Z");
+  assert.equal(fechaCfdi("2026-09-20T18:00:00.000Z", "21050", ahora), "2026-09-24T16:26:31");
 });
 
 prueba("sello y certificado van vacíos: los pone el PAC", () => {
