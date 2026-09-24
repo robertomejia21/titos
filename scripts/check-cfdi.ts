@@ -182,6 +182,20 @@ prueba("sin clave del producto usa la genérica", () => {
   assert.equal(at(cfdi, "Conceptos.0.ClaveProdServ"), "01010101");
 });
 
+prueba("IVA 8% con la clave genérica: no se timbra", () => {
+  const f = factura({ total: 54 });
+  const p = problemasDe(f, new Map([["leche", fiscal({ iva: "8" })]]));
+  assert.ok(p.some((x) => x.includes("franja fronteriza")), p.join(" "));
+});
+
+prueba("IVA 8% con clave del producto: timbra al 8%", () => {
+  const f = factura({ total: 54 });
+  const cfdi = construirCfdi(f, emisor, new Map([["leche", fiscal({ iva: "8", claveProdServ: "50131700" })]]));
+  assert.equal(at(cfdi, "Conceptos.0.ClaveProdServ"), "50131700");
+  assert.equal(at(cfdi, "Conceptos.0.Impuestos.Traslados.0.TasaOCuota"), "0.080000");
+  assert.equal(at(cfdi, "Total"), "54.00");
+});
+
 prueba("producto con IVA pendiente: no se timbra", () => {
   const p = problemasDe(factura(), new Map([["leche", fiscal({ iva: "pendiente" })]]));
   assert.ok(p.some((x) => x.includes("IVA pendiente")), p.join(" "));

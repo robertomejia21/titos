@@ -111,6 +111,14 @@ function impuestosDelConcepto(
     problemas.push(`${etiqueta} tiene el IEPS pendiente de confirmar.`);
     return { traslados: [], objetoImp: "01" };
   }
+  // El 8% es el estímulo de franja fronteriza y el SAT solo lo acepta en claves
+  // del catálogo marcadas para él; la genérica 01010101 no lo está. Sin esto el
+  // PAC contesta "CFDI40999 - Error no clasificado".
+  const clave = fiscal.claveProdServ || concepto.claveProdServ || CLAVE_PROD_SERV_GENERICA;
+  if (fiscal.iva === "8" && clave === CLAVE_PROD_SERV_GENERICA)
+    problemas.push(
+      `${etiqueta} lleva IVA 8% (franja fronteriza) y necesita su clave de producto SAT: la genérica 01010101 no admite el estímulo. Captúrala en Productos.`,
+    );
 
   const base = redondear(concepto.importe);
   const traslados: ImpuestoCalculado[] = [];
