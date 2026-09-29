@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       usuario,
       apellidoPaterno,
       fechaNacimiento: new Date(fechaNacimiento),
-      email: email || null,
+      email: email || undefined,
       passwordHash: await hashPassword(passwordPlano),
       role,
       sucursalId: role === "sucursal" ? sucursalId : null,
@@ -195,6 +195,12 @@ export async function POST(req: NextRequest) {
     if (error instanceof PermisosIndividualesError) return badRequest(error.message);
     if (error instanceof NipPersonalError) return badRequest(error.message);
     if (esNipDuplicado(error)) return conflict("Ese NIP ya está asignado a otra persona");
-    throw error;
+    const campo = (error as { code?: number; keyPattern?: Record<string, unknown> })?.code === 11000
+      ? Object.keys((error as { keyPattern?: Record<string, unknown> }).keyPattern ?? {})[0]
+      : null;
+    if (campo === "usuario") return conflict("Ese usuario ya está en uso por otro colaborador");
+    if (campo === "email") return conflict("Ese correo ya está en uso por otro usuario");
+    console.error("[usuarios] alta falló", error);
+    return NextResponse.json({ error: `No se pudo crear el usuario: ${(error as Error).message}` }, { status: 500 });
   }
 }

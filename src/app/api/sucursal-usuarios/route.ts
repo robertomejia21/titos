@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const usuario = await UserModel.create({
     nombre,
     usuario: nombreUsuario,
-    email: email || null,
+    email: email || undefined,
     passwordHash: await hashPassword(password),
     role: "sucursal",
     sucursalRol,

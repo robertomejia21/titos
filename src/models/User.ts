@@ -6,7 +6,9 @@ const UserSchema = new Schema(
     // usuario y sustituye al correo como "gate" del login.
     usuario: { type: String, unique: true, sparse: true, trim: true },
     // El correo pasó a ser solo un dato de contacto opcional.
-    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true, default: null },
+    // Sin `default: null`: el índice sparse SÍ indexa null, así que dos usuarios
+    // sin correo chocaban (E11000) y el alta fallaba. Sin correo = campo ausente.
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     nombre: { type: String, required: true },
     // Datos con los que se autogenera la contraseña (apellidoPaterno.DDMM).
