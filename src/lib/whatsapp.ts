@@ -4,6 +4,8 @@
 // Evolution API responde "enviado" pero nunca llega al teléfono real).
 // Cubre los formatos con los que alguien pudo haber capturado el número,
 // incluyendo el prefijo "521" viejo ya guardado en la base de datos.
+// OJO: esto es el formato de almacenamiento. Green API sí necesita 521 + 10;
+// la conversión se hace al enviar, en numeroGreenApi() de greenApi.ts.
 export function normalizarWhatsAppMX(numero: string): string {
   const digitos = numero.replace(/\D/g, "");
 

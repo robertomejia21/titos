@@ -48,8 +48,19 @@ function mediaUrl() {
   return api.includes(".api.") ? api.replace(".api.", ".media.") : api.replace("//api.", "//media.");
 }
 
+/**
+ * En la base los celulares de México se guardan como 52 + 10 dígitos, pero en
+ * Green API las cuentas mexicanas existen como 521 + 10: mandar a 52… crea un
+ * chat fantasma (aparece con un ID de privacidad, p. ej. "998735588…") y el
+ * mensaje nunca llega. Verificado el 2026-09-29 con 6861571095.
+ */
+export function numeroGreenApi(phone: string) {
+  const digitos = phone.replace(/\D/g, "");
+  return digitos.length === 12 && digitos.startsWith("52") ? `521${digitos.slice(2)}` : digitos;
+}
+
 function chatId(phone: string) {
-  return `${phone.replace(/\D/g, "")}@c.us`;
+  return `${numeroGreenApi(phone)}@c.us`;
 }
 
 export async function sendMessage(phone: string, message: string) {
@@ -273,7 +284,7 @@ export async function checkWhatsapp(phone: string) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phoneNumber: Number(phone.replace(/\D/g, "")) }),
+    body: JSON.stringify({ phoneNumber: Number(numeroGreenApi(phone)) }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
