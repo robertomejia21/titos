@@ -998,7 +998,9 @@ export function UsuariosRolesManager() {
                           <Button variant="ghost" onClick={async () => {
                             const res = await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
                             const data = await res.json().catch(() => ({}));
-                            alert(res.ok ? "Acceso reenviado por WhatsApp" : data.error || "No se pudo reenviar el acceso");
+                            const ETIQUETA: Record<string, string> = { pending: "en cola", sent: "enviado", delivered: "entregado", read: "leído" };
+                            const estados = (data.estados ?? []).map((e: string | null) => (e ? ETIQUETA[e] ?? e : "sin confirmar")).join(" / ");
+                            alert(res.ok ? `Acceso reenviado por WhatsApp a +${data.telefono}${estados ? ` (${estados})` : ""}` : data.error || "No se pudo reenviar el acceso");
                           }}>
                             Reenviar acceso
                           </Button>
