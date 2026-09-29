@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (email && (await UserModel.findOne({ email, _id: { $ne: usuario._id } }))) {
       return conflict("Ese correo ya está en uso por otro usuario");
     }
-    usuario.email = email || null;
+    usuario.email = email || undefined;
   }
 
   if ("usuario" in body) {
