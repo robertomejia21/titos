@@ -11,13 +11,13 @@ export async function enviarBienvenida(opts: {
   usuario: string;
   password: string;
 }) {
-  await sendMessage(
+  const saludo = await sendMessage(
     opts.telefono,
     `👋 ¡Hola *${opts.nombre}*! Te damos la bienvenida a Titos.\n\n` +
       `Esta es tu línea de soporte: escríbenos por aquí cualquier duda del sistema.`
   );
 
-  await sendMessage(
+  const acceso = await sendMessage(
     opts.telefono,
     `🔑 *Tu acceso al sistema*\n\n` +
       `${LOGIN_URL}\n\n` +
@@ -25,4 +25,6 @@ export async function enviarBienvenida(opts: {
       `Contraseña: *${opts.password}*\n\n` +
       `Guárdalos y no los compartas.`
   );
+
+  return [saludo.idMessage, acceso.idMessage];
 }

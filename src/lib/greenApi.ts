@@ -266,6 +266,39 @@ export async function getStateInstance() {
   return res.json() as Promise<{ stateInstance: string }>;
 }
 
+/** Si el número tiene cuenta de WhatsApp (sin enviarle nada). */
+export async function checkWhatsapp(phone: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/checkWhatsapp/${API_TOKEN}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumber: Number(phone.replace(/\D/g, "")) }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.json() as Promise<{ existsWhatsapp: boolean }>;
+}
+
+/**
+ * Estado de un mensaje ya enviado: pending, sent, delivered, read, failed,
+ * noAccount… Que sendMessage responda 200 solo significa que entró a la cola.
+ */
+export async function getMessageStatus(phone: string, idMessage: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/getMessage/${API_TOKEN}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chatId: chatId(phone), idMessage }),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => null)) as { statusMessage?: string } | null;
+  return data?.statusMessage ?? null;
+}
+
 // Green API devuelve el QR como base64 pelón (sin el prefijo "data:"), y usa
 // el campo `type` para avisar que ya está vinculada o que hubo un error.
 export async function getQR(): Promise<{ qr: string | null }> {
