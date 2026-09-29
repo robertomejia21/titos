@@ -48,10 +48,21 @@ export function normalizarWhatsApp(numero: string, codigoArea: "+52" | "+1"): st
   return codigoArea === "+1" ? normalizarWhatsAppUS(numero) : normalizarWhatsAppMX(numero);
 }
 
-export function validarTelefono(numero: string, codigoArea: "+52" | "+1"): boolean {
-  const digitos = numero.replace(/\D/g, "");
+/**
+ * Los 10 dígitos locales, sin código de país. En pantalla solo se captura esto;
+ * el código de país lo pone el sistema. Acepta lo que ya esté guardado o lo que
+ * alguien haya pegado (52…, 521…, 1…) y le quita el prefijo.
+ */
+export function telefonoLocal(numero: string | null | undefined, codigoArea: "+52" | "+1"): string {
+  const digitos = String(numero ?? "").replace(/\D/g, "");
   if (codigoArea === "+52") {
-    return digitos.length >= 10 && digitos.length <= 13;
+    if (digitos.length === 13 && digitos.startsWith("521")) return digitos.slice(3);
+    if (digitos.length === 12 && digitos.startsWith("52")) return digitos.slice(2);
   }
-  return digitos.length >= 10 && digitos.length <= 11;
+  if (digitos.length === 11 && digitos.startsWith("1")) return digitos.slice(1);
+  return digitos;
+}
+
+export function validarTelefono(numero: string, codigoArea: "+52" | "+1"): boolean {
+  return telefonoLocal(numero, codigoArea).length === 10;
 }
