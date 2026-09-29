@@ -9,6 +9,7 @@ import { DepartamentosManager, type Departamento } from "./DepartamentosManager"
 import { expandirPermisosPuesto } from "@/lib/permisosIndividuales";
 import { permisosLegado } from "@/lib/permisos";
 import { requiereNipCaja } from "@/lib/nipCaja";
+import { telefonoLocal } from "@/lib/whatsapp";
 
 type Rol = {
   _id: string;
@@ -94,8 +95,9 @@ function UsuarioModal({
   const [role, setRole] = useState<"matriz" | "sucursal">(usuario?.role ?? "sucursal");
   const [sucursalId, setSucursalId] = useState(usuario?.sucursal?._id ?? "");
   const [rolId, setRolId] = useState(usuario?.rol?._id ?? "");
-  const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
   const [codigoArea, setCodigoArea] = useState<"+52" | "+1">(usuario?.codigoArea ?? "+52");
+  // Solo los 10 dígitos locales; el servidor antepone el código de país.
+  const [telefono, setTelefono] = useState(telefonoLocal(usuario?.telefono, usuario?.codigoArea ?? "+52"));
   const [nipSupervisor, setNipSupervisor] = useState("");
   const [nipOperacion, setNipOperacion] = useState("");
   const [activo, setActivo] = useState(usuario?.activo ?? true);
@@ -171,7 +173,7 @@ function UsuarioModal({
     !nombreUsuario.trim() && "usuario",
     exigeApellido && !apellidoPaterno.trim() && "apellido paterno",
     exigeNacimiento && !fechaNacimiento && "fecha de nacimiento",
-    !telefono && "teléfono",
+    telefono.length !== 10 && "teléfono a 10 dígitos",
     !esEdicion && !rolId && "puesto",
     !esEdicion && role === "sucursal" && !sucursalId && "sucursal",
     pideNipSupervisor && nipSupervisor.length !== 6 && "NIP para crear supervisores",
@@ -230,10 +232,16 @@ function UsuarioModal({
               inputMode="numeric"
               autoComplete="off"
               value={telefono}
-              onChange={(e) => setTelefono(e.target.value.replace(/[^\d]/g, "").slice(0, 13))}
-              placeholder="10 dígitos"
+              maxLength={10}
+              onChange={(e) => setTelefono(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              onPaste={(e) => {
+                // Si pegan el número con lada (52…, 521…, +1…), se queda solo con los 10 dígitos.
+                e.preventDefault();
+                setTelefono(telefonoLocal(e.clipboardData.getData("text"), codigoArea).slice(0, 10));
+              }}
+              placeholder="10 dígitos, sin lada"
             />
-            {!esEdicion && <p className="mt-1 text-xs text-black/50">A este WhatsApp se enviará el saludo de bienvenida y las credenciales de acceso.</p>}
+            <p className="mt-1 text-xs text-black/50">Solo los 10 dígitos; el código de país lo agrega el sistema.{!esEdicion ? " A este WhatsApp se enviará el saludo de bienvenida y las credenciales de acceso." : ""}</p>
           </FormField>
         </FormGrid>
 
@@ -625,7 +633,7 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
             fechaNacimiento: toISO(cell(r, iFecha)),
             usuario,
             puesto: String(cell(r, iPuesto) ?? "").trim(),
-            telefono: String(cell(r, iTel) ?? "").replace(/\D/g, ""),
+            telefono: telefonoLocal(String(cell(r, iTel) ?? ""), "+52"),
             codigoArea: "+52" as const,
             sucursal: String(cell(r, iSuc) ?? "").trim(),
           };
@@ -761,9 +769,9 @@ function ImportarModal({ roles, sucursales, onClose, onImportado }: { roles: Rol
                         </select>
                       </td>
                       <td className="px-1 py-1">
-                        <input value={f.telefono} onChange={(e) => editarFila(i, "telefono", e.target.value.replace(/\D/g, "").slice(0, 13))}
-                          inputMode="numeric"
-                          className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-black/15 focus:border-titos-green-500 focus:outline-none" />
+                        <input value={f.telefono} onChange={(e) => editarFila(i, "telefono", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                          inputMode="numeric" maxLength={10} placeholder="10 dígitos"
+                          className={claseCampo(f.telefono.length === 10)} />
                       </td>
                       <td className="px-1 py-1">
                         <select value={sucOk ? f.sucursal : ""} onChange={(e) => editarFila(i, "sucursal", e.target.value)}
