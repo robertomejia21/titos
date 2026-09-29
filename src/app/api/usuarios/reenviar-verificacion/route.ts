@@ -29,12 +29,17 @@ export async function POST(req: NextRequest) {
   const passwordPlano = generarPasswordUsuario(usuario.apellidoPaterno, usuario.fechaNacimiento);
   await UserModel.updateOne({ _id: usuario._id }, { passwordHash: await hashPassword(passwordPlano) });
 
-  await enviarBienvenida({
-    telefono: usuario.telefono,
-    nombre: usuario.nombre,
-    usuario: usuario.usuario,
-    password: passwordPlano,
-  });
+  try {
+    await enviarBienvenida({
+      telefono: usuario.telefono,
+      nombre: usuario.nombre,
+      usuario: usuario.usuario,
+      password: passwordPlano,
+    });
+  } catch (error) {
+    console.error("[reenviar-verificacion] WhatsApp falló", error);
+    return NextResponse.json({ error: "No se pudo enviar el WhatsApp. Revisa que el número sea correcto y que la línea de WhatsApp esté conectada." }, { status: 502 });
+  }
 
   return NextResponse.json({ ok: true });
 }
