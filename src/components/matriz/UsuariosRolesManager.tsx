@@ -123,7 +123,12 @@ function UsuarioModal({
     setError(null);
     setGuardando(true);
 
-    const cuerpo: Record<string, unknown> = { nombre, usuario: nombreUsuario.trim(), apellidoPaterno, fechaNacimiento, email, telefono, codigoArea };
+    const cuerpo: Record<string, unknown> = { nombre, usuario: nombreUsuario.trim(), email, telefono, codigoArea };
+    // Al editar, apellido y nacimiento solo viajan si tienen valor: hay usuarios
+    // viejos sin ellos y el servidor rechaza vacíos, lo que impedía guardar
+    // cualquier otro cambio (p. ej. el teléfono).
+    if (!esEdicion || apellidoPaterno.trim()) cuerpo.apellidoPaterno = apellidoPaterno;
+    if (!esEdicion || fechaNacimiento) cuerpo.fechaNacimiento = fechaNacimiento;
     if (!usuario?.propio) {
       cuerpo.rolId = rolId || null;
       cuerpo.permisosIndividuales = permisosUsuario;
@@ -156,17 +161,24 @@ function UsuarioModal({
     onGuardado();
   }
 
-  const faltaCampo =
-    !nombre ||
-    !nombreUsuario.trim() ||
-    !apellidoPaterno.trim() ||
-    !fechaNacimiento ||
-    !telefono ||
-    (!esEdicion && !rolId) ||
-    (!esEdicion && (role === "sucursal" && !sucursalId)) ||
-    (pideNipSupervisor && nipSupervisor.length !== 6) ||
-    (nipOperacionObligatorio && nipOperacion.length !== 6) ||
-    (usaNipCaja && !!nipOperacion && nipOperacion.length !== 6);
+  // Al editar, apellido y nacimiento solo son obligatorios si ya estaban
+  // capturados (no se pueden borrar); si faltan, se avisa porque sin ellos no
+  // se puede generar ni reenviar la contraseña.
+  const exigeApellido = !esEdicion || !!usuario!.apellidoPaterno;
+  const exigeNacimiento = !esEdicion || !!usuario!.fechaNacimiento;
+  const faltantes = [
+    !nombre.trim() && "nombre",
+    !nombreUsuario.trim() && "usuario",
+    exigeApellido && !apellidoPaterno.trim() && "apellido paterno",
+    exigeNacimiento && !fechaNacimiento && "fecha de nacimiento",
+    !telefono && "teléfono",
+    !esEdicion && !rolId && "puesto",
+    !esEdicion && role === "sucursal" && !sucursalId && "sucursal",
+    pideNipSupervisor && nipSupervisor.length !== 6 && "NIP para crear supervisores",
+    ((nipOperacionObligatorio && nipOperacion.length !== 6) || (usaNipCaja && !!nipOperacion && nipOperacion.length !== 6)) && "NIP de gerente (6 dígitos)",
+  ].filter(Boolean) as string[];
+  const faltaCampo = faltantes.length > 0;
+  const sinDatosAcceso = esEdicion && (!apellidoPaterno.trim() || !fechaNacimiento);
 
   return (
     <Modal
@@ -216,6 +228,7 @@ function UsuarioModal({
               icon={Phone}
               type="tel"
               inputMode="numeric"
+              autoComplete="off"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value.replace(/[^\d]/g, "").slice(0, 13))}
               placeholder="10 dígitos"
@@ -358,6 +371,8 @@ function UsuarioModal({
         ) : null}
 
         <PermisosUsuarioEditor ambito={role} base={basePermisos} seleccion={permisosUsuario} consulta={soloConsulta} disabled={usuario?.propio} onChange={(permisos, consulta) => { setPermisosUsuario(permisos); setSoloConsulta(consulta); }} />
+        {sinDatosAcceso ? <p className="text-sm text-amber-800">Captura apellido paterno y fecha de nacimiento para poder reenviarle su acceso por WhatsApp (la contraseña se forma con ellos).</p> : null}
+        {faltaCampo ? <p className="text-sm text-black/70">Para guardar falta: {faltantes.join(", ")}.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       </div>
     </Modal>
@@ -974,7 +989,8 @@ export function UsuariosRolesManager() {
                         {u.telefono && u.usuario ? (
                           <Button variant="ghost" onClick={async () => {
                             const res = await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
-                            alert(res.ok ? "Acceso reenviado por WhatsApp" : "No se pudo reenviar el acceso");
+                            const data = await res.json().catch(() => ({}));
+                            alert(res.ok ? "Acceso reenviado por WhatsApp" : data.error || "No se pudo reenviar el acceso");
                           }}>
                             Reenviar acceso
                           </Button>
