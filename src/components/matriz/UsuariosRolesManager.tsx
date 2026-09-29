@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone, Upload, MessageCircle, LoaderCircle, TriangleAlert, CircleCheck, Check, CheckCheck, Clock } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PermisosUsuarioEditor } from "./PermisosUsuarioEditor";
@@ -383,6 +383,119 @@ function UsuarioModal({
         {faltaCampo ? <p className="text-sm text-black/70">Para guardar falta: {faltantes.join(", ")}.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------- Reenviar acceso ---
+
+type ResultadoEnvio = { telefono: string; ids: string[]; estados: (string | null)[] };
+
+const ESTADO_MENSAJE: Record<string, { texto: string; icono: typeof Check; clase: string }> = {
+  pending: { texto: "En cola", icono: Clock, clase: "text-amber-700" },
+  sent: { texto: "Enviado", icono: Check, clase: "text-black/60" },
+  delivered: { texto: "Entregado", icono: CheckCheck, clase: "text-titos-green-700" },
+  read: { texto: "Leído", icono: CheckCheck, clase: "text-sky-600" },
+};
+const MENSAJES_ACCESO = ["Saludo de bienvenida", "Usuario y contraseña"];
+const formatearTelefono = (t: string) => {
+  const d = t.replace(/\D/g, "");
+  const local = d.slice(-10);
+  return `+${d.slice(0, -10)} ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
+};
+
+function ReenviarAccesoModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
+  const [fase, setFase] = useState<"enviando" | "listo" | "error">("enviando");
+  const [resultado, setResultado] = useState<ResultadoEnvio | null>(null);
+  const [error, setError] = useState("");
+  const [revisando, setRevisando] = useState(false);
+
+  // El envío se guarda en una ref: si el efecto corre dos veces (StrictMode en
+  // desarrollo) no se le manda el acceso dos veces a la persona.
+  const envio = useRef<Promise<{ ok: boolean; data: ResultadoEnvio & { error?: string } }> | null>(null);
+  useEffect(() => {
+    envio.current ??= fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: usuario._id }) })
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
+      .catch(() => ({ ok: false, data: { error: "No se pudo conectar con el servidor" } as ResultadoEnvio & { error?: string } }));
+    let vigente = true;
+    envio.current.then(({ ok, data }) => {
+      if (!vigente) return;
+      if (!ok) { setError(data.error || "No se pudo reenviar el acceso"); setFase("error"); return; }
+      setResultado(data);
+      setFase("listo");
+    });
+    return () => { vigente = false; };
+  }, [usuario._id]);
+
+  async function revisar() {
+    if (!resultado) return;
+    setRevisando(true);
+    try {
+      const res = await fetch(`/api/usuarios/reenviar-verificacion?usuarioId=${usuario._id}&ids=${resultado.ids.join(",")}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setResultado(data);
+    } finally { setRevisando(false); }
+  }
+
+  const entregado = !!resultado && resultado.estados.every((e) => e === "delivered" || e === "read");
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Reenviar acceso"
+      icon={MessageCircle}
+      footer={
+        <>
+          {fase === "listo" && !entregado ? <Button variant="ghost" onClick={revisar} disabled={revisando}>{revisando ? "Revisando…" : "Volver a revisar"}</Button> : null}
+          <Button onClick={onClose} disabled={fase === "enviando"}>Cerrar</Button>
+        </>
+      }
+    >
+      {fase === "enviando" ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center" role="status">
+          <LoaderCircle className="h-10 w-10 animate-spin text-titos-green-600" />
+          <p className="font-medium text-titos-green-900">Enviando acceso a {usuario.nombre}…</p>
+          <p className="text-sm text-black/60">Estamos confirmando con WhatsApp que el mensaje salga. Tarda unos segundos.</p>
+        </div>
+      ) : fase === "error" ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center" role="alert">
+          <TriangleAlert className="h-10 w-10 text-red-600" />
+          <p className="font-medium text-red-700">No se pudo enviar el acceso</p>
+          <p className="text-sm text-black/70">{error}</p>
+        </div>
+      ) : resultado ? (
+        <div className="space-y-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            {entregado ? <CircleCheck className="h-10 w-10 text-titos-green-600" /> : <Check className="h-10 w-10 text-titos-green-600" />}
+            <p className="font-medium text-titos-green-900">{entregado ? "Acceso entregado" : "Acceso enviado"}</p>
+            <p className="text-sm text-black/70">
+              A <strong>{usuario.nombre}</strong> al WhatsApp <strong>{formatearTelefono(resultado.telefono)}</strong>
+            </p>
+          </div>
+          <ul className="divide-y divide-black/5 rounded-lg border border-black/10">
+            {MENSAJES_ACCESO.map((nombre, i) => {
+              const estado = resultado.estados[i];
+              const info = estado ? ESTADO_MENSAJE[estado] : undefined;
+              const Icono = info?.icono ?? Clock;
+              return (
+                <li key={nombre} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                  <span>{nombre}</span>
+                  <span className={`flex items-center gap-1.5 font-medium ${info?.clase ?? "text-black/50"}`}>
+                    <Icono className="h-4 w-4" />
+                    {info?.texto ?? (estado ? estado : "Sin confirmar")}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {!entregado ? (
+            <p className="text-xs text-black/60">
+              &quot;Enviado&quot; significa que ya salió de nuestra línea; cambia a &quot;Entregado&quot; cuando llega al celular. Si en unos minutos no cambia, revisa que el número sea correcto y que la persona tenga WhatsApp activo.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </Modal>
   );
 }
@@ -876,6 +989,7 @@ export function UsuariosRolesManager() {
   const [rolModal, setRolModal] = useState<Rol | null>(null);
   const [creandoRol, setCreandoRol] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [reenviando, setReenviando] = useState<Usuario | null>(null);
 
   async function cargar() {
     setCargando(true);
@@ -995,13 +1109,7 @@ export function UsuariosRolesManager() {
                       </td>
                       <td className="py-2 pr-3 text-right flex gap-1 justify-end">
                         {u.telefono && u.usuario ? (
-                          <Button variant="ghost" onClick={async () => {
-                            const res = await fetch("/api/usuarios/reenviar-verificacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuarioId: u._id }) });
-                            const data = await res.json().catch(() => ({}));
-                            const ETIQUETA: Record<string, string> = { pending: "en cola", sent: "enviado", delivered: "entregado", read: "leído" };
-                            const estados = (data.estados ?? []).map((e: string | null) => (e ? ETIQUETA[e] ?? e : "sin confirmar")).join(" / ");
-                            alert(res.ok ? `Acceso reenviado por WhatsApp a +${data.telefono}${estados ? ` (${estados})` : ""}` : data.error || "No se pudo reenviar el acceso");
-                          }}>
+                          <Button variant="ghost" onClick={() => setReenviando(u)}>
                             Reenviar acceso
                           </Button>
                         ) : null}
@@ -1100,6 +1208,8 @@ export function UsuariosRolesManager() {
           }}
         />
       ) : null}
+
+      {reenviando ? <ReenviarAccesoModal key={reenviando._id} usuario={reenviando} onClose={() => setReenviando(null)} /> : null}
 
       {importando ? (
         <ImportarModal

@@ -6,6 +6,26 @@ import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
 import { enviarBienvenida } from "@/lib/onboarding";
 import { getStateInstance, checkWhatsapp, getMessageStatus } from "@/lib/greenApi";
 
+// Vuelve a consultar el estado de mensajes ya enviados (botón "Volver a
+// revisar" del modal), sin reenviar ni tocar la contraseña.
+export async function GET(req: NextRequest) {
+  const session = await requireSession(req);
+  if (!session) return unauthorized();
+  if (session.role !== "matriz") return forbidden();
+  if (!puede(session, "usuarios.administrar")) return sinPermiso("usuarios.administrar");
+
+  const usuarioId = req.nextUrl.searchParams.get("usuarioId") ?? "";
+  const ids = (req.nextUrl.searchParams.get("ids") ?? "").split(",").filter(Boolean).slice(0, 5);
+  if (!usuarioId || ids.length === 0) return badRequest("Faltan el usuario o los mensajes");
+
+  await connectDB();
+  const usuario = await UserModel.findById(usuarioId).select("telefono").lean();
+  if (!usuario?.telefono) return badRequest("El usuario no tiene teléfono registrado");
+
+  const estados = await Promise.all(ids.map((id) => getMessageStatus(usuario.telefono!, id).catch(() => null)));
+  return NextResponse.json({ ok: true, telefono: usuario.telefono, ids, estados });
+}
+
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
