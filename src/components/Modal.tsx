@@ -17,6 +17,8 @@ export function Modal({
   size = "md",
   children,
   footer,
+  acciones,
+  sinBarra,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,10 @@ export function Modal({
   size?: keyof typeof MODAL_SIZES;
   children: ReactNode;
   footer?: ReactNode;
+  /** Botones en la esquina del encabezado; sustituyen a la X de cerrar (el modal se cierra con ellos o con Esc). */
+  acciones?: ReactNode;
+  /** Oculta la barra de desplazamiento (el modal sigue pudiendo desplazarse). */
+  sinBarra?: boolean;
 }) {
   const mouseDownOnBackdrop = useRef(false);
 
@@ -56,10 +62,10 @@ export function Modal({
       }}
     >
       <div
-        className={`max-h-[85vh] w-full ${MODAL_SIZES[size]} overflow-y-auto rounded-2xl bg-white p-6 shadow-xl`}
+        className={`max-h-[85vh] w-full ${MODAL_SIZES[size]} overflow-y-auto rounded-2xl bg-white p-6 shadow-xl ${sinBarra ? "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2.5 font-display text-lg font-bold text-titos-green-900">
             {Icon ? (
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-titos-green-100 text-titos-green-700">
@@ -68,9 +74,13 @@ export function Modal({
             ) : null}
             {title}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-black/40 hover:bg-black/5 hover:text-black/60">
-            <X className="h-5 w-5" />
-          </button>
+          {acciones ? (
+            <div className="flex shrink-0 items-center gap-2">{acciones}</div>
+          ) : (
+            <button onClick={onClose} className="rounded-lg p-1.5 text-black/40 hover:bg-black/5 hover:text-black/60">
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
         {children}
         {footer ? <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-black/5 pt-4">{footer}</div> : null}

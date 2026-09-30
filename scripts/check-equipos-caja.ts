@@ -4,7 +4,7 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { NextRequest } from "next/server";
 import { connectDB } from "../src/lib/db";
 import { hashPassword, signSession } from "../src/lib/auth";
-import { leerPesoDeRespuesta } from "../src/lib/bascula";
+import { leerPesoDeRespuesta, pesoBasculaEnKg } from "../src/lib/bascula";
 import { EQUIPO_VACIO, pesoEnKg, validarEquipoCaja, autorizacionTarjeta } from "../src/lib/equiposCaja";
 import { leerPuertoDiagnostico, type PuertoSerial } from "../src/lib/serialDiagnostico";
 import { GET, PUT } from "../src/app/api/equipos-caja/route";
@@ -51,6 +51,7 @@ async function main() {
   assert.equal(leerPesoDeRespuesta("error"), null);
   assert.equal(pesoEnKg("002.77", "lb"), 1.256, "2.77 lb = 1.256 kg");
   assert.equal(pesoEnKg("1", "lb"), 0.454);
+  assert.equal(pesoBasculaEnKg(2.77), 1.256, "la báscula reporta lb y el sistema siempre trabaja en kg");
   assert.equal(pesoEnKg("0", "lb"), null);
   assert.equal(pesoEnKg("1.5", "g"), null, "No redondear gramos fraccionarios silenciosamente");
   assert.equal(autorizacionTarjeta(" 012345 "), "012345");
