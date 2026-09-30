@@ -149,7 +149,7 @@ export function imprimirTicket(titulo: string, contenidoHTML: string, ventanaPre
           body {
             width: 80mm;
             margin: 0;
-            padding: 4mm 3mm;
+            padding: 4mm 4mm;
             font-family: Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
             font-size: 13px;
             font-weight: 600;
@@ -164,6 +164,8 @@ export function imprimirTicket(titulo: string, contenidoHTML: string, ventanaPre
           }
           .centro { text-align: center; }
           .titulo { font-size: 17px; font-weight: 800; letter-spacing: 0.04em; }
+          /* Logo en blanco y negro a 384 px = 48 mm a 203 dpi: un punto de imagen por punto de la térmica. */
+          .logo { display: block; width: 48mm; height: auto; margin: 6px auto 2px; image-rendering: pixelated; }
           .sucursal { font-size: 14px; font-weight: 700; }
           .sep { border-top: 1px dashed #000; margin: 5px 0; }
           .fila { display: flex; justify-content: space-between; gap: 6px; }
