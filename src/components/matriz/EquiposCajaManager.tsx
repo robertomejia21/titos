@@ -6,6 +6,8 @@ import { ChevronDown } from "lucide-react";
 import { Button, Card, FormField, FormGrid, Input, Select } from "@/components/ui";
 import { BAUDIOS, EQUIPO_VACIO, PRUEBAS_EQUIPO, pesoEnKg, type EquipoCajaConfig } from "@/lib/equiposCaja";
 import { leerPuertoDiagnostico, type SerialApi } from "@/lib/serialDiagnostico";
+import { imprimirTicketPrueba } from "@/lib/ticketVenta";
+import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 
 type Datos = {
   sucursalId: string; sucursales: { _id: string; nombre: string }[];
@@ -28,6 +30,7 @@ function TarjetaEquipo({ titulo, abierta = false, children }: { titulo: string; 
 }
 
 export function EquiposCajaManager() {
+  const zona = useZonaHoraria();
   const [datos, setDatos] = useState<Datos | null>(null);
   const [sucursal, setSucursal] = useState("");
   const [form, setForm] = useState<EquipoCajaConfig>(EQUIPO_VACIO);
@@ -126,6 +129,9 @@ export function EquiposCajaManager() {
       <TarjetaEquipo titulo="2. Probar lector y peso"><p className="mb-4 text-sm">Estas pruebas no crean ventas ni cobran dinero.</p>
         <FormField label="Prueba del lector"><Input aria-label="Prueba del lector" value={codigo} maxLength={80} onChange={e => setCodigo(e.target.value)} placeholder="Haz clic aquí y escanea un producto" /></FormField>
         {codigo && <p className="mt-2 break-all text-sm" role="status">Código recibido: {codigo} · {codigo.length} caracteres. Compáralo con la etiqueta. Esto no confirma lectura de peso.</p>}
+        <h3 className="mb-3 mt-6 font-semibold">Probar la impresora de tickets</h3>
+        <p className="mb-3 text-sm">Imprime un ticket de prueba con el logo, una regla de 32 columnas y ejemplos de kilos y totales. No crea ventas.</p>
+        <Button onClick={() => imprimirTicketPrueba({ zonaHoraria: zona })}>Imprimir ticket de prueba</Button>
         <h3 className="mb-3 mt-6 font-semibold">Comprobar el cálculo por kilogramo</h3>
         <p className="mb-3 text-sm">Coloca el producto, espera que se estabilice y copia el peso neto del visor. No restes la tara dos veces. Esta prueba no aplica promociones ni cambia impuestos.</p>
         <FormGrid><FormField label="Peso del visor"><Input aria-label="Peso del visor" value={peso} inputMode="decimal" onChange={e => setPeso(e.target.value)} /></FormField><FormField label="Unidad del visor"><Select aria-label="Unidad del visor" value={unidad} onChange={e => setUnidad(e.target.value as "kg" | "g" | "lb")}><option value="kg">Kilogramos</option><option value="g">Gramos</option><option value="lb">Libras</option></Select></FormField><FormField label="Precio por kilogramo"><Input aria-label="Precio por kilogramo" value={precio} inputMode="decimal" onChange={e => setPrecio(e.target.value)} /></FormField></FormGrid>

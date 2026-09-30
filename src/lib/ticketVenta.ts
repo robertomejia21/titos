@@ -1,6 +1,7 @@
 import { escaparHTML, imprimirTicket } from "@/lib/print";
 import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
 import { ETIQUETA_TIPO_TARJETA_CORTA, esTipoTarjeta } from "@/lib/tarjetas";
+import { LOGO_TICKET } from "@/lib/logoTicket";
 
 // Ticket de venta para la impresora térmica del mostrador. Vive aparte del
 // punto de venta para que el historial de ventas pueda reimprimir exactamente
@@ -89,7 +90,7 @@ function encabezado(venta: VentaTicket, sucursalNombre: string) {
   const nombre = `${sucursalNombre || "Sucursal"}${venta.esVentas2 ? " *" : ""}`;
   return `
     <div class="centro">
-      <div class="titulo">MERCADOS TITOS</div>
+      <img class="logo" src="${LOGO_TICKET}" alt="MERCADOS TITOS" />
       <div class="sucursal">${escaparHTML(nombre)}</div>
     </div>
   `;
@@ -250,4 +251,39 @@ export function imprimirTicketVenta(
   ventanaPreparada?: Window | null
 ) {
   return imprimirTicket(`Ticket ${venta.folio}`, ticketVentaHTML(venta, opciones), ventanaPreparada);
+}
+
+/**
+ * Ticket de prueba para revisar la impresora térmica: logo, regla de 32 columnas
+ * (si se corta un borde, el ancho del papel o los márgenes del driver están mal),
+ * dígitos, kilos con tres decimales y un total. No es una venta: no toca la base.
+ */
+export function ticketPruebaHTML(opciones: { sucursalNombre?: string; zonaHoraria: string }) {
+  const venta: VentaTicket = {
+    folio: "PRUEBA",
+    fecha: new Date(),
+    items: [
+      { nombreProducto: "AGUAYON (prueba)", cantidad: 1.256, unidad: "kg", precioUnitario: 349, subtotal: 438.34 },
+      { nombreProducto: "PRODUCTO EN PIEZA (prueba)", cantidad: 2, unidad: "pieza", precioUnitario: 15.5, subtotal: 31 },
+    ],
+    total: 469.34,
+    pagos: [{ metodoPago: "efectivo", monto: 469.34 }],
+    montoRecibido: 500,
+    cambio: 30.66,
+  };
+  const regla = "12345678901234567890123456789012";
+  return `
+    <div class="centro fuerte">*** TICKET DE PRUEBA ***</div>
+    <div class="centro tenue">No es una venta ni cobra dinero</div>
+    <div class="centro tenue">${regla}</div>
+    <div class="centro tenue">0123456789 &nbsp; 5 6 8 3 &nbsp; 0.123 kg</div>
+    ${ticketVentaHTML(venta, { sucursalNombre: opciones.sucursalNombre || "Prueba de impresión", zonaHoraria: opciones.zonaHoraria })}
+    <div class="centro tenue">${regla}</div>
+    <div class="centro tenue">Si ves el logo, la regla completa y el</div>
+    <div class="centro tenue">corte limpio, la impresora está lista.</div>
+  `;
+}
+
+export function imprimirTicketPrueba(opciones: { sucursalNombre?: string; zonaHoraria: string }) {
+  return imprimirTicket("Ticket de prueba", ticketPruebaHTML(opciones));
 }
