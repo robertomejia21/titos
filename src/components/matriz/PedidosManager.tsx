@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
-import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, formatMoney } from "@/components/ui";
+import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, formatMoney, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
 import { imprimirHTML } from "@/lib/print";
 import { fechaEnZona, formatFechaHora, sumarDias, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
@@ -491,39 +492,39 @@ function PedidoModal({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-black/10 text-black/50">
-              <th className="py-1.5 pr-2">Producto</th>
-              <th className="py-1.5 pr-2">Pedido</th>
-              {pedido.estado !== "pendiente" ? <th className="py-1.5 pr-2">Nivelado</th> : null}
-              <th className="py-1.5 pr-2">Precio venta</th>
-              {editable ? <th className="py-1.5 pr-2">Surtir cantidad</th> : null}
-              {editable ? <th className="py-1.5 pr-2">Peso (kg)</th> : null}
-              {!editable && pedido.estado !== "pendiente" ? <th className="py-1.5 pr-2">Surtido</th> : null}
-              {pedido.estado === "recibido" ? <th className="py-1.5 pr-2">Recibido</th> : null}
-              <th className="py-1.5 pr-2">Subtotal</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Producto</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Pedido</th>
+              {pedido.estado !== "pendiente" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Nivelado</th> : null}
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Precio venta</th>
+              {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Surtir cantidad</th> : null}
+              {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Peso (kg)</th> : null}
+              {!editable && pedido.estado !== "pendiente" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Surtido</th> : null}
+              {pedido.estado === "recibido" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Subtotal</th>
             </tr>
           </thead>
           <tbody>
             {itemsDeCategoria(tabActiva).map((item) => (
               <tr key={item.productoId} className="border-b border-black/5">
-                <td className="py-1.5 pr-2 font-medium">
-                  {item.nombreProducto}
-                  {item.notaRecepcion ? <p className="mt-1 whitespace-pre-wrap text-xs font-normal text-black/70">Nota de recepción: {item.notaRecepcion}</p> : null}
+                <td className="whitespace-nowrap px-2 py-1.5 font-medium">
+                  <span className="inline-block max-w-[16rem] truncate align-bottom" title={item.nombreProducto}>{item.nombreProducto}</span>
+                  {item.notaRecepcion ? <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-900" title={`Nota de recepción: ${item.notaRecepcion}`}>Nota de recepción</span> : null}
                   {item.requierePesaje ? <span className="ml-1 text-xs text-titos-orange-600">(pesaje)</span> : null}
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="whitespace-nowrap px-2 py-1.5">
                   {item.cantidadPedida} {item.unidad}
                 </td>
                 {pedido.estado !== "pendiente" ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {item.cantidadAsignada}
                     {item.cantidadAsignada !== item.cantidadPedida ? (
                       <span className="ml-1 text-xs text-amber-600">(nivelado)</span>
                     ) : null}
                   </td>
                 ) : null}
-                <td className="py-1.5 pr-2">{formatMoney(item.precioVenta)}</td>
+                <td className="whitespace-nowrap px-2 py-1.5">{formatMoney(item.precioVenta)}</td>
                 {editable ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     <Input
                       type="number"
                       min="0"
@@ -534,7 +535,7 @@ function PedidoModal({
                   </td>
                 ) : null}
                 {editable ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {item.requierePesaje ? (
                       <Input
                         type="number"
@@ -551,26 +552,26 @@ function PedidoModal({
                   </td>
                 ) : null}
                 {!editable && pedido.estado !== "pendiente" ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {item.cantidadSurtida}
                     {item.pesoSurtidoKg ? ` (${item.pesoSurtidoKg} kg)` : ""}
                   </td>
                 ) : null}
                 {pedido.estado === "recibido" ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {item.cantidadRecibida}
                     {item.pesoRecibidoKg ? ` (${item.pesoRecibidoKg} kg)` : ""}
                   </td>
                 ) : null}
-                <td className="py-1.5 pr-2 font-medium">{formatMoney(montoLineaPedido(item))}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 font-medium">{formatMoney(montoLineaPedido(item))}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr>
               <td colSpan={pedido.estado === "pendiente" ? 3 : 4} />
-              <td className="pt-2 text-right text-xs font-semibold uppercase text-black/40">Total del pedido</td>
-              <td className="pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
+              <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total del pedido</td>
+              <td className="whitespace-nowrap px-2 pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
             </tr>
           </tfoot>
         </table>
@@ -664,6 +665,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<MatrizData | null>(null);
   const [corteSeleccionado, setCorteSeleccionado] = useState(fechaISO(0));
   const [loading, setLoading] = useState(true);
+  const { pagina: paginaProductos, paginacion: paginacionProductos } = usePaginacion(data?.productos ?? [], corteSeleccionado);
 
   async function cargar(corte: string) {
     setLoading(true);
@@ -697,25 +699,25 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                 <tr>
                   <th
                     rowSpan={2}
-                    className="sticky left-0 z-10 border-b border-black/5 bg-titos-green-100/40 px-3 py-2.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
+                    className="sticky left-0 z-10 border-b border-black/5 bg-titos-green-100/40 px-2 py-1.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
                   >
                     Producto
                   </th>
                   <th
                     rowSpan={2}
-                    className="border-b border-l border-black/5 bg-titos-green-100/70 px-3 py-2.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
+                    className="border-b border-l border-black/5 bg-titos-green-100/70 px-2 py-1.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
                   >
                     Inv. almacén
                   </th>
                   <th
                     colSpan={data.sucursales.length}
-                    className="border-b border-l border-black/5 bg-titos-green-600 px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-white"
+                    className="border-b border-l border-black/5 bg-titos-green-600 px-2 py-1.5 text-center text-xs font-semibold uppercase tracking-wide text-white"
                   >
                     Pedido / surtido
                   </th>
                   <th
                     rowSpan={2}
-                    className="border-b border-l border-black/5 bg-titos-green-100/70 px-3 py-2.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
+                    className="border-b border-l border-black/5 bg-titos-green-100/70 px-2 py-1.5 text-center align-bottom text-xs font-semibold uppercase tracking-wide text-titos-green-900"
                   >
                     Pendiente de compra
                   </th>
@@ -724,7 +726,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                   {data.sucursales.map((s) => (
                     <th
                       key={s._id}
-                      className="border-b border-l border-black/5 bg-titos-green-100/40 px-3 py-2 text-center text-xs font-medium text-titos-green-700"
+                      className="border-b border-l border-black/5 bg-titos-green-100/40 px-2 py-1.5 text-center text-xs font-medium text-titos-green-700"
                     >
                       {s.nombre}
                     </th>
@@ -732,13 +734,13 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {data.productos.map((p) => (
+                {paginaProductos.map((p) => (
                   <tr key={p.productoId} className="group">
-                    <td className="sticky left-0 z-10 bg-white px-3 py-2.5 font-medium text-black/80 group-hover:bg-black/1.5">
+                    <td className="sticky left-0 z-10 max-w-[16rem] truncate whitespace-nowrap bg-white px-2 py-1.5 font-medium text-black/80 group-hover:bg-black/1.5" title={p.nombreProducto}>
                       {p.nombreProducto}
                     </td>
-                    <td className="border-l border-black/5 px-3 py-2.5 text-center group-hover:bg-black/1.5">
-                      <span className="inline-flex min-w-9 items-center justify-center rounded-md bg-titos-green-100 px-2 py-0.5 font-semibold text-titos-green-700">
+                    <td className="border-l border-black/5 px-2 py-1.5 text-center group-hover:bg-black/1.5">
+                      <span className="inline-flex min-w-9 items-center justify-center rounded-md bg-titos-green-100 px-2 py-0.5 text-xs font-semibold text-titos-green-700">
                         {p.existenciaMatriz}
                       </span>
                     </td>
@@ -750,7 +752,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                       return (
                         <td
                           key={s._id}
-                          className="border-l border-black/5 px-3 py-2.5 text-center group-hover:bg-black/1.5"
+                          className="border-l border-black/5 px-2 py-1.5 text-center group-hover:bg-black/1.5"
                         >
                           {pedido > 0 ? (
                             <span className="inline-flex items-baseline gap-1 tabular-nums">
@@ -766,13 +768,13 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                         </td>
                       );
                     })}
-                    <td className="border-l border-black/5 px-3 py-2.5 text-center group-hover:bg-black/1.5">
+                    <td className="border-l border-black/5 px-2 py-1.5 text-center group-hover:bg-black/1.5">
                       {p.pendienteCompra > 0 ? (
-                        <span className="inline-flex min-w-9 items-center justify-center rounded-md bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
+                        <span className="inline-flex min-w-9 items-center justify-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                           {p.pendienteCompra}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center justify-center gap-1 text-xs font-medium text-titos-green-600">
+                        <span className="inline-flex items-center justify-center gap-1 whitespace-nowrap text-xs font-medium text-titos-green-600">
                           <Check className="h-3.5 w-3.5" /> cubierto
                         </span>
                       )}
@@ -782,6 +784,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionProductos} />
           <p className="mt-3 text-xs text-black/40">
             Cada celda de sucursal muestra <span className="font-medium text-black/60">pedido / surtido</span> tras
             ejecutar el Nivelador. En <span className="font-semibold text-red-600">rojo</span>, lo que no alcanzó a
@@ -827,6 +830,8 @@ export function PedidosManager() {
     if (tab === "historial") return pedidos.filter((p) => p.estado === "surtido" || p.estado === "recibido");
     return pedidos.filter((p) => p.estado === tab);
   }, [pedidos, tab]);
+
+  const { pagina: paginaPedidos, paginacion: paginacionPedidos } = usePaginacion(visibles, tab);
 
   const hayNivelados = useMemo(() => pedidos.some((p) => p.estado !== "pendiente"), [pedidos]);
 
@@ -921,38 +926,41 @@ export function PedidosManager() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Sucursal</th>
-                  <th className="py-2 pr-2">Folio</th>
-                  <th className="py-2 pr-2">Estado</th>
-                  <th className="py-2 pr-2">Corte</th>
-                  <th className="py-2 pr-2">Productos</th>
-                  <th className="py-2 pr-2">Repartidor</th>
-                  <th className="py-2 pr-2">Total</th>
-                  <th className="py-2 pr-2" />
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Folio</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Estado</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Corte</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Productos</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Repartidor</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Total</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((p) => (
+                {paginaPedidos.map((p) => (
                   <tr key={p._id} className="border-b border-black/5">
-                    <td className="py-2 pr-2 font-medium">{nombreSucursal(p)}</td>
-                    <td className="py-2 pr-2 text-black/40">{p.folio}</td>
-                    <td className="py-2 pr-2">
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={nombreSucursal(p)}>{nombreSucursal(p)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{p.folio}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">
                       <EstadoBadge estado={p.estado} />
                     </td>
-                    <td className="py-2 pr-2 text-black/40">{p.corte}</td>
-                    <td className="py-2 pr-2 text-black/60">{p.items.length}</td>
-                    <td className="py-2 pr-2 text-black/60">{repartidorDe(p)?.nombre ?? "—"}</td>
-                    <td className="py-2 pr-2 font-medium text-titos-green-900">{formatMoney(totalPedido(p))}</td>
-                    <td className="py-2 pr-2">
-                      <Button variant="ghost" onClick={() => setPedidoModal(p)}>
-                        {p.estado === "nivelado" ? "Ver / Surtir" : "Ver detalle"}
-                      </Button>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{p.corte}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{p.items.length}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{repartidorDe(p)?.nombre ?? "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{formatMoney(totalPedido(p))}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setPedidoModal(p)}>
+                          {p.estado === "nivelado" ? "Ver / Surtir" : "Ver detalle"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionPedidos} />
         </Card>
       )}
 

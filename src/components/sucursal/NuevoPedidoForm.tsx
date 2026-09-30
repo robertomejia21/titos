@@ -251,10 +251,10 @@ export function NuevoPedidoForm() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Producto</th>
-                    <th className="py-2 pr-2">Categoría</th>
-                    <th className="py-2 pr-2">Cantidad a pedir</th>
-                    <th className="py-2 pr-2" />
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Producto</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Categoría</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Cantidad a pedir</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                   </tr>
                 </thead>
                 <tbody>
@@ -262,9 +262,9 @@ export function NuevoPedidoForm() {
                     const sugerido = sugeridoPara(l.productoId);
                     return (
                       <tr key={l.productoId} className="border-b border-black/5">
-                        <td className="py-2 pr-2 font-medium">{l.nombre}</td>
-                        <td className="py-2 pr-2 capitalize text-black/60">{categoriaLabel(l.categoria)}</td>
-                        <td className="py-2 pr-2">
+                        <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={l.nombre}>{l.nombre}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 capitalize text-black/60">{categoriaLabel(l.categoria)}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5">
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
@@ -287,8 +287,8 @@ export function NuevoPedidoForm() {
                             ) : null}
                           </div>
                         </td>
-                        <td className="py-2 pr-2">
-                          <button onClick={() => quitarLinea(l.productoId)} className="text-sm text-red-500">
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                          <button onClick={() => quitarLinea(l.productoId)} className="text-xs text-red-500">
                             Quitar
                           </button>
                         </td>

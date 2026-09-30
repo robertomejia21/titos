@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Store, User } from "lucide-react";
-import { Card, Input, Select, EmptyState, FormField, formatMoney } from "@/components/ui";
+import { Card, Input, Select, EmptyState, FormField, Pagination, formatMoney } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
 
@@ -83,6 +84,7 @@ export function BitacoraManager() {
   const [sucursalId, setSucursalId] = useState("");
   const [usuarioId, setUsuarioId] = useState("");
   const [tipos, setTipos] = useState<string[]>([]);
+  const { pagina, paginacion } = usePaginacion(eventos, [desde, hasta, sucursalId, usuarioId, tipos.join(",")].join("|"));
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -188,28 +190,41 @@ export function BitacoraManager() {
         ) : eventos.length === 0 ? (
           <EmptyState message="No hay movimientos registrados con esos filtros." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-3">Hora</th>
-                  <th className="py-2 pr-3">Tipo</th>
-                  <th className="py-2 pr-3">Quién</th>
-                  <th className="py-2 pr-3">Sucursal</th>
-                  <th className="py-2 pr-3">Qué hizo</th>
-                  <th className="py-2 pr-3 text-right">Importe</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Hora</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Tipo</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Quién</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Qué hizo</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Importe</th>
                 </tr>
               </thead>
               <tbody>
-                {eventos.map((e) => (
-                  <tr key={e.id} className="border-b border-black/5 align-top">
-                    {/* La hora va en grande y aparte de la fecha: al auditar una
+                {pagina.map((e) => {
+                  const items = e.items ?? [];
+                  const que = `${e.descripcion}${e.detalle ? ` · ${e.detalle}` : ""}`;
+                  // Desglose de los productos: en una cancelación parcial es
+                  // lo único que dice qué se quitó y cuánto.
+                  const desglose = items
+                    .map((i) => `${i.nombreProducto || "Producto"} × ${cantidadTexto(i)} · ${formatMoney(i.importe)}`)
+                    .join("\n");
+                  return (
+                  <tr key={e.id} className="border-b border-black/5">
+                    {/* La hora va resaltada y aparte de la fecha: al auditar una
                         cancelación lo primero que se cruza es contra el turno. */}
-                    <td className="whitespace-nowrap py-2 pr-3">
-                      <span className="block font-semibold text-black/70">{formatHora(e.fecha, zonaHoraria)}</span>
-                      <span className="block text-xs text-black/40">{formatFechaLarga(e.fecha, zonaHoraria)}</span>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-black/70">
+                      {formatHora(e.fecha, zonaHoraria)}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-black/40">
+                      {formatFechaLarga(e.fecha, zonaHoraria)}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-1.5">
                       <span
                         className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${
                           COLOR_TIPO[e.tipo] ?? "bg-black/5 text-black/60"
@@ -218,36 +233,43 @@ export function BitacoraManager() {
                         {ETIQUETA_TIPO[e.tipo] ?? e.tipo}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 font-medium">{e.usuarioNombre || "—"}</td>
-                    <td className="py-2 pr-3 text-black/60">{e.sucursalNombre || "—"}</td>
-                    <td className="py-2 pr-3">
-                      {e.descripcion}
-                      <span className="block text-xs text-black/40">
-                        {e.folio}
-                        {e.detalle ? ` · ${e.detalle}` : ""}
-                      </span>
-                      {/* Desglose de los productos: en una cancelación parcial es
-                          lo único que dice qué se quitó y cuánto. */}
-                      {(e.items ?? []).length > 0 ? (
-                        <ul className="mt-1 space-y-0.5 border-l-2 border-black/10 pl-2">
-                          {(e.items ?? []).map((i, idx) => (
-                            <li key={idx} className="flex flex-wrap items-baseline gap-x-1.5 text-xs">
-                              <span className="font-medium text-black/70">{i.nombreProducto || "Producto"}</span>
-                              <span className="text-black/50">× {cantidadTexto(i)}</span>
-                              <span className="text-black/40">{formatMoney(i.importe)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">{e.usuarioNombre || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{e.sucursalNombre || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/40">{e.folio || "—"}</td>
+                    <td className="px-2 py-1.5">
+                      {/* El desglose se despliega con clic (no solo tooltip) para
+                          que también se pueda consultar desde una tablet. */}
+                      <details className="group max-w-[24rem]">
+                        <summary className={`flex items-center gap-1.5 ${items.length > 0 ? "cursor-pointer" : "pointer-events-none"} list-none`}>
+                          <span className="truncate" title={desglose ? `${que}\n${desglose}` : que}>
+                            {que}
+                          </span>
+                          {items.length > 0 ? (
+                            <span className="shrink-0 whitespace-nowrap rounded-full bg-black/5 px-2 py-0.5 text-xs text-black/60 group-open:bg-titos-green-100 group-open:text-titos-green-800">
+                              {items.length} {items.length === 1 ? "producto" : "productos"}
+                            </span>
+                          ) : null}
+                        </summary>
+                        {items.length > 0 ? (
+                          <ul className="mt-1 space-y-0.5 border-l-2 border-black/10 pl-2 text-xs text-black/70">
+                            {items.map((i, idx) => (
+                              <li key={idx}>{i.nombreProducto || "Producto"} × {cantidadTexto(i)} · {formatMoney(i.importe)}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </details>
                     </td>
-                    <td className="whitespace-nowrap py-2 pr-3 text-right font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right font-medium">
                       {e.importe == null ? "—" : formatMoney(e.importe)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
     </div>

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, TriangleAlert, Clock, Wallet, Printer } from "lucide-react";
-import { Button, Card, EmptyState, FormField, Input, formatMoney } from "@/components/ui";
+import { Button, Card, EmptyState, FormField, Input, Pagination, formatMoney } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
@@ -68,6 +69,7 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
   const [cargando, setCargando] = useState(true);
   const [pagando, setPagando] = useState<string | null>(null);
   const [errorPago, setErrorPago] = useState<string | null>(null);
+  const { pagina, paginacion } = usePaginacion(devoluciones);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -299,12 +301,13 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-black/10 text-black/50">
-                        <th className="py-2 pr-2">Producto</th>
-                        <th className="py-2 pr-2 text-right">Vendido</th>
-                        <th className="py-2 pr-2 text-right">Ya devuelto</th>
-                        <th className="py-2 pr-2 text-right">Precio</th>
-                        <th className="py-2 pr-2 text-right">Devolver</th>
-                        <th className="py-2 pl-2 text-right">Subtotal</th>
+                        <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                        <th className="px-2 py-1.5 text-xs font-medium">SKU</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Vendido</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Ya devuelto</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Precio</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Devolver</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -313,16 +316,16 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                         const agotado = item.cantidadDisponible <= 0;
                         return (
                           <tr key={item.productoId} className={`border-b border-black/5 ${agotado ? "opacity-50" : ""}`}>
-                            <td className="py-2 pr-2">
+                            <td className="max-w-[16rem] truncate px-2 py-1.5" title={item.nombreProducto}>
                               {item.nombreProducto}
-                              <span className="block font-mono text-xs text-black/40">{item.sku}</span>
                             </td>
-                            <td className="py-2 pr-2 text-right text-black/60">
+                            <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/40">{item.sku}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">
                               {item.cantidadVendida} {item.unidad}
                             </td>
-                            <td className="py-2 pr-2 text-right text-black/60">{item.cantidadDevuelta || "—"}</td>
-                            <td className="py-2 pr-2 text-right text-black/60">{formatMoney(item.precioUnitario)}</td>
-                            <td className="py-2 pr-2 text-right">
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">{item.cantidadDevuelta || "—"}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">{formatMoney(item.precioUnitario)}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right">
                               <div className="ml-auto w-28">
                                 <Input
                                   type="number"
@@ -338,7 +341,7 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                                 />
                               </div>
                             </td>
-                            <td className="py-2 pl-2 text-right font-semibold">
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">
                               {cantidad > 0 ? formatMoney(cantidad * item.precioUnitario) : "—"}
                             </td>
                           </tr>
@@ -378,40 +381,44 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
         ) : devoluciones.length === 0 ? (
           <EmptyState message="Todavía no se han registrado devoluciones." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Folio</th>
-                  <th className="py-2 pr-2">Venta</th>
-                  <th className="py-2 pr-2">Fecha</th>
-                  <th className="py-2 pr-2">Productos</th>
-                  <th className="py-2 pr-2 text-right">Total</th>
-                  <th className="py-2 pr-2 text-right">En efectivo</th>
-                  <th className="py-2 pr-2">Estado</th>
-                  <th className="w-px py-2 pl-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Venta</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Registró / pagó</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Productos</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Total</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">En efectivo</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Estado</th>
+                  <th className="w-px px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
-                {devoluciones.map((d) => (
+                {pagina.map((d) => {
+                  // Quién la capturó y quién sacó el efectivo: son dos personas
+                  // distintas cuando el reembolso se paga en otro turno.
+                  const usuarios = `Registró: ${nombreUsuario(d.usuarioId) ?? "—"}${
+                    d.estado === "pagada" ? ` · Pagó: ${nombreUsuario(d.pagadaPorId) ?? "—"}` : ""
+                  }`;
+                  const productos = d.items.map((i) => `${i.nombreProducto} ×${i.cantidad}`).join(", ");
+                  return (
                   <tr key={d._id} className="border-b border-black/5">
-                    <td className="py-2 pr-2 font-mono text-xs">{d.folio}</td>
-                    <td className="py-2 pr-2 font-mono text-xs text-black/50">{d.ventaFolio}</td>
-                    <td className="py-2 pr-2 text-black/60">
-                      {formatFechaHora(d.fecha, zonaHoraria)}
-                      {/* Quién la capturó y quién sacó el efectivo: son dos personas
-                          distintas cuando el reembolso se paga en otro turno. */}
-                      <span className="block text-xs text-black/40">
-                        Registró: {nombreUsuario(d.usuarioId) ?? "—"}
-                        {d.estado === "pagada" ? ` · Pagó: ${nombreUsuario(d.pagadaPorId) ?? "—"}` : ""}
-                      </span>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{d.folio}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/50">{d.ventaFolio}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{formatFechaHora(d.fecha, zonaHoraria)}</td>
+                    <td className="max-w-[14rem] truncate px-2 py-1.5 text-xs text-black/50" title={usuarios}>
+                      {usuarios}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">
-                      {d.items.map((i) => `${i.nombreProducto} ×${i.cantidad}`).join(", ")}
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/60" title={productos}>
+                      {productos}
                     </td>
-                    <td className="py-2 pr-2 text-right font-semibold">{formatMoney(d.total)}</td>
-                    <td className="py-2 pr-2 text-right text-black/60">{formatMoney(d.montoEfectivo)}</td>
-                    <td className="py-2 pr-2">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">{formatMoney(d.total)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">{formatMoney(d.montoEfectivo)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                           d.estado === "pagada"
@@ -424,8 +431,8 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                         {d.estado === "pendiente" ? "Pendiente de pago" : d.estado}
                       </span>
                     </td>
-                    <td className="w-px py-2 pl-2 text-right whitespace-nowrap">
-                      <div className="flex justify-end gap-1.5">
+                    <td className="w-px whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -447,10 +454,13 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
     </div>

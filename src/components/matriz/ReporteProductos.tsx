@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, Pagination } from "@/components/ui";
 
 type Totales = {importe: number; piezas: number; kg: number};
 type Datos = {filas: {_id: {producto: string; sku: string; unidad: string}; nombre: string; cantidad: number; importe: number; sucursales: {id: string; cantidad: number; importe: number}[]}[]; total: number; porPagina: number; pagina: number; totales: Totales; porSucursal: (Totales & {_id: string})[]; sucursales: {id: string; nombre: string}[]};
@@ -53,17 +53,17 @@ export function ReporteProductos() {
       {datos.total === 0 ? <Card>No hay ventas de productos con estos filtros.</Card> : <>
         <div className="overflow-x-auto rounded-lg border border-black/10 bg-white" tabIndex={0} role="region" aria-label="Comparación de ventas por sucursal">
           <table className="w-full text-left text-sm">
-            <caption className="p-3 text-left">{datos.total} productos · Cada celda muestra cantidad e importe.</caption>
-            <thead><tr className="border-b border-black/10"><th scope="col" className="p-3">Producto / SKU</th><th scope="col" className="p-3">Unidad</th>{datos.sucursales.map((s) => <th key={s.id} scope="col" className="min-w-36 p-3">{s.nombre}</th>)}<th scope="col" className="min-w-36 p-3">Total</th></tr></thead>
+            <caption className="px-2 py-1.5 text-left text-xs text-black/60">{datos.total} productos · Cada celda muestra cantidad e importe.</caption>
+            <thead><tr className="border-b border-black/10 text-black/50"><th scope="col" className="px-2 py-1.5 text-xs font-medium">Producto</th><th scope="col" className="px-2 py-1.5 text-xs font-medium">SKU</th><th scope="col" className="px-2 py-1.5 text-xs font-medium">Unidad</th>{datos.sucursales.map((s) => <th key={s.id} scope="col" className="whitespace-nowrap px-2 py-1.5 text-right text-xs font-medium">{s.nombre}</th>)}<th scope="col" className="px-2 py-1.5 text-right text-xs font-medium">Total</th></tr></thead>
             <tbody>{datos.filas.map((fila) => <tr key={`${fila._id.producto}:${fila._id.sku}:${fila._id.unidad}`} className="border-b border-black/5">
-              <th scope="row" className="min-w-48 p-3 font-medium">{fila.nombre}<span className="block text-xs text-black/60">{fila._id.sku}</span></th><td className="p-3">{fila._id.unidad}</td>
-              {datos.sucursales.map((s) => {const celda = fila.sucursales.find((c) => c.id === s.id); return <td key={s.id} className="p-3 tabular-nums">{numero(celda?.cantidad ?? 0)}<span className="block text-xs text-black/60">{dinero(celda?.importe ?? 0)}</span></td>;})}
-              <td className="p-3 font-semibold tabular-nums">{numero(fila.cantidad)}<span className="block text-xs">{dinero(fila.importe)}</span></td>
+              <th scope="row" className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={fila.nombre}>{fila.nombre}</th><td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/60">{fila._id.sku}</td><td className="whitespace-nowrap px-2 py-1.5">{fila._id.unidad}</td>
+              {datos.sucursales.map((s) => {const celda = fila.sucursales.find((c) => c.id === s.id); return <td key={s.id} className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{numero(celda?.cantidad ?? 0)} <span className="text-xs text-black/60">{dinero(celda?.importe ?? 0)}</span></td>;})}
+              <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums">{numero(fila.cantidad)} <span className="text-xs">{dinero(fila.importe)}</span></td>
             </tr>)}</tbody>
-            <tfoot><tr className="bg-titos-green-100"><th colSpan={2} className="p-3">Total del periodo filtrado</th>{datos.sucursales.map((s) => {const t = datos.porSucursal.find((x) => x._id === s.id); return <td key={s.id} className="p-3 text-xs">{numero(t?.piezas ?? 0)} pzas · {numero(t?.kg ?? 0)} kg<strong className="block">{dinero(t?.importe ?? 0)}</strong></td>;})}<td className="p-3 font-semibold">{dinero(datos.totales.importe)}</td></tr></tfoot>
+            <tfoot><tr className="bg-titos-green-100"><th colSpan={3} className="px-2 py-1.5 text-xs">Total del periodo filtrado</th>{datos.sucursales.map((s) => {const t = datos.porSucursal.find((x) => x._id === s.id); return <td key={s.id} className="whitespace-nowrap px-2 py-1.5 text-right text-xs tabular-nums">{numero(t?.piezas ?? 0)} pzas · {numero(t?.kg ?? 0)} kg · <strong>{dinero(t?.importe ?? 0)}</strong></td>;})}<td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums">{dinero(datos.totales.importe)}</td></tr></tfoot>
           </table>
         </div>
-        <div className="flex flex-wrap items-center gap-3"><Button variant="ghost" disabled={datos.pagina <= 1} onClick={() => pagina(datos.pagina - 1)}>Anterior</Button><span className="text-sm">Página {datos.pagina} de {Math.ceil(datos.total / datos.porPagina)}</span><Button variant="ghost" disabled={datos.pagina * datos.porPagina >= datos.total} onClick={() => pagina(datos.pagina + 1)}>Siguiente</Button></div>
+        <Pagination page={datos.pagina} totalPages={Math.max(1, Math.ceil(datos.total / datos.porPagina))} totalItems={datos.total} pageSize={datos.porPagina} onChange={pagina} />
       </>}
     </> : null}
   </div>;

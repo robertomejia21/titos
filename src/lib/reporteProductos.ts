@@ -3,6 +3,8 @@ import Venta from "@/models/Venta";
 import Sucursal from "@/models/Sucursal";
 import { regexBusqueda } from "@/lib/busqueda";
 
+/** Renglones por página del reporte (igual que el resto de las tablas). */
+const POR_PAGINA = 20;
 export type FiltrosProductos = {desde: string; hasta: string; sucursal: string; q: string; unidad: string; notas: string; medida: string; orden: string; pagina: number};
 export function filtrosProductos(params: URLSearchParams): FiltrosProductos {
   const desde = params.get("desde") ?? "";
@@ -36,7 +38,7 @@ export async function obtenerReporteProductos(f: FiltrosProductos) {
     {$match: match}, {$unwind: "$items"}, {$match: filtroItem},
     {$group: {_id: {producto: "$items.productoId", sku: "$items.sku", unidad: "$items.unidad", sucursal: "$sucursalId"}, nombre: {$max: "$items.nombreProducto"}, cantidad: {$sum: "$items.cantidad"}, importe: {$sum: "$items.subtotal"}}},
     {$facet: {
-      filas: [{$group: {_id: {producto: "$_id.producto", sku: "$_id.sku", unidad: "$_id.unidad"}, nombre: {$max: "$nombre"}, cantidad: {$sum: "$cantidad"}, importe: {$sum: "$importe"}, sucursales: {$push: {id: "$_id.sucursal", cantidad: "$cantidad", importe: "$importe"}}}}, {$sort: {[f.medida]: f.orden === "desc" ? -1 : 1, "_id.sku": 1, "_id.producto": 1, "_id.unidad": 1}}, {$skip: (f.pagina - 1) * 50}, {$limit: 50}],
+      filas: [{$group: {_id: {producto: "$_id.producto", sku: "$_id.sku", unidad: "$_id.unidad"}, nombre: {$max: "$nombre"}, cantidad: {$sum: "$cantidad"}, importe: {$sum: "$importe"}, sucursales: {$push: {id: "$_id.sucursal", cantidad: "$cantidad", importe: "$importe"}}}}, {$sort: {[f.medida]: f.orden === "desc" ? -1 : 1, "_id.sku": 1, "_id.producto": 1, "_id.unidad": 1}}, {$skip: (f.pagina - 1) * POR_PAGINA}, {$limit: POR_PAGINA}],
       conteo: [{$group: {_id: {producto: "$_id.producto", sku: "$_id.sku", unidad: "$_id.unidad"}}}, {$count: "total"}],
       totales: [{$group: {_id: null, ...sumas}}],
       porSucursal: [{$group: {_id: "$_id.sucursal", ...sumas}}],
@@ -46,5 +48,5 @@ export async function obtenerReporteProductos(f: FiltrosProductos) {
   const resultado = resultados[0];
   const conocidas = new Map(sucursales.map((s) => [String(s._id), {id: String(s._id), nombre: s.nombre as string}]));
   for (const s of resultado.porSucursal) if (!conocidas.has(String(s._id))) conocidas.set(String(s._id), {id: String(s._id), nombre: "Sucursal no disponible"});
-  return {filas: resultado.filas, total: resultado.conteo[0]?.total ?? 0, pagina: f.pagina, porPagina: 50, totales: resultado.totales[0] ?? {importe: 0, piezas: 0, kg: 0}, porSucursal: resultado.porSucursal, sucursales: [...conocidas.values()].filter((s) => !f.sucursal || s.id === f.sucursal)};
+  return {filas: resultado.filas, total: resultado.conteo[0]?.total ?? 0, pagina: f.pagina, porPagina: POR_PAGINA, totales: resultado.totales[0] ?? {importe: 0, piezas: 0, kg: 0}, porSucursal: resultado.porSucursal, sucursales: [...conocidas.values()].filter((s) => !f.sucursal || s.id === f.sucursal)};
 }

@@ -6,6 +6,7 @@ import { PageHeader, Card, EmptyState, formatMoney } from "@/components/ui";
 import { resumirActivacionesVentas2, sincronizarVentas2 } from "@/lib/ventas2";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { fechaEnZona, formatFechaHora } from "@/lib/zonasHorarias";
+import { TablaMovimientosNotas } from "@/components/sucursal/TablaMovimientosNotas";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function Ventas2SucursalPage() {
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${estadoClase(activacion.estado)}`}>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${estadoClase(activacion.estado)}`}>
                       {activacion.estado}
                     </span>
                     {activacion.retiradoEn ? (
@@ -109,32 +110,16 @@ export default async function Ventas2SucursalPage() {
               {activacion.movimientos.length === 0 ? (
                 <EmptyState message="Todavia no hay ventas asignadas a este lapso." />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-black/10 text-black/50">
-                        <th className="py-2 pr-3">Hora</th>
-                        <th className="py-2 pr-3">Folio</th>
-                        <th className="py-2 pr-3">Secuencia</th>
-                        <th className="py-2 pr-3">Monto</th>
-                        <th className="py-2 pr-3">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activacion.movimientos.map((mov) => (
-                        <tr key={mov.id} className="border-b border-black/5">
-                          <td className="py-2 pr-3 text-black/60">{formatoFecha(mov.fecha)}</td>
-                          <td className="py-2 pr-3 font-medium text-titos-green-900">{mov.folio}</td>
-                          <td className="py-2 pr-3 text-black/60">
-                            {mov.secuenciaEfectivo ? `${mov.secuenciaEfectivo}a venta en efectivo` : "-"}
-                          </td>
-                          <td className="py-2 pr-3 font-semibold">{formatMoney(mov.total)}</td>
-                          <td className="py-2 pr-3 capitalize text-black/60">{mov.estado}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <TablaMovimientosNotas
+                  movimientos={activacion.movimientos.map((mov) => ({
+                    id: mov.id,
+                    fecha: formatoFecha(mov.fecha),
+                    folio: mov.folio,
+                    secuenciaEfectivo: mov.secuenciaEfectivo,
+                    total: mov.total,
+                    estado: mov.estado,
+                  }))}
+                />
               )}
             </Card>
           ))}

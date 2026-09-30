@@ -33,46 +33,55 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-black/10 text-black/50">
-                <th className="py-2 pr-2">Producto</th>
-                <th className="py-2 pr-2">Pedido</th>
-                <th className="py-2 pr-2">Asignado</th>
-                <th className="py-2 pr-2">Surtido</th>
-                <th className="py-2 pr-2">Recibido</th>
-                <th className="py-2 pr-2">Precio venta</th>
-                <th className="py-2 pr-2">Subtotal</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Pedido</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Asignado</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Surtido</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Recibido</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Diferencia</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Precio venta</th>
+                <th className="px-2 py-1.5 text-xs font-medium text-right">Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {pedido.items.map((item: (typeof pedido.items)[number]) => (
                 <tr key={item.productoId?.toString()} className="border-b border-black/5">
-                  <td className="py-2 pr-2 font-medium">
-                    {item.nombreProducto}
-                    {item.notaRecepcion ? <p className="mt-1 whitespace-pre-wrap text-xs font-normal text-black/70">Nota de recepción: {item.notaRecepcion}</p> : null}
-                    {item.requierePesaje ? <span className="ml-1 text-xs text-titos-orange-600">(pesaje)</span> : null}
+                  <td className="px-2 py-1.5 font-medium">
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      {item.nombreProducto}
+                      {item.requierePesaje ? <span className="text-xs text-titos-orange-600">(pesaje)</span> : null}
+                      {item.notaRecepcion ? (
+                        <span className="max-w-[16rem] truncate text-xs font-normal text-black/70" title={`Nota de recepción: ${item.notaRecepcion}`}>
+                          Nota de recepción: {item.notaRecepcion}
+                        </span>
+                      ) : null}
+                    </span>
                   </td>
-                  <td className="py-2 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     {item.cantidadPedida} {item.unidad}
                   </td>
-                  <td className="py-2 pr-2">{item.cantidadAsignada ?? "—"}</td>
-                  <td className="py-2 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">{item.cantidadAsignada ?? "—"}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     {item.cantidadSurtida ?? "—"}
                     {item.pesoSurtidoKg ? ` (${item.pesoSurtidoKg} kg)` : ""}
                   </td>
-                  <td className="py-2 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     {item.cantidadRecibida ?? "—"}
                     {item.pesoRecibidoKg ? ` (${item.pesoRecibidoKg} kg)` : ""}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 [&>p]:mt-0">
                     <DiferenciaRecepcion esperado={item.cantidadSurtida ?? 0} recibido={item.cantidadRecibida} referencia="lo surtido" />
                   </td>
-                  <td className="py-2 pr-2">{formatMoney(item.precioVenta ?? 0)}</td>
-                  <td className="py-2 pr-2 font-medium">{formatMoney(montoLineaPedido(item))}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">{formatMoney(item.precioVenta ?? 0)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right font-medium">{formatMoney(montoLineaPedido(item))}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={5} />
-                <td className="pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
-                <td className="pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
+                <td colSpan={6} />
+                <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
+                <td className="whitespace-nowrap px-2 pt-2 text-right font-semibold text-titos-green-900">{formatMoney(total)}</td>
               </tr>
             </tfoot>
           </table>

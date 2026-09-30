@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField } from "@/components/ui";
+import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Users, User, Briefcase, MessageCircle } from "lucide-react";
 import { PUESTOS_BASE } from "@/lib/puestos";
 
@@ -285,6 +286,7 @@ export function PersonalManager() {
       (e) => e.nombre.toLowerCase().includes(texto) || e.puesto.toLowerCase().includes(texto)
     );
   }, [empleados, busqueda]);
+  const { pagina, paginacion } = usePaginacion(visibles, busqueda);
 
   async function alternarActivo(empleado: Empleado) {
     const res = await fetch(`/api/empleados/${empleado._id}`, {
@@ -318,31 +320,32 @@ export function PersonalManager() {
         ) : visibles.length === 0 ? (
           <EmptyState message="No hay personal que coincida con la búsqueda." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2">Puesto</th>
-                  <th className="py-2 pr-2">WhatsApp</th>
-                  <th className="py-2 pr-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Puesto</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">WhatsApp</th>
+                  <th className="px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((e) => (
+                {pagina.map((e) => (
                   <tr key={e._id} className={`border-b border-black/5 ${!e.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {e.nombre}
                       {!e.activo ? <span className="ml-1 text-xs text-black/40">(inactivo)</span> : null}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">{e.puesto || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{e.whatsapp}</td>
-                    <td className="py-2 pr-2">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button variant="ghost" onClick={() => setEmpleadoModal(e)}>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{e.puesto || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{e.whatsapp}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEmpleadoModal(e)}>
                           Ver / Editar
                         </Button>
-                        <Button variant="ghost" onClick={() => alternarActivo(e)}>
+                        <Button size="sm" variant="ghost" onClick={() => alternarActivo(e)}>
                           {e.activo ? "Desactivar" : "Activar"}
                         </Button>
                       </div>
@@ -352,6 +355,8 @@ export function PersonalManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

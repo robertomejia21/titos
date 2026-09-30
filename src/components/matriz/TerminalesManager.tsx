@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { CreditCard, Store } from "lucide-react";
-import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
+import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 
 type Sucursal = { _id: string; nombre: string };
 
@@ -208,6 +209,7 @@ export function TerminalesManager() {
   }
 
   const visibles = filtroSucursal ? terminales.filter((t) => idSucursal(t) === filtroSucursal) : terminales;
+  const { pagina, paginacion } = usePaginacion(visibles, filtroSucursal);
 
   return (
     <div>
@@ -241,34 +243,36 @@ export function TerminalesManager() {
         ) : visibles.length === 0 ? (
           <EmptyState message="Todavía no hay terminales registradas." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Terminal</th>
-                  <th className="py-2 pr-2">Sucursal</th>
-                  <th className="py-2 pr-2">Banco</th>
-                  <th className="py-2 pr-2">Serie / afiliación</th>
-                  <th className="py-2 pr-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Terminal</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Marca</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Banco</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Serie / afiliación</th>
+                  <th className="px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((t) => (
+                {pagina.map((t) => (
                   <tr key={t._id} className={`border-b border-black/5 ${!t.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {t.alias}
                       {!t.activo ? <span className="ml-1 text-xs text-black/40">(inactiva)</span> : null}
-                      {t.marca ? <span className="block text-xs text-black/40">{t.marca}</span> : null}
                     </td>
-                    <td className="py-2 pr-2">{nombreSucursal(t)}</td>
-                    <td className="py-2 pr-2">{t.banco || "—"}</td>
-                    <td className="py-2 pr-2 font-mono text-xs">{t.numeroSerie || "—"}</td>
-                    <td className="py-2 pr-2">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button variant="ghost" onClick={() => setEditando(t)}>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-black/40">{t.marca || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{nombreSucursal(t)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{t.banco || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{t.numeroSerie || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditando(t)}>
                           Ver / Editar
                         </Button>
-                        <Button variant="ghost" onClick={() => alternarActivo(t)}>
+                        <Button size="sm" variant="ghost" onClick={() => alternarActivo(t)}>
                           {t.activo ? "Desactivar" : "Activar"}
                         </Button>
                       </div>
@@ -278,6 +282,8 @@ export function TerminalesManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

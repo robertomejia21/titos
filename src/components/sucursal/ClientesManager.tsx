@@ -22,9 +22,11 @@ import {
   FormGrid,
   Input,
   Modal,
+  Pagination,
   Select,
   formatMoney,
 } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import {
@@ -461,6 +463,8 @@ function EstadoCuentaModal({
   const [abonando, setAbonando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const { pagina: paginaCuentas, paginacion: paginacionCuentas } = usePaginacion(cuentas);
+  const { pagina: paginaAbonos, paginacion: paginacionAbonos } = usePaginacion(abonos);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -597,29 +601,30 @@ function EstadoCuentaModal({
           ) : cuentas.length === 0 ? (
             <EmptyState message="Este cliente todavía no tiene ventas a crédito." />
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Folio</th>
-                    <th className="py-2 pr-2">Fecha</th>
-                    <th className="py-2 pr-2">Vence</th>
-                    <th className="py-2 pr-2 text-right">Monto</th>
-                    <th className="py-2 pr-2 text-right">Saldo</th>
-                    <th className="py-2 pl-2">Estado</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Vence</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Monto</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Saldo</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cuentas.map((c) => (
+                  {paginaCuentas.map((c) => (
                     <tr key={c._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 font-mono text-xs">{c.folio}</td>
-                      <td className="py-2 pr-2 text-black/60">{formatFecha(c.fecha, zonaHoraria)}</td>
-                      <td className={`py-2 pr-2 ${c.vencida ? "font-semibold text-red-600" : "text-black/60"}`}>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{c.folio}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{formatFecha(c.fecha, zonaHoraria)}</td>
+                      <td className={`whitespace-nowrap px-2 py-1.5 ${c.vencida ? "font-semibold text-red-600" : "text-black/60"}`}>
                         {formatFecha(c.fechaVencimiento, zonaHoraria)}
                       </td>
-                      <td className="py-2 pr-2 text-right">{formatMoney(c.monto)}</td>
-                      <td className="py-2 pr-2 text-right font-semibold">{formatMoney(c.saldo)}</td>
-                      <td className="py-2 pl-2">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">{formatMoney(c.monto)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">{formatMoney(c.saldo)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                             c.estado === "pagada"
@@ -639,6 +644,8 @@ function EstadoCuentaModal({
                 </tbody>
               </table>
             </div>
+            <Pagination {...paginacionCuentas} />
+            </>
           )}
         </div>
 
@@ -647,32 +654,40 @@ function EstadoCuentaModal({
           {abonos.length === 0 ? (
             <EmptyState message="Sin abonos registrados." />
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Fecha</th>
-                    <th className="py-2 pr-2 text-right">Monto</th>
-                    <th className="py-2 pr-2">Forma</th>
-                    <th className="py-2 pr-2">Aplicado a</th>
-                    <th className="py-2 pl-2">Nota</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Monto</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Forma</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Aplicado a</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Nota</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {abonos.map((a) => (
-                    <tr key={a._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 text-black/60">{formatFecha(a.fecha, zonaHoraria)}</td>
-                      <td className="py-2 pr-2 text-right font-semibold text-titos-green-700">{formatMoney(a.monto)}</td>
-                      <td className="py-2 pr-2 capitalize text-black/60">{a.metodoPago}</td>
-                      <td className="py-2 pr-2 font-mono text-xs text-black/50">
-                        {a.aplicaciones.map((ap) => ap.folio).join(", ") || "—"}
-                      </td>
-                      <td className="py-2 pl-2 text-black/50">{a.notas || "—"}</td>
-                    </tr>
-                  ))}
+                  {paginaAbonos.map((a) => {
+                    const aplicado = a.aplicaciones.map((ap) => ap.folio).join(", ") || "—";
+                    return (
+                      <tr key={a._id} className="border-b border-black/5">
+                        <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{formatFecha(a.fecha, zonaHoraria)}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-titos-green-700">{formatMoney(a.monto)}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 capitalize text-black/60">{a.metodoPago}</td>
+                        <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs text-black/50" title={aplicado}>
+                          {aplicado}
+                        </td>
+                        <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/50" title={a.notas || undefined}>
+                          {a.notas || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            <Pagination {...paginacionAbonos} />
+            </>
           )}
         </div>
       </div>
@@ -710,6 +725,7 @@ export function ClientesManager() {
         .some((campo) => campo!.toLowerCase().includes(q))
     );
   }, [clientes, busqueda]);
+  const { pagina, paginacion } = usePaginacion(filtrados, busqueda);
 
   const totales = useMemo(
     () => ({
@@ -762,52 +778,56 @@ export function ClientesManager() {
             message={busqueda ? "Ningún cliente coincide con la búsqueda." : "Todavía no has dado de alta clientes."}
           />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Cliente</th>
-                  <th className="py-2 pr-2">Contacto</th>
-                  <th className="py-2 pr-2 text-right">Límite</th>
-                  <th className="py-2 pr-2 text-right">Debe</th>
-                  <th className="py-2 pr-2 text-right">Disponible</th>
-                  <th className="py-2 pr-2">Próximo pago</th>
-                  <th className="py-2 pr-2">Estado</th>
-                  <th className="w-px py-2 pl-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Cliente</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">RFC</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Contacto</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Límite</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Debe</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Disponible</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Próximo pago</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Estado</th>
+                  <th className="w-px px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((c) => {
+                {pagina.map((c) => {
                   const estado = estadoCredito(c.resumen);
                   return (
                     <tr key={c._id} className={`border-b border-black/5 ${!c.activo ? "opacity-50" : ""}`}>
-                      <td className="py-2 pr-2 font-medium">
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={c.nombre}>
                         {c.nombre}
                         {!c.activo ? <span className="ml-1 text-xs text-black/40">(inactivo)</span> : null}
-                        {c.facturacion?.rfc ? (
-                          <span className="block font-mono text-xs text-black/40">{c.facturacion.rfc}</span>
-                        ) : null}
                       </td>
-                      <td className="py-2 pr-2 text-black/60">{c.telefono || c.email || "—"}</td>
-                      <td className="py-2 pr-2 text-right text-black/60">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/40">
+                        {c.facturacion?.rfc || "—"}
+                      </td>
+                      <td className="max-w-[12rem] truncate px-2 py-1.5 text-black/60" title={c.telefono || c.email || undefined}>
+                        {c.telefono || c.email || "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">
                         {c.resumen.creditoActivo ? formatMoney(c.resumen.limite) : "—"}
                       </td>
-                      <td className="py-2 pr-2 text-right font-semibold">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">
                         {c.resumen.saldo > 0 ? formatMoney(c.resumen.saldo) : "—"}
                       </td>
-                      <td className="py-2 pr-2 text-right text-titos-green-700">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-titos-green-700">
                         {c.resumen.creditoActivo ? formatMoney(c.resumen.disponible) : "—"}
                       </td>
-                      <td className={`py-2 pr-2 ${c.resumen.tieneVencidos ? "text-red-600" : "text-black/60"}`}>
+                      <td className={`whitespace-nowrap px-2 py-1.5 ${c.resumen.tieneVencidos ? "text-red-600" : "text-black/60"}`}>
                         {c.resumen.tieneVencidos ? "Vencido" : formatFecha(c.resumen.proximoVencimiento, zonaHoraria)}
                       </td>
-                      <td className="py-2 pr-2">
+                      <td className="whitespace-nowrap px-2 py-1.5">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estado.className}`}>
                           {estado.label}
                         </span>
                       </td>
-                      <td className="w-px py-2 pl-2 text-right whitespace-nowrap">
-                        <div className="flex justify-end gap-1.5">
+                      <td className="w-px whitespace-nowrap px-2 py-1.5 text-right">
+                        <div className="inline-flex gap-1">
                           <Button size="sm" variant="ghost" className="w-24" onClick={() => setEstadoCuenta(c)}>
                             Estado cuenta
                           </Button>
@@ -822,6 +842,8 @@ export function ClientesManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

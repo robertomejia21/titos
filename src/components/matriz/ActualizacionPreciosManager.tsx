@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, FileDown, PencilLine, Upload, RefreshCw, Download } from "lucide-react";
-import { Button, Card, Input, FormField, EmptyState, formatMoney } from "@/components/ui";
+import { Button, Card, Input, FormField, EmptyState, Pagination, formatMoney } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
@@ -237,6 +238,9 @@ export function ActualizacionPreciosManager() {
     }
   }
 
+  // Cada consulta trae un arreglo nuevo: al cambiar regresa a la página 1.
+  const { pagina: paginaCambios, paginacion: paginacionCambios } = usePaginacion(cambios, cambios);
+
   function descargarPdf() {
     const params = new URLSearchParams({
       desde: new Date(desde).toISOString(),
@@ -298,15 +302,15 @@ export function ActualizacionPreciosManager() {
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-titos-green-100">
                   <tr className="text-titos-green-900">
-                    <th className="px-3 py-2">Código</th>
-                    <th className="px-3 py-2 text-right">Nuevo precio</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Código</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Nuevo precio</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filas.map((f, idx) => (
                     <tr key={idx} className="border-b border-black/5">
-                      <td className="px-3 py-1.5 font-mono text-xs">{f.codigo}</td>
-                      <td className={`px-3 py-1.5 text-right ${!Number.isFinite(f.precio) || f.precio <= 0 ? "text-red-600" : ""}`}>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{f.codigo}</td>
+                      <td className={`whitespace-nowrap px-2 py-1.5 text-right ${!Number.isFinite(f.precio) || f.precio <= 0 ? "text-red-600" : ""}`}>
                         {Number.isFinite(f.precio) && f.precio > 0 ? formatMoney(f.precio) : "precio inválido"}
                       </td>
                     </tr>
@@ -418,29 +422,30 @@ export function ActualizacionPreciosManager() {
           ) : cambios.length === 0 ? (
             <EmptyState message="No hay precios actualizados en el periodo seleccionado." />
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Código</th>
-                    <th className="py-2 pr-2">Producto</th>
-                    <th className="py-2 pr-2">Categoría</th>
-                    <th className="py-2 pr-2 text-right">Precio anterior</th>
-                    <th className="py-2 pr-2 text-right">Precio nuevo</th>
-                    <th className="py-2 pr-2">Origen</th>
-                    <th className="py-2 pr-2">Fecha</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Código</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Categoría</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Precio anterior</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Precio nuevo</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Origen</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cambios.map((c) => (
+                  {paginaCambios.map((c) => (
                     <tr key={c._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 font-mono text-xs">{c.sku}</td>
-                      <td className="py-2 pr-2 font-medium">{c.nombre}</td>
-                      <td className="py-2 pr-2 capitalize text-black/60">{c.categoria.replaceAll("_", " ")}</td>
-                      <td className="py-2 pr-2 text-right text-black/50 line-through">{formatMoney(c.precioAnterior)}</td>
-                      <td className="py-2 pr-2 text-right font-semibold text-titos-green-700">{formatMoney(c.precioNuevo)}</td>
-                      <td className="py-2 pr-2 text-black/50">{c.origen === "excel" ? "Excel" : "Manual"}</td>
-                      <td className="py-2 pr-2 text-black/50">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{c.sku}</td>
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={c.nombre}>{c.nombre}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 capitalize text-black/60">{c.categoria.replaceAll("_", " ")}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/50 line-through">{formatMoney(c.precioAnterior)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-titos-green-700">{formatMoney(c.precioNuevo)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/50">{c.origen === "excel" ? "Excel" : "Manual"}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/50">
                         {new Intl.DateTimeFormat("es-MX", {
                           timeZone: ZONA_HORARIA_DEFAULT,
                           day: "2-digit",
@@ -454,6 +459,8 @@ export function ActualizacionPreciosManager() {
                 </tbody>
               </table>
             </div>
+            <Pagination {...paginacionCambios} />
+            </>
           )}
         </div>
       </Card>

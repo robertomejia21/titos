@@ -13,7 +13,7 @@ type Fila = {
   recibido: number;
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 function formatCantidad(n: number) {
   return new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(n);
@@ -77,25 +77,25 @@ export function ReportesManager({ filas }: { filas: Fila[] }) {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-black/10 text-black/50">
-                <th className="py-2 pr-2">Sucursal</th>
-                <th className="py-2 pr-2">Producto</th>
-                <th className="py-2 pr-2">Pedido</th>
-                <th className="py-2 pr-2">Asignado (Nivelador)</th>
-                <th className="py-2 pr-2">Surtido</th>
-                <th className="py-2 pr-2">Recibido</th>
-                <th className="py-2 pr-2">Diferencia pedido vs. asignado</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Pedido</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Asignado (Nivelador)</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Surtido</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Recibido</th>
+                <th className="px-2 py-1.5 text-xs font-medium">Diferencia pedido vs. asignado</th>
               </tr>
             </thead>
             <tbody>
               {filasPagina.map((f, i) => (
                 <tr key={(page - 1) * PAGE_SIZE + i} className="border-b border-black/5">
-                  <td className="py-2 pr-2">{f.sucursal}</td>
-                  <td className="py-2 pr-2 font-medium">{f.producto}</td>
-                  <td className="py-2 pr-2">{formatCantidad(f.pedido)}</td>
-                  <td className="py-2 pr-2">{formatCantidad(f.asignado)}</td>
-                  <td className="py-2 pr-2">{formatCantidad(f.surtido)}</td>
-                  <td className="py-2 pr-2">{formatCantidad(f.recibido)}</td>
-                  <td className="py-2 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">{f.sucursal}</td>
+                  <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={f.producto}>{f.producto}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">{formatCantidad(f.pedido)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">{formatCantidad(f.asignado)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">{formatCantidad(f.surtido)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">{formatCantidad(f.recibido)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {f.pedido - f.asignado > 0 ? (
                       <span className="text-amber-600">-{formatCantidad(f.pedido - f.asignado)}</span>
                     ) : (
