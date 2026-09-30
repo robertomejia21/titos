@@ -9,17 +9,24 @@ const LECTURAS_ESTABLES = 3;
 
 // Muestra el peso que reporta la báscula (siempre en kg) y avisa cuando se estabiliza.
 // Si el puente no responde, no estorba: el cajero sigue capturando a mano.
-export function PesoBascula({ onEstable }: { onEstable: (kg: string) => void }) {
+export function PesoBascula({ onEstable, onEstado }: { onEstable: (kg: string) => void; onEstado?: (e: { conectada: boolean; estable: boolean }) => void }) {
   const [estado, setEstado] = useState<Estado>("buscando");
   const [peso, setPeso] = useState<number | null>(null);
   const [estable, setEstable] = useState(false);
   const ultimo = useRef<{ valor: number | null; veces: number }>({ valor: null, veces: 0 });
   const avisado = useRef<number | null>(null);
   const alEstable = useRef(onEstable);
+  const alEstado = useRef(onEstado);
 
   useEffect(() => {
     alEstable.current = onEstable;
+    alEstado.current = onEstado;
   });
+
+  // El modal necesita saber si hay báscula y si el peso ya está estable.
+  useEffect(() => {
+    alEstado.current?.({ conectada: estado === "leyendo", estable });
+  }, [estado, estable]);
 
   useEffect(() => {
     let vivo = true;
@@ -75,7 +82,7 @@ export function PesoBascula({ onEstable }: { onEstable: (kg: string) => void }) 
       className={`rounded-2xl border px-4 py-3 text-center transition-colors ${estable ? "border-titos-green-500/40 bg-titos-green-100" : "border-black/10 bg-black/[0.03]"}`}
     >
       <p className={`inline-flex items-center gap-2 text-sm font-medium ${estable ? "text-titos-green-700" : "text-black/55"}`}>
-        <span className={`h-2 w-2 rounded-full ${estable ? "bg-titos-green-500" : "animate-pulse bg-black/30"}`} />
+        <span className={`h-2 w-2 rounded-full ${estable ? "bg-titos-green-500" : "motion-safe:animate-pulse bg-black/30"}`} />
         {texto}
       </p>
       <p className="mt-0.5 text-5xl font-semibold leading-none tabular-nums text-titos-green-900">
