@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>DaVinci · Avances Mercados Titos</title>
+    <title>DaVinci · Semana 11 · Avances Mercados Titos</title>
     <link rel="icon" href="img/logo-davinci.png" />
     <style>
       /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
@@ -435,6 +435,152 @@
         .revelar { opacity: 1; transform: none; transition: none; }
       }
     </style>
+    <style>
+      /* ── Comparativa antes / ahora ──────────────────────────────────── */
+      .comparativa {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        margin-top: 26px;
+      }
+      .caso {
+        padding: 26px 28px;
+        border-radius: var(--radio);
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+      }
+      .caso.antes { background: var(--carbon-suave); }
+      .caso.despues { border-color: rgba(245, 134, 52, 0.4); }
+      .caso .rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--gris-texto);
+      }
+      .caso.despues .rotulo { color: var(--naranja); }
+      .caso .detalle { margin-top: 16px; font-size: 14.5px; color: var(--gris-texto); }
+      .caso .detalle strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Bloque oscuro de notas ─────────────────────────────────────── */
+      .pendientes {
+        display: grid;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 22px 24px;
+        border-radius: var(--radio);
+        background: var(--carbon);
+        color: #fff;
+      }
+      .pendientes h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--naranja-claro);
+      }
+      .pendientes ul { margin: 0; padding-left: 20px; }
+      .pendientes li {
+        font-size: 14.5px;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 7px;
+      }
+      .pendientes li:last-child { margin-bottom: 0; }
+      .pendientes li strong { color: #fff; font-weight: 700; }
+
+      .nota-pie {
+        margin-top: 18px;
+        font-size: 13.5px;
+        color: var(--gris-texto);
+        font-style: italic;
+      }
+
+      .boton-semana {
+        display: inline-block;
+        margin-top: 26px;
+        padding: 12px 26px;
+        border-radius: 999px;
+        background: var(--naranja);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+      }
+      .boton-semana:hover { background: var(--naranja-claro); }
+
+      /* ── Tickets de muestra (exclusivo de esta entrega) ─────────────── */
+      .ticket-demo {
+        display: grid;
+        gap: 22px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        margin-top: 26px;
+        justify-items: center;
+      }
+      .ticket {
+        width: 100%;
+        max-width: 300px;
+        padding: 20px 18px;
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        border-radius: 6px;
+        box-shadow: var(--sombra);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--carbon);
+      }
+      .ticket p { margin: 0; }
+      .t-centro { text-align: center; }
+      .t-titulo { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; }
+      .t-suc { font-size: 13.5px; font-weight: 700; margin-top: 2px; }
+      .t-ast { color: var(--naranja); font-size: 18px; font-weight: 800; }
+      .t-sep { border-top: 1px dashed rgba(55, 52, 53, 0.35); margin: 8px 0; height: 0; }
+      .t-fila { display: flex; justify-content: space-between; gap: 10px; }
+      .t-fuerte { font-weight: 800; font-size: 14px; }
+      .t-tenue { color: var(--gris-texto); font-size: 11.5px; }
+      .ticket-pie {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+      }
+      .ticket-pie strong { color: var(--carbon); font-weight: 700; }
+
+      /* La barra superior es fija: sin este margen, el enlace del menú deja
+         el título de la sección escondido detrás de ella. */
+      .seccion { scroll-margin-top: 92px; }
+      /* ── Tabla de costos (comparación de proveedores) ───────────────── */
+      .costos {
+        width: 100%;
+        margin-top: 24px;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        border-radius: var(--radio);
+        overflow: hidden;
+      }
+      .costos caption {
+        caption-side: bottom;
+        padding: 12px 4px 0;
+        text-align: left;
+        font-size: 13px;
+        color: var(--gris-texto);
+      }
+      .costos th,
+      .costos td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--gris-linea); }
+      .costos thead th {
+        background: var(--carbon-suave);
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--carbon-medio);
+      }
+      .costos td:not(:first-child),
+      .costos thead th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+      .costos tbody tr:last-child td { border-bottom: 0; }
+      .costos tbody th { font-weight: 600; }
+      .tabla-scroll { overflow-x: auto; }
+    </style>
   </head>
   <body>
     <div class="progreso" id="progreso"></div>
@@ -448,39 +594,39 @@
         <a class="indice" href="index.html" title="Todas las semanas" aria-label="Todas las semanas">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
         </a>
-        <a class="actual" href="semana-5.html">Semana 5</a>
+        <a href="semana-5.html">Semana 5</a>
         <a href="semana-6.html">Semana 6</a>
         <a href="semana-7.html">Semana 7</a>
         <a href="semana-8.html">Semana 8</a>
         <a href="semana-9.html">Semana 9</a>
         <a href="semana-10.html">Semana 10</a>
-        <a href="semana-11.html">Semana 11</a>
+        <a class="actual" href="semana-11.html">Semana 11</a>
       </div>
       <div class="nav-links">
         <a href="#resumen">Resumen</a>
-        <a href="#clientes">Clientes y crédito</a>
-        <a href="#punto-venta">Punto de venta</a>
-        <a href="#caja">Caja y retiros</a>
-        <a href="#devoluciones">Devoluciones</a>
-        <a href="#prestamos">Préstamos</a>
-        <a href="#matriz">Control matriz</a>
+        <a href="#kilos">Kilos</a>
+        <a href="#pantalla">Pantalla</a>
+        <a href="#ticket">Ticket</a>
+        <a href="#pendientes">Pendientes</a>
       </div>
     </nav>
 
     <header class="portada">
       <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
-      <div><span class="etiqueta">Semana 5 · Entrega de avances</span></div>
-      <h1>Lo que construimos para <em>Mercados Titos</em></h1>
+      <div><span class="etiqueta">Semana 11 · Entrega de avances</span></div>
+      <h1>La caja pesa en kilos y el ticket ya lleva la marca</h1>
       <p class="bajada">
-        Cinco módulos nuevos que cierran el ciclo completo de la tienda: vender a crédito, cobrar,
-        devolver, mover mercancía entre sucursales y cuadrar la caja desde matriz.
+        Cinco puntos aplicados. El de fondo: la báscula manda libras y el sistema cobra siempre en
+        kilos, con el peso a la vista y listo para aceptar. Junto a eso, la pantalla de pesado se
+        simplificó y el ticket térmico ya lleva el logo de Mercados Titos, con un ticket de prueba
+        para revisar la impresora.
       </p>
 
       <div class="metricas">
-        <div class="metrica"><strong>5</strong><span>Módulos nuevos</span></div>
-        <div class="metrica"><strong>56</strong><span>Archivos trabajados</span></div>
-        <div class="metrica"><strong>+4,683</strong><span>Líneas de código</span></div>
-        <div class="metrica"><strong>12</strong><span>Endpoints nuevos</span></div>
+        <div class="metrica"><strong>5</strong><span>Puntos atendidos</span></div>
+        <div class="metrica"><strong>4</strong><span>Pantallas de ejemplo</span></div>
+        <div class="metrica"><strong>3</strong><span>Pendientes por cerrar</span></div>
+        <div class="metrica"><strong>0</strong><span>Puntos en pausa</span></div>
       </div>
     </header>
 
@@ -488,421 +634,258 @@
     <section class="seccion" id="resumen">
       <div class="encabezado revelar">
         <span class="numero">01 · Resumen</span>
-        <h2>Qué cambió en esta entrega</h2>
+        <h2>Los cinco puntos de esta entrega</h2>
         <p>
-          Cada módulo resuelve un problema concreto de la operación diaria y todos quedaron
-          conectados entre sí: una venta a crédito afecta la cartera del cliente, una devolución
-          afecta el corte de caja, y un préstamo mueve el inventario de las dos sucursales.
+          Todos quedaron aplicados sobre el sistema. Abajo el resumen de cada uno; más adelante los
+          detallamos con pantallas.
         </p>
       </div>
 
       <div class="tarjetas">
         <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
-          </span>
-          <h3>Clientes con crédito</h3>
-          <p>Alta de clientes frecuentes con límite de crédito, plazo de pago, datos de facturación y estado de cuenta con abonos.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M12 3v18M5 8l7-5 7 5M4 21h16</svg></span>
+          <h3>Siempre en kilos</h3>
+          <p>La báscula reporta libras y el sistema las convierte solo: 2.77 lb son 1.256 kg. El cobro y el ticket siempre van en kilos.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-          </span>
-          <h3>Crédito en el punto de venta</h3>
-          <p>Cuarta forma de pago combinable con efectivo, tarjeta y transferencia, con validación del límite y de los vencidos.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M3 12a9 9 0 0 1 18 0M12 12l4-4M12 12v.01</svg></span>
+          <h3>Peso en vivo</h3>
+          <p>Al elegir un producto que se vende por kilo, el peso aparece en grande y avisa cuando ya es estable. Solo queda aceptar.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-          </span>
-          <h3>Devoluciones a 48 horas</h3>
-          <p>Devolución total o parcial dentro de la ventana permitida, con reembolso y regreso automático al inventario.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M5 12l4 4L19 6</svg></span>
+          <h3>Pantalla de pesado más simple</h3>
+          <p>Sin X ni barra de desplazamiento, con Cancelar y Aceptar arriba, botones grandes para pantalla táctil y Enter para aceptar.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
-          </span>
-          <h3>Préstamos entre sucursales</h3>
-          <p>Consulta de stock en las demás tiendas, solicitud con aprobación y control de lo que falta por devolver.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M6 2h12v20l-3-2-3 2-3-2-3 2zM9 8h6M9 12h4</svg></span>
+          <h3>Logo en el ticket</h3>
+          <p>El ticket térmico lleva el logo de Mercados Titos en blanco y negro, ajustado al papel de 80 mm de la impresora de la caja.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
-          </span>
-          <h3>Retiros con folio y ticket</h3>
-          <p>Retiros en pesos o dólares, autorizados con clave, con folio, bitácora de fecha y hora, y ticket imprimible.</p>
-        </article>
-
-        <article class="tarjeta revelar">
-          <span class="icono">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
-          </span>
-          <h3>Corte global desde matriz</h3>
-          <p>Todos los cierres de caja de todas las sucursales en una vista, con sus retiros y diferencias.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z</svg></span>
+          <h3>Ticket de prueba</h3>
+          <p>Un botón en Equipos de caja imprime un ticket de prueba, sin crear ventas, para revisar logo, bordes y corte.</p>
         </article>
       </div>
     </section>
 
-    <!-- ── Clientes ─────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="clientes">
+    <!-- ── Kilos ────────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="kilos">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">02 · Clientes</span>
-          <h2>Clientes frecuentes y su crédito</h2>
+          <span class="numero">02 · El cambio de fondo</span>
+          <h2>Se pesa una vez y se cobra siempre en kilos</h2>
           <p>
-            Cada sucursal da de alta a sus propios clientes. Además de los datos de contacto se
-            captura si tiene crédito autorizado, hasta qué monto, en cuántos días paga y todos los
-            datos fiscales necesarios para facturarle.
+            La báscula de la caja trabaja en libras y los productos se venden por kilo. Esa
+            conversión ya no la hace nadie a mano.
+          </p>
+        </div>
+
+        <div class="comparativa revelar">
+          <div class="caso antes">
+            <p class="rotulo">Lo que pasaba</p>
+            <p class="detalle">
+              El cajero tenía que <strong>copiar el peso del visor</strong> al sistema y elegir la
+              unidad. Con libras de por medio, la conversión mental a kilos era una fuente de
+              errores en cada pesada.
+            </p>
+          </div>
+
+          <div class="caso despues">
+            <p class="rotulo">Lo que pasa ahora</p>
+            <p class="detalle">
+              La báscula manda el peso y el sistema <strong>lo convierte a kilos</strong>. Cuando el
+              peso se estabiliza, solo se pulsa Aceptar; el total se calcula al instante con el
+              precio por kilo.
+            </p>
+            <p class="detalle">
+              Si no hay báscula, el peso se escribe a mano en <strong>kilos o libras</strong> y
+              también se convierte.
+            </p>
+          </div>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="kilos-bascula" aria-selected="true">Con báscula</button>
+            <button role="tab" data-tab="kilos-manual">A mano, en kilos</button>
+            <button role="tab" data-tab="kilos-libras">A mano, en libras</button>
+          </div>
+
+          <div class="lamina visible" data-panel="kilos-bascula">
+            <figure>
+              <img src="img/s11-modal-bascula.png" alt="Pantalla de pesado con el peso estable de 1.256 kg, el equivalente en libras y el total" />
+              <figcaption>
+                <strong>El peso llega solo.</strong> Se muestra en kilos, en grande, con las libras
+                de la báscula como dato secundario. Cuando el peso es firme aparece "Peso estable" en
+                verde y se habilita Aceptar. Producto de ejemplo, no de su catálogo.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="kilos-manual">
+            <figure>
+              <img src="img/s11-modal-manual.png" alt="Pantalla de pesado sin báscula, con el peso escrito a mano en kilos" />
+              <figcaption>
+                <strong>Sin báscula, se escribe el peso.</strong> Un aviso lo dice sin alarmar y el
+                selector Kilos/Libras aparece solo en este caso. El cálculo y el total se actualizan
+                mientras se teclea.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="kilos-libras">
+            <figure>
+              <img src="img/s11-modal-libras.png" alt="Pantalla de pesado con 2.77 libras convertidas a 1.256 kilos" />
+              <figcaption>
+                <strong>Las libras se convierten a kilos.</strong> 2.77 lb son 1.256 kg, y así se
+                cobra. Al cambiar de unidad se conserva el mismo peso: solo cambia cómo se escribe.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Se cobra siempre en kilos</h4>
+            <p>Sea cual sea la unidad con la que se capture, la venta, el total y el ticket llevan kilos con tres decimales.</p>
+          </div>
+          <div class="regla">
+            <h4>Redondeo al gramo</h4>
+            <p>Una libra equivale a 0.4536 kg; el peso convertido se redondea al gramo para que el total sea el mismo en la pantalla y en el ticket.</p>
+          </div>
+          <div class="regla">
+            <h4>Aceptar espera al peso firme</h4>
+            <p>Con báscula, no se puede aceptar mientras el peso todavía se mueve, salvo que el cajero lo ajuste a mano.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pantalla ─────────────────────────────────────────────────── -->
+    <section class="seccion" id="pantalla">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Menos pasos</span>
+        <h2>Una pantalla que cabe completa y se opera con teclado</h2>
+        <p>
+          El pesado se repite decenas de veces al día, sobre todo en carnicería. Cada clic de más se
+          nota.
+        </p>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Cancelar y Aceptar arriba</h4>
+          <p>Ocupan el lugar de la X, siempre a la vista, aun en pantallas de poca altura donde los botones de abajo quedaban fuera.</p>
+        </div>
+        <div class="regla">
+          <h4>Sin barra de desplazamiento</h4>
+          <p>La ventana se compactó para que quepa completa y la barra del costado ya no se ve.</p>
+        </div>
+        <div class="regla">
+          <h4>Enter acepta</h4>
+          <p>Con el peso listo, Enter confirma desde cualquier parte de la ventana. Escape cancela.</p>
+        </div>
+        <div class="regla">
+          <h4>Botones para dedo</h4>
+          <p>Los botones miden 44 píxeles de alto y reaccionan al presionar, pensando en pantallas táctiles.</p>
+        </div>
+        <div class="regla">
+          <h4>Solo lo necesario</h4>
+          <p>Con báscula no se pide unidad y el campo manual baja de tamaño. Se quitó además el enlace a la guía de báscula del interior de la ventana.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Ticket ───────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="ticket">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · La marca en el papel</span>
+          <h2>El ticket ya lleva el logo de Mercados Titos</h2>
+          <p>
+            El encabezado dejó de ser solo texto: ahora abre con el logo, pensado para la impresora
+            térmica de la caja.
           </p>
         </div>
 
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
-            <button role="tab" aria-selected="true" data-tab="0">Cartera de clientes</button>
-            <button role="tab" aria-selected="false" data-tab="1">Alta con crédito y facturación</button>
+            <button role="tab" data-tab="ticket-prueba" aria-selected="true">El ticket de prueba</button>
           </div>
-          <div class="lamina visible" data-panel="0">
+
+          <div class="lamina visible" data-panel="ticket-prueba">
             <figure>
-              <img src="img/sucursal-clientes.png" alt="Módulo de clientes de la sucursal" />
+              <img src="img/s11-ticket-prueba.png" alt="Ticket de prueba con el logo de Mercados Titos, regla de 32 columnas, un producto por kilo y el total" />
               <figcaption>
-                <strong>Cartera por cobrar de un vistazo.</strong> Arriba el total adeudado, lo vencido
-                y cuántos clientes tienen crédito. La tabla muestra límite, saldo, disponible y la
-                fecha del próximo pago de cada uno.
-              </figcaption>
-            </figure>
-          </div>
-          <div class="lamina" data-panel="1">
-            <figure>
-              <img src="img/sucursal-cliente-alta.png" alt="Alta de cliente con crédito y facturación" />
-              <figcaption>
-                <strong>Un solo formulario.</strong> Contacto, crédito (límite y plazo en días) y datos
-                de facturación con los catálogos oficiales del SAT: régimen fiscal, uso de CFDI y
-                validación del RFC.
+                <strong>Blanco y negro, sin depender de internet.</strong> El logo se adaptó para
+                papel térmico: las letras en negro sólido y la fruta con trama, para que se distinga
+                sin volverse una mancha. La regla de 32 columnas y los dígitos de ejemplo sirven
+                para ver de un vistazo si algún borde se corta.
               </figcaption>
             </figure>
           </div>
         </div>
 
-        <div class="reglas">
-          <div class="regla revelar">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
-            <p><strong>El cliente debe liquidar para seguir comprando a crédito.</strong> Si deja pasar una fecha de vencimiento, el sistema le bloquea el crédito hasta que se ponga al corriente.</p>
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Ajustado al papel de 80 mm</h4>
+            <p>Los márgenes laterales se dejaron a la medida de la zona que la impresora imprime realmente, para que ningún borde se pierda.</p>
           </div>
-          <div class="regla revelar">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
-            <p><strong>Los abonos se aplican solos.</strong> Se descuentan de las ventas más próximas a vencer, y si entran en efectivo se suman al corte de caja del día.</p>
+          <div class="regla">
+            <h4>Ticket de prueba sin venta</h4>
+            <p>En Equipos de caja hay un botón para imprimirlo. No crea ventas, no cobra ni toca el inventario; sirve para revisar la impresora cuando haga falta.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── Punto de venta ───────────────────────────────────────────── -->
-    <section class="seccion" id="punto-venta">
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion" id="pendientes">
       <div class="encabezado revelar">
-        <span class="numero">03 · Punto de venta</span>
-        <h2>Vender a crédito sin salirse de la caja</h2>
-        <p>
-          El punto de venta trabaja a pantalla completa y ahora permite asignar la venta a un cliente
-          frecuente. El crédito es una forma de pago más, que se puede combinar con efectivo, tarjeta
-          y transferencia en la misma venta.
-        </p>
+        <span class="numero">05 · Lo que falta</span>
+        <h2>Lo que esta entrega deja abierto</h2>
       </div>
 
-      <div class="visor revelar" data-visor>
-        <div class="pestanas" role="tablist">
-          <button role="tab" aria-selected="true" data-tab="0">Pantalla completa</button>
-          <button role="tab" aria-selected="false" data-tab="1">Cobro con crédito</button>
-          <button role="tab" aria-selected="false" data-tab="2">Historial de ventas</button>
-        </div>
-        <div class="lamina visible" data-panel="0">
-          <figure>
-            <img src="img/sucursal-punto-venta.png" alt="Punto de venta a pantalla completa" />
-            <figcaption>
-              <strong>Caja lista para operar.</strong> Escaneo por código, búsqueda por nombre o SKU,
-              totales en pesos y en dólares con el tipo de cambio configurado desde matriz, y atajos
-              de teclado para consultar precio, retirar efectivo y hacer el corte.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="1">
-          <figure>
-            <img src="img/sucursal-punto-venta-cobro.png" alt="Modal de cobro con crédito del cliente" />
-            <figcaption>
-              <strong>Cuatro formas de pago combinables.</strong> Al elegir un cliente se muestra su
-              saldo, su disponible y su próxima fecha de pago. Si no tiene crédito vigente, el campo
-              de crédito permanece bloqueado.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="2">
-          <figure>
-            <img src="img/sucursal-ventas.png" alt="Historial de ventas de la sucursal" />
-            <figcaption>
-              <strong>Cada venta guarda a su cliente.</strong> En el detalle se ve el monto fiado y la
-              fecha máxima de pago. El rol de Ventas también entra aquí para consultar ventas
-              anteriores.
-            </figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Caja ─────────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="caja">
-      <div class="interior">
-        <div class="encabezado revelar">
-          <span class="numero">04 · Caja</span>
-          <h2>Retiros controlados y corte en dos monedas</h2>
-          <p>
-            Cada retiro se autoriza con la clave del usuario que lo hace, genera un folio propio y
-            queda en bitácora con fecha y hora. El sistema no deja retirar más de lo que hay en el
-            cajón, y el comprobante se imprime para firma de quien recibe.
-          </p>
-        </div>
-
-        <div class="flujo">
-          <div class="paso revelar">
-            <span class="orden">1</span>
-            <h4>Se captura el retiro</h4>
-            <p>Monto, moneda (pesos o dólares) y motivo.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">2</span>
-            <h4>Se autoriza con clave</h4>
-            <p>El usuario confirma su contraseña; el folio queda ligado a él.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">3</span>
-            <h4>Se emite el ticket</h4>
-            <p>Comprobante con folio, fecha, hora y línea de firma.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">4</span>
-            <h4>Entra al corte</h4>
-            <p>Descuenta del cajón que corresponde y aparece en el cierre.</p>
-          </div>
-        </div>
-
-        <div class="reglas">
-          <div class="regla revelar">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <p><strong>Pesos y dólares se cuadran por separado.</strong> El corte lleva dos saldos independientes, cada uno con su fondo inicial, su esperado, su contado y su diferencia.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Devoluciones ─────────────────────────────────────────────── -->
-    <section class="seccion" id="devoluciones">
-      <div class="encabezado revelar">
-        <span class="numero">05 · Devoluciones</span>
-        <h2>Ventana de 48 horas, sin excepciones</h2>
-        <p>
-          Se busca la venta por su folio y el sistema muestra cuánto queda por devolver de cada
-          producto. Pasadas las 48 horas desde la venta, la devolución simplemente no procede.
-        </p>
+      <div class="pendientes revelar">
+        <h4>Dicho de frente, para que nadie lo dé por hecho</h4>
+        <ul>
+          <li><strong>Escáner de código de barras: ya está configurado, falta pasar un producto.</strong> Queda pendiente la prueba real: que alguien escanee un producto en la caja para confirmar que el código se lee y el artículo se agrega a la lista de cobro.</li>
+          <li><strong>Terminal bancaria: ya se entregó la información para solicitar el SDK.</strong> El cobro con terminal se conectará cuando el proveedor entregue el SDK; mientras tanto se sigue registrando el folio de autorización a mano.</li>
+          <li><strong>El ticket de prueba falta imprimirlo en la caja.</strong> Las pantallas de esta presentación son de ejemplo. Conviene imprimir el ticket de prueba en la impresora real y revisar logo, bordes y corte antes de darlo por cerrado.</li>
+        </ul>
       </div>
 
-      <div class="visor revelar" data-visor>
-        <div class="pestanas" role="tablist">
-          <button role="tab" aria-selected="true" data-tab="0">Módulo de devoluciones</button>
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Un paso al desplegar</h4>
+          <p>Recargar el navegador de la caja, con Ctrl + Shift + R, para que cargue la versión nueva de la pantalla de pesado y del ticket.</p>
         </div>
-        <div class="lamina visible" data-panel="0">
-          <figure>
-            <img src="img/sucursal-devoluciones.png" alt="Módulo de devoluciones" />
-            <figcaption>
-              <strong>Devolución total o parcial.</strong> Se puede devolver solo una parte de la venta
-              y volver después por el resto, siempre dentro de la ventana. El contador muestra las
-              horas que quedan.
-            </figcaption>
-          </figure>
-        </div>
-      </div>
-
-      <div class="reglas">
-        <div class="regla revelar">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-          <p><strong>Si el corte del día ya se cerró, la nota se genera sola.</strong> No se puede sacar dinero de una caja cerrada, así que el sistema crea una devolución pendiente con folio que se paga contra la caja siguiente.</p>
-        </div>
-        <div class="regla revelar">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <p><strong>Si la venta fue a crédito, primero baja la deuda.</strong> La devolución abate la cuenta por cobrar del cliente y solo el resto se reembolsa en efectivo.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Préstamos ────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="prestamos">
-      <div class="interior">
-        <div class="encabezado revelar">
-          <span class="numero">06 · Préstamos</span>
-          <h2>Las sucursales se apoyan entre ellas</h2>
-          <p>
-            Cuando a una tienda se le acaba un producto, ya no tiene que hablar por teléfono para
-            saber quién tiene. Busca el producto, ve el stock de todas las demás sucursales y le pide
-            prestado a la que le convenga. El préstamo queda registrado hasta que lo devuelve.
-          </p>
-        </div>
-
-        <div class="visor revelar" data-visor>
-          <div class="pestanas" role="tablist">
-            <button role="tab" aria-selected="true" data-tab="0">Stock en otras sucursales</button>
-            <button role="tab" aria-selected="false" data-tab="1">Solicitud de préstamo</button>
-            <button role="tab" aria-selected="false" data-tab="2">Panel del módulo</button>
-          </div>
-          <div class="lamina visible" data-panel="0">
-            <figure>
-              <img src="img/sucursal-prestamos-stock.png" alt="Consulta de stock en otras sucursales" />
-              <figcaption>
-                <strong>Todo el inventario de la cadena, visible.</strong> Por cada producto se muestra
-                lo que tiene la sucursal actual y lo que tiene cada una de las demás, en tiempo real.
-              </figcaption>
-            </figure>
-          </div>
-          <div class="lamina" data-panel="1">
-            <figure>
-              <img src="img/sucursal-prestamos-solicitar.png" alt="Modal de solicitud de préstamo" />
-              <figcaption>
-                <strong>Un clic para pedir.</strong> Se elige la sucursal, la cantidad (nunca más de lo
-                que esa tienda tiene) y una nota. La solicitud le llega a la otra sucursal para que la
-                apruebe o la rechace.
-              </figcaption>
-            </figure>
-          </div>
-          <div class="lamina" data-panel="2">
-            <figure>
-              <img src="img/sucursal-prestamos.png" alt="Panel de préstamos entre sucursales" />
-              <figcaption>
-                <strong>Tres bandejas.</strong> Lo que me están pidiendo, lo que pedí prestado y lo que
-                presté, cada préstamo con su estado y lo que falta por devolver.
-              </figcaption>
-            </figure>
-          </div>
-        </div>
-
-        <div class="flujo">
-          <div class="paso revelar">
-            <span class="orden">1</span>
-            <h4>Solicita</h4>
-            <p>La sucursal que necesita el producto manda la solicitud.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">2</span>
-            <h4>Aprueba</h4>
-            <p>La otra tienda autoriza (puede prestar menos) y el stock sale de su inventario.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">3</span>
-            <h4>Recibe</h4>
-            <p>Al recoger la mercancía, entra al inventario de quien la pidió.</p>
-          </div>
-          <div class="paso revelar">
-            <span class="orden">4</span>
-            <h4>Devuelve</h4>
-            <p>La devolución hace el movimiento inverso y admite entregas parciales.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Matriz ───────────────────────────────────────────────────── -->
-    <section class="seccion" id="matriz">
-      <div class="encabezado revelar">
-        <span class="numero">07 · Matriz</span>
-        <h2>Control central de toda la cadena</h2>
-        <p>
-          Matriz define las reglas que aplican a todas las tiendas y ve el resultado consolidado:
-          tipo de cambio, zona horaria de cada sucursal y el corte de caja de todas ellas.
-        </p>
-      </div>
-
-      <div class="visor revelar" data-visor>
-        <div class="pestanas" role="tablist">
-          <button role="tab" aria-selected="true" data-tab="0">Corte global</button>
-          <button role="tab" aria-selected="false" data-tab="1">Configuración</button>
-          <button role="tab" aria-selected="false" data-tab="2">Sucursales</button>
-          <button role="tab" aria-selected="false" data-tab="3">Zona horaria</button>
-          <button role="tab" aria-selected="false" data-tab="4">Notas de venta</button>
-        </div>
-        <div class="lamina visible" data-panel="0">
-          <figure>
-            <img src="img/matriz-cortes.png" alt="Corte global de todas las sucursales" />
-            <figcaption>
-              <strong>Todos los cierres en una pantalla.</strong> Filtrable por sucursal y por fecha,
-              con el desglose de cada turno y sus retiros, y la diferencia acumulada de la cadena.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="1">
-          <figure>
-            <img src="img/matriz-configuracion.png" alt="Configuración general del sistema" />
-            <figcaption>
-              <strong>Ajustes generales.</strong> Tipo de cambio peso-dólar que usan todas las cajas,
-              días laborales, hora de corte y conexión de WhatsApp.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="2">
-          <figure>
-            <img src="img/matriz-sucursales.png" alt="Catálogo de sucursales" />
-            <figcaption>
-              <strong>Alta de sucursales y su acceso.</strong> Cada tienda con su dirección, WhatsApp,
-              zona horaria y el usuario con el que entra al sistema.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="3">
-          <figure>
-            <img src="img/matriz-sucursal-zona-horaria.png" alt="Zona horaria por sucursal" />
-            <figcaption>
-              <strong>Cada tienda en su hora local.</strong> La zona horaria define los vencimientos de
-              crédito y las horas de corte. Todas arrancan en hora de Tijuana.
-            </figcaption>
-          </figure>
-        </div>
-        <div class="lamina" data-panel="4">
-          <figure>
-            <img src="img/matriz-notas-de-venta.png" alt="Módulo de notas de venta" />
-            <figcaption>
-              <strong>Notas de venta.</strong> El módulo antes llamado Ventas 2, ahora con su nombre
-              definitivo en el menú y en su dirección.
-            </figcaption>
-          </figure>
+        <div class="regla">
+          <h4>Nada anterior se toca</h4>
+          <p>Las ventas, los folios y los tickets ya emitidos se conservan tal cual; solo cambia cómo se pesa y cómo abre el ticket nuevo.</p>
         </div>
       </div>
     </section>
 
     <section class="cierre">
       <img src="img/logo-davinci.png" alt="DaVinci" />
-      <h2>Listo para operar</h2>
+      <h2>Cinco de cinco</h2>
       <p>
-        Los cinco módulos están integrados entre sí y funcionando sobre el sistema actual.<br />
-        Quedamos atentos a sus comentarios para la siguiente etapa.
+        Todo lo de esta semana está aplicado en el sistema.<br />
+        Las pantallas de esta presentación son de ejemplo, con un producto de muestra; las de su
+        instalación se toman al probar en la caja.
       </p>
-      <p style="margin-top: 26px">
-        <a
-          href="semana-6.html"
-          style="
-            display: inline-block;
-            padding: 12px 26px;
-            border-radius: 999px;
-            background: var(--naranja);
-            color: #fff;
-            font-weight: 700;
-            font-size: 14.5px;
-            text-decoration: none;
-          "
-          >Ver la semana 6 →</a
-        >
-      </p>
+      <p><a class="boton-semana" href="semana-10.html">← Repasar la semana 10</a></p>
     </section>
 
     <footer class="pie">
-      DaVinci · Presentación de avances para Mercados Titos
+      DaVinci · Presentación de avances para Mercados Titos · Semana 11
       <span id="fecha"></span>
     </footer>
 
