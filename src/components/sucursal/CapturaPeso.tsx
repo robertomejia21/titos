@@ -48,24 +48,25 @@ export function CapturaPeso({
       onClose={onCerrar}
       title={`Pesar ${producto.nombre}`}
       icon={ScanLine}
-      footer={
+      sinBarra
+      acciones={
         <>
           <Button variant="ghost" onClick={onCerrar}>
             Cancelar
           </Button>
           <Button onClick={onConfirmar} disabled={kg === null}>
-            Agregar al carrito
+            Aceptar
           </Button>
         </>
       }
     >
-      <p className="mb-4 text-sm text-black/60">
+      <p className="mb-3 text-sm text-black/60">
         Precio <span className="font-medium text-black/80">{formatMoney(producto.precioVenta)}</span> por kilo
       </p>
 
       <PesoBascula onEstable={(peso) => { onValor(peso); onUnidad("kg"); }} />
 
-      <div className="mt-5">
+      <div className="mt-4">
         <div className="mb-2 flex items-center justify-between gap-3">
           <label htmlFor="peso-manual" className="text-sm font-medium text-black/70">
             Peso a cobrar
@@ -105,7 +106,7 @@ export function CapturaPeso({
         {valor.trim() !== "" && kg === null ? <p className="mt-2 text-sm text-red-600">Escribe un peso mayor a cero, con hasta 3 decimales.</p> : null}
       </div>
 
-      <div className="mt-5 flex items-end justify-between gap-4 rounded-2xl border border-black/10 bg-black/[0.02] px-4 py-3">
+      <div className="mt-4 flex items-end justify-between gap-4 rounded-2xl border border-black/10 bg-black/[0.02] px-4 py-3">
         <div>
           <p className="text-xs text-black/50">Cálculo</p>
           <p className="text-base tabular-nums text-black/75">
@@ -120,7 +121,7 @@ export function CapturaPeso({
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-black/45">Usa el peso neto. Si la báscula ya descontó la tara, no la restes otra vez.</p>
+      <p className="mt-2 text-xs text-black/45">Usa el peso neto. Si la báscula ya descontó la tara, no la restes otra vez.</p>
     </Modal>
   );
 }

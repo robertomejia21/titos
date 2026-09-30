@@ -72,13 +72,13 @@ export function PesoBascula({ onEstable }: { onEstable: (kg: string) => void }) 
     <div
       role="status"
       aria-live="polite"
-      className={`rounded-2xl border px-4 py-4 text-center transition-colors ${estable ? "border-titos-green-500/40 bg-titos-green-100" : "border-black/10 bg-black/[0.03]"}`}
+      className={`rounded-2xl border px-4 py-3 text-center transition-colors ${estable ? "border-titos-green-500/40 bg-titos-green-100" : "border-black/10 bg-black/[0.03]"}`}
     >
       <p className={`inline-flex items-center gap-2 text-sm font-medium ${estable ? "text-titos-green-700" : "text-black/55"}`}>
         <span className={`h-2 w-2 rounded-full ${estable ? "bg-titos-green-500" : "animate-pulse bg-black/30"}`} />
         {texto}
       </p>
-      <p className="mt-1 text-6xl font-semibold leading-none tabular-nums text-titos-green-900">
+      <p className="mt-0.5 text-5xl font-semibold leading-none tabular-nums text-titos-green-900">
         {peso === null ? "—" : pesoBasculaEnKg(peso).toFixed(3)}
         <span className="ml-2 text-2xl font-medium text-black/45">kg</span>
       </p>
