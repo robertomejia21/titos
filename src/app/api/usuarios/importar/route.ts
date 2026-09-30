@@ -5,7 +5,7 @@ import RolModel from "@/models/Rol";
 import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
-import { enviarBienvenida } from "@/lib/onboarding";
+import { enviarBienvenida, nipsParaAcceso } from "@/lib/onboarding";
 import { validarTelefono, normalizarWhatsApp } from "@/lib/whatsapp";
 
 const PERMISO = "usuarios.administrar";
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const passwordPlano = generarPasswordUsuario(apellidoPaterno, fechaNacimiento);
-      await UserModel.create({
+      const nuevo = await UserModel.create({
         nombre,
         usuario,
         apellidoPaterno,
@@ -125,7 +125,8 @@ export async function POST(req: NextRequest) {
       // Envío del saludo + credenciales; un fallo de WhatsApp no revierte el alta.
       let aviso: string | undefined;
       try {
-        await enviarBienvenida({ telefono: telefonoNorm, nombre, usuario, password: passwordPlano });
+        const nips = await nipsParaAcceso(nuevo.toObject());
+        await enviarBienvenida({ telefono: telefonoNorm, nombre, usuario, password: passwordPlano, ...nips });
       } catch {
         aviso = "creado, pero no se pudo enviar WhatsApp";
       }

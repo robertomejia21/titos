@@ -39,6 +39,9 @@ const UserSchema = new Schema(
     tokenVerificacionExpira: { type: Date, default: null, select: false },
     nipOperacionHash: { type: String, default: "" },
     nipOperacionHuella: { type: String, select: false },
+    // Copia cifrada (lib/nipCifrado) para poder mandarlo por WhatsApp con el
+    // acceso. Nunca sale por la API.
+    nipOperacionCifrado: { type: String, select: false },
     activo: { type: Boolean, default: true },
   },
   { timestamps: true }

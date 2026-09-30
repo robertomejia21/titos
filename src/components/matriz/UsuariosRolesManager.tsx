@@ -389,7 +389,7 @@ function UsuarioModal({
 
 // ---------------------------------------------------------- Reenviar acceso ---
 
-type ResultadoEnvio = { telefono: string; ids: string[]; estados: (string | null)[] };
+type ResultadoEnvio = { telefono: string; ids: string[]; estados: (string | null)[]; incluidos?: string[]; avisos?: string[] };
 
 const ESTADO_MENSAJE: Record<string, { texto: string; icono: typeof Check; clase: string }> = {
   pending: { texto: "En cola", icono: Clock, clase: "text-amber-700" },
@@ -397,7 +397,7 @@ const ESTADO_MENSAJE: Record<string, { texto: string; icono: typeof Check; clase
   delivered: { texto: "Entregado", icono: CheckCheck, clase: "text-titos-green-700" },
   read: { texto: "Leído", icono: CheckCheck, clase: "text-sky-600" },
 };
-const MENSAJES_ACCESO = ["Saludo de bienvenida", "Usuario y contraseña"];
+const MENSAJES_ACCESO = ["Saludo de bienvenida", "Credenciales de acceso"];
 const formatearTelefono = (t: string) => {
   const d = t.replace(/\D/g, "");
   const local = d.slice(-10);
@@ -433,7 +433,7 @@ function ReenviarAccesoModal({ usuario, onClose }: { usuario: Usuario; onClose: 
     try {
       const res = await fetch(`/api/usuarios/reenviar-verificacion?usuarioId=${usuario._id}&ids=${resultado.ids.join(",")}`);
       const data = await res.json().catch(() => ({}));
-      if (res.ok) setResultado(data);
+      if (res.ok) setResultado((prev) => ({ ...prev, ...data }));
     } finally { setRevisando(false); }
   }
 
@@ -489,6 +489,15 @@ function ReenviarAccesoModal({ usuario, onClose }: { usuario: Usuario; onClose: 
               );
             })}
           </ul>
+          {resultado.incluidos?.length ? (
+            <p className="text-xs text-black/70">El mensaje de acceso incluye también: <strong>{resultado.incluidos.join(" y ")}</strong>.</p>
+          ) : null}
+          {resultado.avisos?.map((aviso) => (
+            <p key={aviso} className="flex gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <TriangleAlert className="h-4 w-4 shrink-0" />
+              {aviso}
+            </p>
+          ))}
           {!entregado ? (
             <p className="text-xs text-black/60">
               &quot;Enviado&quot; significa que ya salió de nuestra línea; cambia a &quot;Entregado&quot; cuando llega al celular. Si en unos minutos no cambia, revisa que el número sea correcto y que la persona tenga WhatsApp activo.

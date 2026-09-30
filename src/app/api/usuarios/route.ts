@@ -8,7 +8,7 @@ import Departamento from "@/models/Departamento";
 import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, badRequest, conflict, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
-import { enviarBienvenida } from "@/lib/onboarding";
+import { enviarBienvenida, nipsParaAcceso } from "@/lib/onboarding";
 import { asegurarRolesSemilla } from "@/lib/roles";
 import { verificarNipCreacionSupervisor } from "@/lib/configuracion";
 import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
@@ -185,7 +185,8 @@ export async function POST(req: NextRequest) {
     // usuario ya quedó creado y las credenciales se pueden reenviar.
     let whatsappEnviado = true;
     try {
-      await enviarBienvenida({ telefono: telefonoNormalizado, nombre, usuario, password: passwordPlano });
+      const nips = await nipsParaAcceso(nuevo.toObject(), nipOperacion);
+      await enviarBienvenida({ telefono: telefonoNormalizado, nombre, usuario, password: passwordPlano, ...nips });
     } catch {
       whatsappEnviado = false;
     }
