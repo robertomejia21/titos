@@ -30,6 +30,7 @@ import { Button, Card, Input, Select, Modal, FormField, formatMoney } from "@/co
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { CapturaPeso } from "@/components/sucursal/CapturaPeso";
+import { useEscaner } from "@/components/sucursal/useEscaner";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
@@ -1113,16 +1114,29 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
    * puede terminar agregando otro producto; si el texto no identifica uno solo,
    * se muestran las candidatas en vez de elegir por el cajero.
    */
-  function procesarCodigo(e: React.FormEvent) {
-    e.preventDefault();
-    const valor = codigo.trim();
-    if (!valor) return;
+  // Último código procesado y por qué vía entró. Un lector que escribe como teclado Y manda por el
+  // puerto entregaría el mismo código dos veces: si llega igual por la otra vía en menos de
+  // 1.5 s se ignora. Dos escaneos seguidos por la misma vía sí cuentan (dos piezas iguales).
+  const ultimoEscaneo = useRef<{ valor: string; fuente: string; t: number } | null>(null);
+
+  function procesarValor(valor: string, fuente: "teclado" | "puente") {
+    const previo = ultimoEscaneo.current;
+    const ahora = Date.now();
+    if (previo && previo.valor === valor && previo.fuente !== fuente && ahora - previo.t < 1500) return;
+    ultimoEscaneo.current = { valor, fuente, t: ahora };
 
     const { exacto, coincidencias } = buscarProducto(productos, valor);
 
     if (exacto) {
-      setCodigo("");
+      if (fuente === "teclado") setCodigo("");
       agregarOPesar(exacto);
+      return;
+    }
+
+    // Un código de barras que no es un SKU exacto no se adivina: se avisa y listo.
+    if (fuente === "puente") {
+      setCandidatos([]);
+      setError(`No se encontró ningún producto con "${valor}"`);
       return;
     }
 
@@ -1138,6 +1152,20 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setCandidatos([]);
     setError(`No se encontró ningún producto con "${valor}"`);
   }
+
+  function procesarCodigo(e: React.FormEvent) {
+    e.preventDefault();
+    const valor = codigo.trim();
+    if (!valor) return;
+    procesarValor(valor, "teclado");
+  }
+
+  // Escáner conectado por el puente local. Con una ventana abierta (cobro, pesado, cancelación…)
+  // el código no se procesa, para no agregar productos por detrás del cobro.
+  useEscaner((leido) => {
+    if (document.querySelector("[data-modal]")) return;
+    procesarValor(leido, "puente");
+  });
 
   function confirmarPesaje() {
     if (!pesaje) return;
