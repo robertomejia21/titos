@@ -31,6 +31,7 @@ import {
 import { Button, Card, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
+import { PesoBascula } from "@/components/sucursal/PesoBascula";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
@@ -333,6 +334,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [busquedaId, setBusquedaId] = useState("");
   const [pesaje, setPesaje] = useState<Producto | null>(null);
   const [pesoInput, setPesoInput] = useState("");
+  const [pesoUnidad, setPesoUnidad] = useState<"kg" | "lb">("kg");
   const [montoEfectivo, setMontoEfectivo] = useState("");
   const [montoTarjeta, setMontoTarjeta] = useState("");
   const [montoTransferencia, setMontoTransferencia] = useState("");
@@ -1143,7 +1145,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   function confirmarPesaje() {
     if (!pesaje) return;
-    const peso = pesoEnKg(pesoInput);
+    const peso = pesoEnKg(pesoInput, pesoUnidad);
     if (peso === null) return;
     agregarAlCarrito(pesaje, peso);
     setPesaje(null);
@@ -2589,10 +2591,17 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
       {pesaje ? (
         <Modal open onClose={() => setPesaje(null)} title={`Capturar peso — ${pesaje.nombre}`} icon={ScanLine}>
-          <p className="mb-3 text-sm text-black/70">Copia el peso neto estable del visor en kilogramos. Si la báscula ya descontó la tara, no la restes otra vez. La lectura automática del equipo aún no está habilitada.</p>
-          <FormField label="Peso (kg)">
+          <p className="mb-3 text-sm text-black/70">Copia el peso neto estable del visor y elige su unidad; se convierte a kilogramos. Si la báscula ya descontó la tara, no la restes otra vez.</p>
+          <PesoBascula onEstable={(valor, unidad) => { setPesoInput(valor); setPesoUnidad(unidad); }} />
+          <FormField label="Unidad del visor">
+            <Select aria-label="Unidad del visor" value={pesoUnidad} onChange={(e) => setPesoUnidad(e.target.value as "kg" | "lb")}>
+              <option value="kg">Kilogramos</option>
+              <option value="lb">Libras</option>
+            </Select>
+          </FormField>
+          <FormField label={`Peso (${pesoUnidad})`}>
             <Input
-              aria-label="Peso (kg)"
+              aria-label={`Peso (${pesoUnidad})`}
               type="number"
               min="0"
               step="0.001"
@@ -2604,13 +2613,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               }}
             />
           </FormField>
-          <p role="status" className="mt-3 text-sm font-medium">{pesoEnKg(pesoInput) !== null ? `${pesoEnKg(pesoInput)!.toFixed(3)} kg × ${formatMoney(pesaje.precioVenta)} = ${formatMoney(pesoEnKg(pesoInput)! * pesaje.precioVenta)} antes de promociones` : "Usa un peso mayor a cero, con hasta 3 decimales."}</p>
+          <p role="status" className="mt-3 text-sm font-medium">{pesoEnKg(pesoInput, pesoUnidad) !== null ? `${pesoUnidad === "lb" ? `${pesoInput} lb = ` : ""}${pesoEnKg(pesoInput, pesoUnidad)!.toFixed(3)} kg × ${formatMoney(pesaje.precioVenta)} = ${formatMoney(pesoEnKg(pesoInput, pesoUnidad)! * pesaje.precioVenta)} antes de promociones` : "Usa un peso mayor a cero, con hasta 3 decimales."}</p>
           <Link href={rutaEquipos} className="mt-3 inline-block py-2 text-sm underline">Ver guía de báscula y pruebas de equipos</Link>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setPesaje(null)}>
               Cancelar
             </Button>
-            <Button onClick={confirmarPesaje} disabled={pesoEnKg(pesoInput) === null}>
+            <Button onClick={confirmarPesaje} disabled={pesoEnKg(pesoInput, pesoUnidad) === null}>
               Agregar al carrito
             </Button>
           </div>
