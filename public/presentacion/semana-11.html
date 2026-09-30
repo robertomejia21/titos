@@ -616,15 +616,15 @@
       <div><span class="etiqueta">Semana 11 · Entrega de avances</span></div>
       <h1>La caja pesa en kilos y el ticket ya lleva la marca</h1>
       <p class="bajada">
-        Cinco puntos aplicados. El de fondo: la báscula manda libras y el sistema cobra siempre en
-        kilos, con el peso a la vista y listo para aceptar. Junto a eso, la pantalla de pesado se
+        Cinco puntos aplicados. El de fondo: el peso de la báscula aparece a la vista, en kilos
+        y listo para aceptar, y el total se calcula al instante. Junto a eso, la pantalla de pesado se
         simplificó y el ticket térmico ya lleva el logo de Mercados Titos, con un ticket de prueba
         para revisar la impresora.
       </p>
 
       <div class="metricas">
         <div class="metrica"><strong>5</strong><span>Puntos atendidos</span></div>
-        <div class="metrica"><strong>4</strong><span>Pantallas de ejemplo</span></div>
+        <div class="metrica"><strong>3</strong><span>Pantallas de ejemplo</span></div>
         <div class="metrica"><strong>3</strong><span>Pendientes por cerrar</span></div>
         <div class="metrica"><strong>0</strong><span>Puntos en pausa</span></div>
       </div>
@@ -644,8 +644,8 @@
       <div class="tarjetas">
         <article class="tarjeta revelar">
           <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M12 3v18M5 8l7-5 7 5M4 21h16</svg></span>
-          <h3>Siempre en kilos</h3>
-          <p>La báscula reporta libras y el sistema las convierte solo: 2.77 lb son 1.256 kg. El cobro y el ticket siempre van en kilos.</p>
+          <h3>Todo en kilos</h3>
+          <p>El peso, el cálculo y el ticket van en kilos con tres decimales: ya no hay que elegir unidad ni hacer cuentas aparte.</p>
         </article>
 
         <article class="tarjeta revelar">
@@ -679,10 +679,10 @@
       <div class="interior">
         <div class="encabezado revelar">
           <span class="numero">02 · El cambio de fondo</span>
-          <h2>Se pesa una vez y se cobra siempre en kilos</h2>
+          <h2>Se pesa una vez y el total sale solo</h2>
           <p>
-            La báscula de la caja trabaja en libras y los productos se venden por kilo. Esa
-            conversión ya no la hace nadie a mano.
+            Los productos se venden por kilo: el peso de la báscula llega a la pantalla y la cuenta
+            ya no se hace a mano.
           </p>
         </div>
 
@@ -690,22 +690,20 @@
           <div class="caso antes">
             <p class="rotulo">Lo que pasaba</p>
             <p class="detalle">
-              El cajero tenía que <strong>copiar el peso del visor</strong> al sistema y elegir la
-              unidad. Con libras de por medio, la conversión mental a kilos era una fuente de
-              errores en cada pesada.
+              El cajero tenía que <strong>copiar el peso del visor</strong> al sistema y hacer la
+              cuenta aparte. Cada pesada era un punto donde podía haber un error de captura.
             </p>
           </div>
 
           <div class="caso despues">
             <p class="rotulo">Lo que pasa ahora</p>
             <p class="detalle">
-              La báscula manda el peso y el sistema <strong>lo convierte a kilos</strong>. Cuando el
-              peso se estabiliza, solo se pulsa Aceptar; el total se calcula al instante con el
-              precio por kilo.
+              La báscula manda el peso y <strong>aparece en la pantalla, en kilos</strong>. Cuando se
+              estabiliza, solo se pulsa Aceptar; el total se calcula al instante con el precio por
+              kilo.
             </p>
             <p class="detalle">
-              Si no hay báscula, el peso se escribe a mano en <strong>kilos o libras</strong> y
-              también se convierte.
+              Si no hay báscula, el peso se <strong>escribe a mano</strong>, en kilos.
             </p>
           </div>
         </div>
@@ -713,16 +711,15 @@
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
             <button role="tab" data-tab="kilos-bascula" aria-selected="true">Con báscula</button>
-            <button role="tab" data-tab="kilos-manual">A mano, en kilos</button>
-            <button role="tab" data-tab="kilos-libras">A mano, en libras</button>
+            <button role="tab" data-tab="kilos-manual">A mano</button>
           </div>
 
           <div class="lamina visible" data-panel="kilos-bascula">
             <figure>
-              <img src="img/s11-modal-bascula.png" alt="Pantalla de pesado con el peso estable de 1.256 kg, el equivalente en libras y el total" />
+              <img src="img/s11-modal-bascula.png" alt="Pantalla de pesado con el peso estable de 1.250 kg y el total" />
               <figcaption>
-                <strong>El peso llega solo.</strong> Se muestra en kilos, en grande, con las libras
-                de la báscula como dato secundario. Cuando el peso es firme aparece "Peso estable" en
+                <strong>El peso llega solo.</strong> Se muestra en kilos, en grande. Cuando
+                el peso es firme aparece "Peso estable" en
                 verde y se habilita Aceptar. Producto de ejemplo, no de su catálogo.
               </figcaption>
             </figure>
@@ -732,32 +729,22 @@
             <figure>
               <img src="img/s11-modal-manual.png" alt="Pantalla de pesado sin báscula, con el peso escrito a mano en kilos" />
               <figcaption>
-                <strong>Sin báscula, se escribe el peso.</strong> Un aviso lo dice sin alarmar y el
-                selector Kilos/Libras aparece solo en este caso. El cálculo y el total se actualizan
-                mientras se teclea.
+                <strong>Sin báscula, se escribe el peso.</strong> Un aviso lo dice sin alarmar. El
+                cálculo y el total se actualizan mientras se teclea.
               </figcaption>
             </figure>
           </div>
 
-          <div class="lamina" data-panel="kilos-libras">
-            <figure>
-              <img src="img/s11-modal-libras.png" alt="Pantalla de pesado con 2.77 libras convertidas a 1.256 kilos" />
-              <figcaption>
-                <strong>Las libras se convierten a kilos.</strong> 2.77 lb son 1.256 kg, y así se
-                cobra. Al cambiar de unidad se conserva el mismo peso: solo cambia cómo se escribe.
-              </figcaption>
-            </figure>
-          </div>
         </div>
 
         <div class="reglas revelar">
           <div class="regla">
-            <h4>Se cobra siempre en kilos</h4>
-            <p>Sea cual sea la unidad con la que se capture, la venta, el total y el ticket llevan kilos con tres decimales.</p>
+            <h4>Se cobra en kilos</h4>
+            <p>La venta, el total y el ticket llevan kilos con tres decimales, sea que el peso llegue de la báscula o se escriba a mano.</p>
           </div>
           <div class="regla">
-            <h4>Redondeo al gramo</h4>
-            <p>Una libra equivale a 0.4536 kg; el peso convertido se redondea al gramo para que el total sea el mismo en la pantalla y en el ticket.</p>
+            <h4>El total se ve mientras se pesa</h4>
+            <p>Peso por precio por kilo, antes de promociones, aparece en la misma pantalla; al aceptar, el renglón entra al carrito con ese mismo importe.</p>
           </div>
           <div class="regla">
             <h4>Aceptar espera al peso firme</h4>
@@ -797,7 +784,7 @@
         </div>
         <div class="regla">
           <h4>Solo lo necesario</h4>
-          <p>Con báscula no se pide unidad y el campo manual baja de tamaño. Se quitó además el enlace a la guía de báscula del interior de la ventana.</p>
+          <p>Con báscula el campo manual baja de tamaño y solo sirve para ajustar. Se quitó además el enlace a la guía de báscula del interior de la ventana.</p>
         </div>
       </div>
     </section>
