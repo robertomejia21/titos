@@ -79,6 +79,9 @@ const ConfiguracionSchema = new Schema(
     // y con él no debe poder crearse otro supervisor. También se guarda
     // hasheado y la API solo informa si ya está configurado.
     nipCreacionSupervisorHash: { type: String, default: "" },
+    // Copia cifrada (lib/nipCifrado) para mandárselo por WhatsApp a quienes
+    // administran usuarios junto con su acceso. Nunca sale por la API.
+    nipCreacionSupervisorCifrado: { type: String, select: false },
     // Tasa de IVA con la que se generan las facturas del sistema. La mayoría del
     // abarrote es tasa 0%, por eso el default no es 16.
     tasaIvaFactura: { type: Number, default: 0, min: 0, max: 100 },

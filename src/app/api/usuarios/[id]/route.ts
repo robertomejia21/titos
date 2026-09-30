@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const nuevoNip = String(body.nipOperacion ?? "").trim();
   if (!usaNip && nuevoNip) return badRequest("El NIP personal es solo para el gerente de tienda");
   if (usaNip && !usuario.nipOperacionHash && !nuevoNip) return badRequest("Asigna un NIP personal al gerente de tienda");
-  if (!usaNip) { usuario.nipOperacionHash = ""; usuario.nipOperacionHuella = undefined; }
+  if (!usaNip) { usuario.nipOperacionHash = ""; usuario.nipOperacionHuella = undefined; usuario.nipOperacionCifrado = undefined; }
   if (usaNip && nuevoNip) {
     try {
       Object.assign(usuario, await prepararNipPersonal(nuevoNip, id));

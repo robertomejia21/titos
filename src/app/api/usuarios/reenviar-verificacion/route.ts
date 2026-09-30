@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import UserModel from "@/models/User";
 import { requireSession, unauthorized, forbidden, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword, generarPasswordUsuario } from "@/lib/auth";
-import { enviarBienvenida } from "@/lib/onboarding";
+import { enviarBienvenida, nipsParaAcceso } from "@/lib/onboarding";
 import { getStateInstance, checkWhatsapp, getMessageStatus } from "@/lib/greenApi";
 
 // Vuelve a consultar el estado de mensajes ya enviados (botón "Volver a
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const usuario = await UserModel.findById(usuarioId).select("nombre usuario telefono apellidoPaterno fechaNacimiento");
+  const usuario = await UserModel.findById(usuarioId).select("nombre usuario telefono apellidoPaterno fechaNacimiento role sucursalRol rolId permisosIndividuales nipOperacionHash +nipOperacionCifrado");
   if (!usuario) return badRequest("El usuario no existe");
   if (!usuario.telefono) return badRequest("El usuario no tiene teléfono registrado");
   if (!usuario.usuario || !usuario.apellidoPaterno || !usuario.fechaNacimiento) {
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
   const passwordPlano = generarPasswordUsuario(usuario.apellidoPaterno, usuario.fechaNacimiento);
   await UserModel.updateOne({ _id: usuario._id }, { passwordHash: await hashPassword(passwordPlano) });
 
+  const { avisos, ...nips } = await nipsParaAcceso(usuario.toObject());
+
   let ids: string[];
   try {
     ids = await enviarBienvenida({
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
       nombre: usuario.nombre,
       usuario: usuario.usuario,
       password: passwordPlano,
+      ...nips,
     });
   } catch (error) {
     console.error("[reenviar-verificacion] WhatsApp falló", error);
@@ -87,5 +90,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `WhatsApp rechazó el mensaje a ${usuario.telefono} (estado: ${estados.join(", ")}).`, ids, estados }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, telefono: usuario.telefono, ids, estados });
+  const incluidos = [nips.nipGerente && "NIP de gerente", nips.nipCrearSupervisores && "NIP para crear supervisores"].filter(Boolean);
+  return NextResponse.json({ ok: true, telefono: usuario.telefono, ids, estados, incluidos, avisos });
 }

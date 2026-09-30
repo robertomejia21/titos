@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { DIAS_SEMANA } from "@/lib/dias";
 import { requireSession, unauthorized, forbidden, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
 import { hashPassword } from "@/lib/auth";
+import { cifrarNip } from "@/lib/nipCifrado";
 import {
   NIP_CREACION_SUPERVISOR_REGEX,
   NIP_SUPERVISOR_REGEX,
@@ -164,12 +165,14 @@ export async function PATCH(req: NextRequest) {
   if ("nipCreacionSupervisor" in body) {
     if (body.nipCreacionSupervisor === null) {
       update.nipCreacionSupervisorHash = "";
+      update.nipCreacionSupervisorCifrado = undefined;
     } else {
       const nip = String(body.nipCreacionSupervisor ?? "").trim();
       if (!NIP_CREACION_SUPERVISOR_REGEX.test(nip)) {
         return badRequest("El NIP para crear supervisores debe ser de 6 dígitos");
       }
       update.nipCreacionSupervisorHash = await hashPassword(nip);
+      update.nipCreacionSupervisorCifrado = cifrarNip(nip);
     }
   }
 

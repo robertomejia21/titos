@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import UserModel from "@/models/User";
 import { hashPassword, verifyPassword } from "@/lib/auth";
 import { NIP_OPERACION_REGEX } from "@/lib/supervisores";
+import { cifrarNip } from "@/lib/nipCifrado";
 
 export class NipPersonalError extends Error {}
 
@@ -29,7 +30,7 @@ export async function prepararNipPersonal(nip: string, usuarioId?: string) {
       throw new NipPersonalError("Ese NIP ya está asignado a otra persona. Elige uno diferente");
     }
   }
-  return { nipOperacionHash: await hashPassword(nip), nipOperacionHuella: huella };
+  return { nipOperacionHash: await hashPassword(nip), nipOperacionHuella: huella, nipOperacionCifrado: cifrarNip(nip) };
 }
 
 export function esNipDuplicado(error: unknown): boolean {
