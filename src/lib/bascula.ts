@@ -1,5 +1,5 @@
 // Lectura del puente local de la báscula (http://localhost:8090/peso).
-// Contrato del puente (confirmado por Langley): GET /peso →
+// Contrato del puente (confirmado por Marce): GET /peso →
 //   200 {"ok": true, "peso_lb": 2.77, "crudo": "002.77"}
 //   502 {"ok": false, "error": "..."} si la báscula no responde o el puerto está ocupado.
 // Por tolerancia también se acepta JSON con `peso`/`weight`/`valor` o texto plano.

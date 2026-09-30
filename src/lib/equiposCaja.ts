@@ -56,6 +56,10 @@ export function libraAKg(lb: number): number {
   return Math.round(lb * KG_POR_LIBRA * 1000) / 1000;
 }
 
+export function kgALibras(kg: number): number {
+  return Math.round((kg / KG_POR_LIBRA) * 100) / 100;
+}
+
 export function pesoEnKg(texto: string, unidad: "kg" | "g" | "lb" = "kg"): number | null {
   if (!/^\d+(?:[.,]\d{1,3})?$/.test(texto.trim())) return null;
   const valor = Number(texto.replace(",", "."));

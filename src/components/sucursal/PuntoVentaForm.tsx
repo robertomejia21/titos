@@ -29,7 +29,7 @@ import {
 import { Button, Card, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
-import { PesoBascula } from "@/components/sucursal/PesoBascula";
+import { CapturaPeso } from "@/components/sucursal/CapturaPeso";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
@@ -2587,39 +2587,15 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       ) : null}
 
       {pesaje ? (
-        <Modal open onClose={() => setPesaje(null)} title={`Capturar peso — ${pesaje.nombre}`} icon={ScanLine}>
-          <p className="mb-3 text-sm text-black/70">Copia el peso neto estable del visor y elige su unidad; se convierte a kilogramos. Si la báscula ya descontó la tara, no la restes otra vez.</p>
-          <PesoBascula onEstable={(kg) => { setPesoInput(kg); setPesoUnidad("kg"); }} />
-          <FormField label="Unidad del visor">
-            <Select aria-label="Unidad del visor" value={pesoUnidad} onChange={(e) => setPesoUnidad(e.target.value as "kg" | "lb")}>
-              <option value="kg">Kilogramos</option>
-              <option value="lb">Libras</option>
-            </Select>
-          </FormField>
-          <FormField label={`Peso (${pesoUnidad})`}>
-            <Input
-              aria-label={`Peso (${pesoUnidad})`}
-              type="number"
-              min="0"
-              step="0.001"
-              autoFocus
-              value={pesoInput}
-              onChange={(e) => setPesoInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") confirmarPesaje();
-              }}
-            />
-          </FormField>
-          <p role="status" className="mt-3 text-sm font-medium">{pesoEnKg(pesoInput, pesoUnidad) !== null ? `${pesoUnidad === "lb" ? `${pesoInput} lb = ` : ""}${pesoEnKg(pesoInput, pesoUnidad)!.toFixed(3)} kg × ${formatMoney(pesaje.precioVenta)} = ${formatMoney(pesoEnKg(pesoInput, pesoUnidad)! * pesaje.precioVenta)} antes de promociones` : "Usa un peso mayor a cero, con hasta 3 decimales."}</p>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setPesaje(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={confirmarPesaje} disabled={pesoEnKg(pesoInput, pesoUnidad) === null}>
-              Agregar al carrito
-            </Button>
-          </div>
-        </Modal>
+        <CapturaPeso
+          producto={pesaje}
+          valor={pesoInput}
+          onValor={setPesoInput}
+          unidad={pesoUnidad}
+          onUnidad={setPesoUnidad}
+          onConfirmar={confirmarPesaje}
+          onCerrar={() => setPesaje(null)}
+        />
       ) : null}
 
       {ventaCompletada ? (
