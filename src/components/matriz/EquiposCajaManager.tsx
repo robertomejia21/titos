@@ -40,7 +40,7 @@ export function EquiposCajaManager() {
   const [aviso, setAviso] = useState("");
   const [codigo, setCodigo] = useState("");
   const [peso, setPeso] = useState("");
-  const [unidad, setUnidad] = useState<"kg" | "g" | "lb">("kg");
+  const [unidad, setUnidad] = useState<"kg" | "g">("kg");
   const [precio, setPrecio] = useState("");
   const [confirmado, setConfirmado] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
@@ -134,7 +134,7 @@ export function EquiposCajaManager() {
         <Button onClick={() => imprimirTicketPrueba({ zonaHoraria: zona })}>Imprimir ticket de prueba</Button>
         <h3 className="mb-3 mt-6 font-semibold">Comprobar el cálculo por kilogramo</h3>
         <p className="mb-3 text-sm">Coloca el producto, espera que se estabilice y copia el peso neto del visor. No restes la tara dos veces. Esta prueba no aplica promociones ni cambia impuestos.</p>
-        <FormGrid><FormField label="Peso del visor"><Input aria-label="Peso del visor" value={peso} inputMode="decimal" onChange={e => setPeso(e.target.value)} /></FormField><FormField label="Unidad del visor"><Select aria-label="Unidad del visor" value={unidad} onChange={e => setUnidad(e.target.value as "kg" | "g" | "lb")}><option value="kg">Kilogramos</option><option value="g">Gramos</option><option value="lb">Libras</option></Select></FormField><FormField label="Precio por kilogramo"><Input aria-label="Precio por kilogramo" value={precio} inputMode="decimal" onChange={e => setPrecio(e.target.value)} /></FormField></FormGrid>
+        <FormGrid><FormField label="Peso del visor"><Input aria-label="Peso del visor" value={peso} inputMode="decimal" onChange={e => setPeso(e.target.value)} /></FormField><FormField label="Unidad del visor"><Select aria-label="Unidad del visor" value={unidad} onChange={e => setUnidad(e.target.value as "kg" | "g")}><option value="kg">Kilogramos</option><option value="g">Gramos</option></Select></FormField><FormField label="Precio por kilogramo"><Input aria-label="Precio por kilogramo" value={precio} inputMode="decimal" onChange={e => setPrecio(e.target.value)} /></FormField></FormGrid>
         <p role="status" className="mt-3 font-medium">{importe !== null ? `${kg!.toFixed(3)} kg × $${precioNum.toFixed(2)} = $${importe.toFixed(2)} MXN` : "Captura un peso positivo (hasta 3 decimales en kg) y el precio para comparar."}</p>
         <details className="mt-5"><summary className="min-h-11 cursor-pointer py-3 font-medium">Diagnóstico del puerto de báscula</summary>
           <p className="mb-3 text-sm">Solo recibe datos durante 8 segundos. No envía comandos ni agrega peso al carrito. Si usas OPOS, prueba primero con DualTest del fabricante. No selecciones la terminal bancaria.</p>

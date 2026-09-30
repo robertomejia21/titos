@@ -331,7 +331,6 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [busquedaId, setBusquedaId] = useState("");
   const [pesaje, setPesaje] = useState<Producto | null>(null);
   const [pesoInput, setPesoInput] = useState("");
-  const [pesoUnidad, setPesoUnidad] = useState<"kg" | "lb">("kg");
   const [montoEfectivo, setMontoEfectivo] = useState("");
   const [montoTarjeta, setMontoTarjeta] = useState("");
   const [montoTransferencia, setMontoTransferencia] = useState("");
@@ -1142,7 +1141,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   function confirmarPesaje() {
     if (!pesaje) return;
-    const peso = pesoEnKg(pesoInput, pesoUnidad);
+    const peso = pesoEnKg(pesoInput);
     if (peso === null) return;
     agregarAlCarrito(pesaje, peso);
     setPesaje(null);
@@ -2591,8 +2590,6 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           producto={pesaje}
           valor={pesoInput}
           onValor={setPesoInput}
-          unidad={pesoUnidad}
-          onUnidad={setPesoUnidad}
           onConfirmar={confirmarPesaje}
           onCerrar={() => setPesaje(null)}
         />

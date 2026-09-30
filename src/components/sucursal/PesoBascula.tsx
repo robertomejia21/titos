@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BASCULA_UNIDAD, BASCULA_URL, leerPesoDeRespuesta, pesoBasculaEnKg } from "@/lib/bascula";
+import { BASCULA_URL, leerPesoDeRespuesta, pesoBasculaEnKg } from "@/lib/bascula";
 
 type Estado = "buscando" | "sin-bascula" | "leyendo";
 
@@ -89,7 +89,6 @@ export function PesoBascula({ onEstable, onEstado }: { onEstable: (kg: string) =
         {peso === null ? "—" : pesoBasculaEnKg(peso).toFixed(3)}
         <span className="ml-2 text-2xl font-medium text-black/45">kg</span>
       </p>
-      {peso !== null && BASCULA_UNIDAD === "lb" ? <p className="mt-2 text-sm tabular-nums text-black/45">{peso.toFixed(2)} lb en la báscula</p> : null}
     </div>
   );
 }

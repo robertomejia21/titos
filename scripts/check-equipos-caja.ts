@@ -48,11 +48,8 @@ async function main() {
   assert.equal(leerPesoDeRespuesta('{"peso":"002.77"}'), 2.77);
   assert.equal(leerPesoDeRespuesta('{"ok": true, "peso_lb": 2.77, "crudo": "002.77"}'), 2.77);
   assert.equal(leerPesoDeRespuesta('{"ok": false, "error": "puerto ocupado"}'), null);
+  assert.equal(pesoBasculaEnKg(2.77), 2.77, "el peso de la báscula se toma en kg");
   assert.equal(leerPesoDeRespuesta("error"), null);
-  assert.equal(pesoEnKg("002.77", "lb"), 1.256, "2.77 lb = 1.256 kg");
-  assert.equal(pesoEnKg("1", "lb"), 0.454);
-  assert.equal(pesoBasculaEnKg(2.77), 1.256, "la báscula reporta lb y el sistema siempre trabaja en kg");
-  assert.equal(pesoEnKg("0", "lb"), null);
   assert.equal(pesoEnKg("1.5", "g"), null, "No redondear gramos fraccionarios silenciosamente");
   assert.equal(autorizacionTarjeta(" 012345 "), "012345");
   assert.throws(() => autorizacionTarjeta("4111111111111111"));
