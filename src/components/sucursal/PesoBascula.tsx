@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BASCULA_UNIDAD, BASCULA_URL, leerPesoDeRespuesta } from "@/lib/bascula";
+import { BASCULA_UNIDAD, BASCULA_URL, leerPesoDeRespuesta, pesoBasculaEnKg } from "@/lib/bascula";
 
 type Estado = "buscando" | "sin-bascula" | "leyendo";
 
@@ -9,7 +9,7 @@ const LECTURAS_ESTABLES = 3;
 
 // Muestra el peso que reporta la báscula y avisa cuando se estabiliza.
 // Si el puente no responde, no estorba: el cajero sigue capturando a mano.
-export function PesoBascula({ onEstable }: { onEstable: (peso: string, unidad: "kg" | "lb") => void }) {
+export function PesoBascula({ onEstable }: { onEstable: (kg: string) => void }) {
   const [estado, setEstado] = useState<Estado>("buscando");
   const [peso, setPeso] = useState<number | null>(null);
   const [estable, setEstable] = useState(false);
@@ -37,7 +37,7 @@ export function PesoBascula({ onEstable }: { onEstable: (peso: string, unidad: "
         setEstable(firme);
         if (firme && avisado.current !== valor) {
           avisado.current = valor;
-          alEstable.current(valor.toFixed(3).replace(/0+$/, "").replace(/\.$/, ""), BASCULA_UNIDAD);
+          alEstable.current(pesoBasculaEnKg(valor).toFixed(3));
         }
         if (valor === 0) avisado.current = null;
       } catch {
@@ -72,9 +72,10 @@ export function PesoBascula({ onEstable }: { onEstable: (peso: string, unidad: "
     >
       <p className="text-xs font-medium uppercase tracking-wide text-black/60">{estado === "buscando" ? "Buscando báscula…" : "Peso en báscula"}</p>
       <p className="mt-1 text-5xl font-semibold tabular-nums leading-none">
-        {peso === null ? "—" : peso.toFixed(2)}
-        <span className="ml-2 text-xl font-medium text-black/60">{BASCULA_UNIDAD}</span>
+        {peso === null ? "—" : pesoBasculaEnKg(peso).toFixed(3)}
+        <span className="ml-2 text-xl font-medium text-black/60">kg</span>
       </p>
+      {peso !== null && BASCULA_UNIDAD === "lb" ? <p className="mt-1 text-sm tabular-nums text-black/50">{peso.toFixed(2)} lb en la báscula</p> : null}
       <p className={`mt-2 text-sm font-medium ${estable ? "text-emerald-700" : "text-black/60"}`}>
         {peso === null ? "" : estable ? "Peso estable" : peso === 0 ? "Coloca el producto" : "Estabilizando…"}
       </p>

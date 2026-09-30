@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { pesoEnKg, autorizacionTarjeta } from "@/lib/equiposCaja";
 import {
   ScanLine,
@@ -312,7 +310,6 @@ function SelectorTipoTarjeta({
 
 export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: string }) {
   const zonaHoraria = useZonaHoraria();
-  const rutaEquipos = usePathname()?.startsWith("/matriz") ? "/matriz/equipos-caja" : "/sucursal/equipos-caja";
   const [promociones, setPromociones] = useState<ReglaPromocion[]>([]);
   const [promocionesListas, setPromocionesListas] = useState(false);
   const operacionPromocion = useRef<string | null>(null);
@@ -2592,7 +2589,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       {pesaje ? (
         <Modal open onClose={() => setPesaje(null)} title={`Capturar peso — ${pesaje.nombre}`} icon={ScanLine}>
           <p className="mb-3 text-sm text-black/70">Copia el peso neto estable del visor y elige su unidad; se convierte a kilogramos. Si la báscula ya descontó la tara, no la restes otra vez.</p>
-          <PesoBascula onEstable={(valor, unidad) => { setPesoInput(valor); setPesoUnidad(unidad); }} />
+          <PesoBascula onEstable={(kg) => { setPesoInput(kg); setPesoUnidad("kg"); }} />
           <FormField label="Unidad del visor">
             <Select aria-label="Unidad del visor" value={pesoUnidad} onChange={(e) => setPesoUnidad(e.target.value as "kg" | "lb")}>
               <option value="kg">Kilogramos</option>
@@ -2614,7 +2611,6 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             />
           </FormField>
           <p role="status" className="mt-3 text-sm font-medium">{pesoEnKg(pesoInput, pesoUnidad) !== null ? `${pesoUnidad === "lb" ? `${pesoInput} lb = ` : ""}${pesoEnKg(pesoInput, pesoUnidad)!.toFixed(3)} kg × ${formatMoney(pesaje.precioVenta)} = ${formatMoney(pesoEnKg(pesoInput, pesoUnidad)! * pesaje.precioVenta)} antes de promociones` : "Usa un peso mayor a cero, con hasta 3 decimales."}</p>
-          <Link href={rutaEquipos} className="mt-3 inline-block py-2 text-sm underline">Ver guía de báscula y pruebas de equipos</Link>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setPesaje(null)}>
               Cancelar

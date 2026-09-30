@@ -51,12 +51,17 @@ export function validarEquipoCaja(valor: unknown): EquipoCajaConfig {
 
 const KG_POR_LIBRA = 0.45359237;
 
+// Kilos con precisión de gramos. El sistema trabaja siempre en kg; las libras solo se convierten.
+export function libraAKg(lb: number): number {
+  return Math.round(lb * KG_POR_LIBRA * 1000) / 1000;
+}
+
 export function pesoEnKg(texto: string, unidad: "kg" | "g" | "lb" = "kg"): number | null {
   if (!/^\d+(?:[.,]\d{1,3})?$/.test(texto.trim())) return null;
   const valor = Number(texto.replace(",", "."));
   if (unidad === "lb") {
     // Una libra no cae en milésimas exactas de kg: aquí sí se redondea a gramos, a diferencia de "g".
-    const kg = Math.round(valor * KG_POR_LIBRA * 1000) / 1000;
+    const kg = libraAKg(valor);
     return Number.isFinite(kg) && kg > 0 && kg <= 100000 ? kg : null;
   }
   const kg = unidad === "g" ? valor / 1000 : valor;
