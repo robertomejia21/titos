@@ -135,7 +135,7 @@ const RECEPTOR_VACIO: Receptor = {
   emailFacturacion: "",
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 function etiqueta(catalogo: readonly { value: string; label: string }[], value: string) {
   return catalogo.find((c) => c.value === value)?.label ?? value ?? "—";
@@ -523,13 +523,13 @@ export function FacturasManager() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-3">Folio</th>
-                    <th className="py-2 pr-3">Fecha</th>
-                    <th className="py-2 pr-3">Sucursal</th>
-                    <th className="py-2 pr-3">Cliente</th>
-                    <th className="py-2 pr-3 text-right">Artículos</th>
-                    <th className="py-2 pr-3 text-right">Total</th>
-                    <th className="py-2" />
+                    <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Cliente</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Artículos</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Total</th>
+                    <th className="px-2 py-1.5" />
                   </tr>
                 </thead>
                 <tbody>
@@ -540,7 +540,7 @@ export function FacturasManager() {
                       title="Ver lo que se vendió"
                       className="cursor-pointer border-b border-black/5 transition-colors hover:bg-titos-green-100/40"
                     >
-                      <td className="py-2 pr-3 font-medium text-titos-green-900">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">
                         {v.folio}
                         {v.esVentas2 ? (
                           <span className="ml-1.5 rounded-full bg-titos-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-titos-orange-700">
@@ -548,14 +548,14 @@ export function FacturasManager() {
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-black/55">{formatFechaHora(v.fecha, zonaHoraria, "—")}</td>
-                      <td className="py-2 pr-3 text-black/70">{v.sucursalNombre}</td>
-                      <td className="py-2 pr-3 text-black/55">{v.clienteNombre || "Público en general"}</td>
-                      <td className="py-2 pr-3 text-right text-black/55">{v.articulos}</td>
-                      <td className="py-2 pr-3 text-right font-semibold text-titos-green-900">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/55">{formatFechaHora(v.fecha, zonaHoraria, "—")}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/70">{v.sucursalNombre}</td>
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/55" title={v.clienteNombre || "Público en general"}>{v.clienteNombre || "Público en general"}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/55">{v.articulos}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-titos-green-900">
                         {formatMoney(v.total)}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
                         <Button size="sm" onClick={(e) => { e.stopPropagation(); abrirAlta(v); }}>
                           Facturar
                         </Button>
@@ -583,7 +583,7 @@ export function FacturasManager() {
                     <button
                       type="button"
                       onClick={() => setExpandida(abierta ? null : f._id)}
-                      className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-left text-sm hover:bg-black/2"
+                      className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 text-left text-sm hover:bg-black/2"
                     >
                       <span className="flex items-center gap-2 font-medium text-titos-green-900">
                         {abierta ? (
@@ -593,13 +593,13 @@ export function FacturasManager() {
                         )}
                         {f.serie}-{f.folio}
                       </span>
-                      <span className="truncate text-black/70">{f.receptor.razonSocial}</span>
+                      <span className="max-w-[16rem] truncate text-black/70" title={f.receptor.razonSocial}>{f.receptor.razonSocial}</span>
                       <span className="font-mono text-xs text-black/50">{f.receptor.rfc}</span>
                       <span className="text-xs text-black/45">{formatFechaHora(f.createdAt, zonaHoraria, "—")}</span>
                       <span className="text-xs text-black/45">Venta {f.ventaFolio}</span>
                       <span className="font-semibold text-titos-green-900">{formatMoney(f.total)}</span>
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                           f.estado === "cancelada"
                             ? "bg-red-100 text-red-700"
                             : "bg-titos-green-100 text-titos-green-700"
@@ -607,7 +607,7 @@ export function FacturasManager() {
                       >
                         {f.estado}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-black/55">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-black/55">
                         <Stamp className="h-3 w-3" />
                         {f.timbrado?.estado === "timbrada"
                           ? "Timbrada"
@@ -828,10 +828,10 @@ export function FacturasManager() {
         <p className="mt-3 text-sm font-medium">Costos consultados el 9 de septiembre de 2026 · MXN, IVA incluido</p>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead><tr className="border-b border-black/15"><th className="p-2">Proveedor</th><th className="p-2">Cuota</th><th className="p-2">Consumo</th></tr></thead>
+            <thead><tr className="border-b border-black/15 text-black/50"><th className="px-2 py-1.5 text-xs font-medium">Proveedor</th><th className="px-2 py-1.5 text-xs font-medium">Cuota</th><th className="px-2 py-1.5 text-xs font-medium">Consumo</th></tr></thead>
             <tbody>
-              <tr className="border-b border-black/10"><th scope="row" className="p-2 font-medium"><a href="https://api.facturama.mx/costos" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturama API</a></th><td className="p-2">$1,650 al año; incluye 100 folios</td><td className="p-2">$0.50 por folio adicional en compras de 1 a 10,000; prepago</td></tr>
-              <tr><th scope="row" className="p-2 font-medium"><a href="https://www.facturapi.io/pricing" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturapi API CFDI</a></th><td className="p-2">$299 al mes</td><td className="p-2">$0.60 por timbre</td></tr>
+              <tr className="border-b border-black/10"><th scope="row" className="whitespace-nowrap px-2 py-1.5 font-medium"><a href="https://api.facturama.mx/costos" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturama API</a></th><td className="px-2 py-1.5">$1,650 al año; incluye 100 folios</td><td className="px-2 py-1.5">$0.50 por folio adicional en compras de 1 a 10,000; prepago</td></tr>
+              <tr><th scope="row" className="whitespace-nowrap px-2 py-1.5 font-medium"><a href="https://www.facturapi.io/pricing" target="_blank" rel="noreferrer" className="text-titos-green-700 underline">Facturapi API CFDI</a></th><td className="px-2 py-1.5">$299 al mes</td><td className="px-2 py-1.5">$0.60 por timbre</td></tr>
             </tbody>
           </table>
         </div>
@@ -878,29 +878,33 @@ export function FacturasManager() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-black/10 bg-black/2 text-black/50">
-                      <th className="px-3 py-2">Producto</th>
-                      <th className="px-2 py-2 text-right">Cant.</th>
-                      <th className="px-2 py-2 text-right">P. unitario</th>
-                      <th className="px-3 py-2 text-right">Importe</th>
+                      <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                      <th className="px-2 py-1.5 text-xs font-medium">SKU</th>
+                      <th className="px-2 py-1.5 text-right text-xs font-medium">Cant.</th>
+                      <th className="px-2 py-1.5 text-right text-xs font-medium">P. unitario</th>
+                      <th className="px-2 py-1.5 text-right text-xs font-medium">Importe</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detalle.items.map((i, n) => (
                       <tr key={`${i.sku}-${n}`} className="border-b border-black/5 last:border-0">
-                        <td className="px-3 py-2">
+                        <td className="whitespace-nowrap px-2 py-1.5">
                           <span className="font-medium text-black/80">{i.nombreProducto}</span>
-                          <span className="block text-xs text-black/40">SKU: {i.sku}</span>
                           {i.descuento ? (
-                            <span className="block text-xs text-titos-orange-700">
+                            <span
+                              className="ml-1.5 rounded-full bg-titos-orange-100 px-2 py-0.5 text-xs text-titos-orange-700"
+                              title={i.promocionNombre || "Promoción"}
+                            >
                               {i.promocionNombre || "Promoción"}: −{formatMoney(i.descuento)}
                             </span>
                           ) : null}
                         </td>
-                        <td className="px-2 py-2 text-right text-black/60">
+                        <td className="whitespace-nowrap px-2 py-1.5 text-xs text-black/40">{i.sku}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">
                           {i.cantidad} {i.unidad}
                         </td>
-                        <td className="px-2 py-2 text-right text-black/60">{formatMoney(i.precioUnitario)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-titos-green-900">
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/60">{formatMoney(i.precioUnitario)}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-titos-green-900">
                           {formatMoney(i.subtotal)}
                         </td>
                       </tr>

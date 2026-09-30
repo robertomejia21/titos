@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Input, EmptyState, Modal, FormField } from "@/components/ui";
+import { Button, Card, Input, EmptyState, Modal, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Tags } from "lucide-react";
 
 type LineaProducto = {
@@ -182,6 +183,8 @@ export function LineasManager() {
     if (res.ok) cargar();
   }
 
+  const { pagina, paginacion } = usePaginacion(lineas);
+
   return (
     <div>
       <Card>
@@ -194,27 +197,28 @@ export function LineasManager() {
         ) : lineas.length === 0 ? (
           <EmptyState message="Todavía no hay líneas registradas." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {lineas.map((l) => (
+                {pagina.map((l) => (
                   <tr key={l._id} className={`border-b border-black/5 ${!l.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {l.nombre}
                       {!l.activo ? <span className="ml-1 text-xs text-black/40">(inactiva)</span> : null}
                     </td>
-                    <td className="py-2 pr-2">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button variant="ghost" onClick={() => setLineaModal(l)}>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setLineaModal(l)}>
                           Ver / Editar
                         </Button>
-                        <Button variant="ghost" onClick={() => alternarActivo(l)}>
+                        <Button variant="ghost" size="sm" onClick={() => alternarActivo(l)}>
                           {l.activo ? "Desactivar" : "Activar"}
                         </Button>
                       </div>
@@ -224,6 +228,8 @@ export function LineasManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

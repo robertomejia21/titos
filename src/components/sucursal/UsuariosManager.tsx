@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { UserPlus, Mail, KeyRound, UserCircle } from "lucide-react";
-import { Button, Card, Input, Select, Modal, FormField, FormGrid, EmptyState } from "@/components/ui";
+import { Button, Card, Input, Select, Modal, FormField, FormGrid, EmptyState, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 
 type SucursalRol = "admin" | "ventas";
 
@@ -127,6 +128,7 @@ export function UsuariosManager() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ abierto: boolean; usuario: Usuario | null }>({ abierto: false, usuario: null });
   const [error, setError] = useState<string | null>(null);
+  const { pagina, paginacion } = usePaginacion(usuarios);
 
   const cargar = useCallback(async () => {
     const res = await fetch("/api/sucursal-usuarios");
@@ -173,48 +175,52 @@ export function UsuariosManager() {
         ) : usuarios.length === 0 ? (
           <EmptyState message="Todavía no hay usuarios registrados en esta sucursal." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2">Usuario</th>
-                  <th className="py-2 pr-2">Rol</th>
-                  <th className="py-2 pr-2">Estado</th>
-                  <th className="py-2 pr-2 text-right">Acciones</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Usuario</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Correo</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Rol</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Estado</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {usuarios.map((u) => (
+                {pagina.map((u) => (
                   <tr key={u._id} className="border-b border-black/5">
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {u.nombre}
                       {u.propio ? <span className="ml-1.5 text-xs font-normal text-black/40">(tú)</span> : null}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
                       {u.usuario ?? <span className="text-black/30">— sin usuario —</span>}
-                      {u.email ? <span className="block text-xs text-black/35">{u.email}</span> : null}
                     </td>
-                    <td className="py-2 pr-2">
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 text-xs text-black/40" title={u.email || undefined}>
+                      {u.email || "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-1.5">
                       <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                           u.sucursalRol === "admin" ? "bg-titos-green-100 text-titos-green-700" : "bg-sky-100 text-sky-800"
                         }`}
                       >
                         {ROL_LABEL[u.sucursalRol]}
                       </span>
                     </td>
-                    <td className="py-2 pr-2">
+                    <td className="whitespace-nowrap px-2 py-1.5">
                       <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                           u.activo ? "bg-titos-green-100 text-titos-green-700" : "bg-red-100 text-red-700"
                         }`}
                       >
                         {u.activo ? "Activo" : "Inactivo"}
                       </span>
                     </td>
-                    <td className="py-2 pr-2">
-                      <div className="flex justify-end gap-2">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-2">
                         <button
                           onClick={() => setModal({ abierto: true, usuario: u })}
                           className="text-xs font-medium text-titos-green-700 hover:underline"
@@ -236,6 +242,8 @@ export function UsuariosManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

@@ -2020,13 +2020,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-linear-to-b from-sky-500 to-sky-600 text-white">
-                  <th className="px-3 py-2 font-semibold">Código</th>
-                  <th className="px-2 py-2 font-semibold">Artículo</th>
-                  <th className="px-2 py-2 text-right font-semibold">Cantidad</th>
-                  <th className="px-2 py-2 text-right font-semibold">Precio</th>
-                  <th className="px-2 py-2 text-right font-semibold">Descuento</th>
-                  <th className="px-2 py-2 text-right font-semibold">Total</th>
-                  <th className="px-2 py-2" />
+                  <th className="px-2 py-1.5 text-xs font-semibold">Código</th>
+                  <th className="px-2 py-1.5 text-xs font-semibold">Artículo</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-semibold">Cantidad</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-semibold">Precio</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-semibold">Descuento</th>
+                  <th className="px-2 py-1.5 text-right text-xs font-semibold">Total</th>
+                  <th className="px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
@@ -2036,14 +2036,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                   const sinStock = stock != null && cantidad > stock;
                   return (
                     <tr key={l.productoId} className="border-b border-black/5 odd:bg-white even:bg-sky-50/60">
-                      <td className="px-3 py-1.5 font-mono text-xs text-black/60">{l.sku}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs text-black/60">{l.sku}</td>
                       <td className="px-2 py-1.5 font-medium uppercase">
                         {l.nombre}
                         {sinStock ? (
-                          <p className="text-xs font-normal normal-case text-red-600">Stock disponible: {stock}</p>
+                          <span className="ml-1 whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-normal normal-case text-red-600">Stock disponible: {stock}</span>
                         ) : null}
                       </td>
-                      <td className="px-2 py-1.5 text-right">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Input
                             type="number"
@@ -2056,10 +2056,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                           <span className="text-xs text-black/40">{l.unidad}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-right text-black/70">{formatMoney(l.precioUnitario)}</td>
-                      <td className="px-2 py-1.5 text-right text-black/70" title={descuentosPorProducto.get(l.productoId)?.promocionNombre}>{formatMoney(descuentosPorProducto.get(l.productoId)?.descuento ?? 0)}</td>
-                      <td className="px-2 py-1.5 text-right font-semibold">{formatMoney(descuentosPorProducto.get(l.productoId)?.total ?? cantidad * l.precioUnitario)}</td>
-                      <td className="px-2 py-1.5 text-right">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/70">{formatMoney(l.precioUnitario)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/70" title={descuentosPorProducto.get(l.productoId)?.promocionNombre}>{formatMoney(descuentosPorProducto.get(l.productoId)?.descuento ?? 0)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">{formatMoney(descuentosPorProducto.get(l.productoId)?.total ?? cantidad * l.precioUnitario)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
                         <button
                           onClick={() => quitarLinea(l.productoId)}
                           className="text-red-500 hover:text-red-700"

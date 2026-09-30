@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExportarExcelButton } from "@/components/ExportarExcelButton";
 import { excelCortes } from "@/lib/exportacionesFinancieras";
 import { ChevronDown, ChevronRight, Banknote } from "lucide-react";
-import { Button, Card, EmptyState, FormField, Input, Select, formatMoney } from "@/components/ui";
+import { Button, Card, EmptyState, FormField, Input, Pagination, Select, formatMoney } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { fechaEnZona, formatFechaHora, formatHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
 type Retiro = {
@@ -152,6 +153,7 @@ export function CortesManager() {
       ),
     [cortes]
   );
+  const { pagina, paginacion } = usePaginacion(cortes, consultaLista);
 
   return (
     <div className="space-y-5">
@@ -241,15 +243,16 @@ export function CortesManager() {
         ) : cortes.length === 0 ? (
           <EmptyState message="No hay cortes cerrados en el periodo seleccionado." />
         ) : (
+          <>
           <ul className="divide-y divide-black/5">
-            {cortes.map((corte) => {
+            {pagina.map((corte) => {
               const abierto = expandido === corte._id;
               return (
                 <li key={corte._id}>
                   <button
                     type="button"
                     onClick={() => setExpandido(abierto ? null : corte._id)}
-                    className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left text-sm hover:bg-black/2"
+                    className="flex w-full flex-wrap items-center justify-between gap-3 py-2 text-left text-sm hover:bg-black/2"
                   >
                     <span className="flex items-center gap-2 font-medium">
                       {abierto ? (
@@ -388,23 +391,23 @@ export function CortesManager() {
                           <table className="w-full text-left text-sm">
                             <thead>
                               <tr className="border-b border-black/10 text-black/50">
-                                <th className="py-1.5 pr-2">Folio</th>
-                                <th className="py-1.5 pr-2">Hora</th>
-                                <th className="py-1.5 pr-2">Autorizó</th>
-                                <th className="py-1.5 pr-2">Motivo</th>
-                                <th className="py-1.5 pl-2 text-right">Monto</th>
+                                <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                                <th className="px-2 py-1.5 text-xs font-medium">Hora</th>
+                                <th className="px-2 py-1.5 text-xs font-medium">Autorizó</th>
+                                <th className="px-2 py-1.5 text-xs font-medium">Motivo</th>
+                                <th className="px-2 py-1.5 text-right text-xs font-medium">Monto</th>
                               </tr>
                             </thead>
                             <tbody>
                               {corte.retiros.map((r) => (
                                 <tr key={r._id} className="border-b border-black/5">
-                                  <td className="py-1.5 pr-2 font-mono text-xs">{r.folio}</td>
-                                  <td className="py-1.5 pr-2 text-black/60">
+                                  <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{r.folio}</td>
+                                  <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
                                     {formatHora(r.fecha, zonaDelCorte(corte))}
                                   </td>
-                                  <td className="py-1.5 pr-2 text-black/60">{r.usuarioNombre || "—"}</td>
-                                  <td className="py-1.5 pr-2 text-black/60">{r.motivo}</td>
-                                  <td className="py-1.5 pl-2 text-right font-semibold whitespace-nowrap">
+                                  <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{r.usuarioNombre || "—"}</td>
+                                  <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/60" title={r.motivo}>{r.motivo}</td>
+                                  <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">
                                     {r.moneda === "USD" ? `${formatDolares(r.monto)} USD` : formatMoney(r.monto)}
                                   </td>
                                 </tr>
@@ -419,6 +422,8 @@ export function CortesManager() {
               );
             })}
           </ul>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
     </div>

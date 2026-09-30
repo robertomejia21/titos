@@ -101,17 +101,20 @@ export function StockBajoCard({ productos }: { productos: ProductoStockBajo[] })
             <>
               <ul className="divide-y divide-black/5">
                 {productosPagina.map((p) => (
-                  <li key={p._id} className="flex flex-col gap-1.5 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <li key={p._id} className="flex flex-col gap-1.5 py-1.5 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{p.nombre}</p>
-                      <p className="text-xs text-black/40">Sugerido a pedir: {p.diferencia} {p.unidad}</p>
+                      <p className="truncate" title={p.nombre}>
+                        <span className="font-medium">{p.nombre}</span>
+                        <span className="ml-2 text-xs text-black/40">Sugerido a pedir: {p.diferencia} {p.unidad}</span>
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-red-600">
+                      <span className="whitespace-nowrap text-red-600">
                         {p.existenciaMatriz} {p.unidad} (mín. {p.stockMinimo})
                       </span>
                       <Button
                         variant="secondary"
+                        size="sm"
                         onClick={() => agregarAOrden(p)}
                         disabled={agregando[p._id] || p.diferencia <= 0}
                         title={p.diferencia <= 0 ? "Este producto no tiene stock máximo configurado" : undefined}

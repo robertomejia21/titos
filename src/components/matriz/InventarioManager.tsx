@@ -191,31 +191,31 @@ export function InventarioManager() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Producto</th>
-                    <th className="py-2 pr-2">Anaquel</th>
-                    <th className="py-2 pr-2">Categoría</th>
-                    <th className="py-2 pr-2">Existencia</th>
-                    <th className="py-2 pr-2">Pesaje</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Anaquel</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Categoría</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Existencia</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Pesaje</th>
                   </tr>
                 </thead>
                 <tbody>
                   {productosPagina.map((p) => (
                     <tr key={p._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 font-medium">{p.nombre}</td>
-                      <td className="py-2 pr-2">
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={p.nombre}>{p.nombre}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5">
                         {p.anaquel ? (
-                          <span className="rounded bg-titos-green-900/10 px-1.5 py-0.5 font-mono text-xs text-titos-green-900">
+                          <span className="rounded bg-titos-green-900/10 px-2 py-0.5 font-mono text-xs text-titos-green-900">
                             {p.anaquel}
                           </span>
                         ) : (
                           <span className="text-black/30">—</span>
                         )}
                       </td>
-                      <td className="py-2 pr-2 capitalize text-black/60">{p.categoria.replaceAll("_", " ")}</td>
-                      <td className="py-2 pr-2">
+                      <td className="whitespace-nowrap px-2 py-1.5 capitalize text-black/60">{p.categoria.replaceAll("_", " ")}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5">
                         {p.existenciaMatriz} {p.unidad}
                       </td>
-                      <td className="py-2 pr-2 text-black/50">{p.requierePesaje ? "Sí" : "—"}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/50">{p.requierePesaje ? "Sí" : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

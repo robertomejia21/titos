@@ -132,15 +132,15 @@ export function ProductosSucursal({ initialQuery = "" }: { initialQuery?: string
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Producto</th>
-                  <th className="py-2 pr-2">Código</th>
-                  <th className="py-2 pr-2">Categoría</th>
-                  <th className="py-2 pr-2">Unidad</th>
-                  <th className="py-2 pr-2">Stock</th>
-                  <th className="py-2 pr-2">Mín</th>
-                  <th className="py-2 pr-2">Máx</th>
-                  <th className="py-2 pr-2">Dif.</th>
-                  <th className="py-2 pr-2">Precio</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Producto</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Código</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Categoría</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Unidad</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Stock</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Mín</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Máx</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Dif.</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Precio</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,28 +153,26 @@ export function ProductosSucursal({ initialQuery = "" }: { initialQuery?: string
                   const bajoMinimo = stockActual <= stockMinimo && stockMaximo > 0;
                   return (
                     <tr key={p._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 font-medium">
+                      <td
+                        className="max-w-[16rem] truncate px-2 py-1.5 font-medium"
+                        title={(p.alias ?? []).length > 0 ? `${p.nombre}\nalias: ${p.alias.join(", ")}` : p.nombre}
+                      >
                         {p.nombre}
-                        {(p.alias ?? []).length > 0 ? (
-                          <span className="block text-xs font-normal text-black/40">
-                            {p.alias.join(", ")}
-                          </span>
-                        ) : null}
                       </td>
-                      <td className="py-2 pr-2 text-black/60">{p.sku}</td>
-                      <td className="py-2 pr-2 capitalize text-black/60">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{p.sku}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 capitalize text-black/60">
                         {p.categoria.replaceAll("_", " ")}
                       </td>
-                      <td className="py-2 pr-2 text-black/60">{p.unidad}</td>
-                      <td className={`py-2 pr-2 font-medium ${bajoMinimo ? "text-red-600" : ""}`}>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{p.unidad}</td>
+                      <td className={`whitespace-nowrap px-2 py-1.5 font-medium ${bajoMinimo ? "text-red-600" : ""}`}>
                         {stockActual}
                       </td>
-                      <td className="py-2 pr-2 text-black/60">{stockMinimo}</td>
-                      <td className="py-2 pr-2 text-black/60">{stockMaximo}</td>
-                      <td className={`py-2 pr-2 ${diferencia < 0 ? "text-red-600" : "text-black/60"}`}>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{stockMinimo}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{stockMaximo}</td>
+                      <td className={`whitespace-nowrap px-2 py-1.5 ${diferencia < 0 ? "text-red-600" : "text-black/60"}`}>
                         {diferencia}
                       </td>
-                      <td className="py-2 pr-2">${p.precioVenta.toFixed(2)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5">${p.precioVenta.toFixed(2)}</td>
                     </tr>
                   );
                 })}

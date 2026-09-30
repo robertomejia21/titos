@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Input, Select, Modal, EmptyState } from "@/components/ui";
+import { Button, Input, Select, Modal, EmptyState, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Truck } from "lucide-react";
 
 type Proveedor = { _id: string; nombre: string };
@@ -118,6 +119,7 @@ export function ProductoProveedoresModal({
   const proveedoresDisponibles = proveedores.filter(
     (p) => !enlaces.some((e) => idProveedorDe(e) === p._id)
   );
+  const { pagina: paginaEnlaces, paginacion: paginacionEnlaces } = usePaginacion(enlaces);
 
   return (
     <Modal open onClose={onClose} title={`Proveedores de ${productoNombre}`} icon={Truck} size="lg">
@@ -127,24 +129,24 @@ export function ProductoProveedoresModal({
         ) : enlaces.length === 0 ? (
           <EmptyState message="Este producto no tiene proveedores registrados todavía." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Proveedor</th>
-                  <th className="py-2 pr-2">Costo</th>
-                  <th className="py-2 pr-2">IVA %</th>
-                  <th className="py-2 pr-2">IEPS %</th>
-                  <th className="py-2 pr-2">Costo unitario</th>
-                  <th className="py-2 pr-2" />
-                  <th className="py-2 pr-2" />
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Proveedor</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Costo</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">IVA %</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">IEPS %</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Costo unitario</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {enlaces.map((e) => (
+                {paginaEnlaces.map((e) => (
                   <tr key={e._id} className={`border-b border-black/5 ${!e.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">{proveedorNombreDe(e)}</td>
-                    <td className="py-2 pr-2">
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={proveedorNombreDe(e)}>{proveedorNombreDe(e)}</td>
+                    <td className="px-2 py-1.5">
                       <input
                         type="number"
                         step="0.01"
@@ -153,7 +155,7 @@ export function ProductoProveedoresModal({
                         className="w-20 rounded border border-black/10 px-1 py-0.5"
                       />
                     </td>
-                    <td className="py-2 pr-2">
+                    <td className="px-2 py-1.5">
                       <input
                         type="number"
                         step="0.01"
@@ -162,7 +164,7 @@ export function ProductoProveedoresModal({
                         className="w-16 rounded border border-black/10 px-1 py-0.5"
                       />
                     </td>
-                    <td className="py-2 pr-2">
+                    <td className="px-2 py-1.5">
                       <input
                         type="number"
                         step="0.01"
@@ -171,22 +173,24 @@ export function ProductoProveedoresModal({
                         className="w-16 rounded border border-black/10 px-1 py-0.5"
                       />
                     </td>
-                    <td className="py-2 pr-2 text-black/60">${e.costoUnitario.toFixed(2)}</td>
-                    <td className="py-2 pr-2">
-                      <Button variant="ghost" onClick={() => marcarPrincipal(e)}>
-                        {e.esPrincipal ? "★ Principal" : "Marcar principal"}
-                      </Button>
-                    </td>
-                    <td className="py-2 pr-2">
-                      <Button variant="ghost" onClick={() => eliminar(e)}>
-                        Eliminar
-                      </Button>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">${e.costoUnitario.toFixed(2)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => marcarPrincipal(e)}>
+                          {e.esPrincipal ? "★ Principal" : "Marcar principal"}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => eliminar(e)}>
+                          Eliminar
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionEnlaces} />
+          </>
         )}
 
         <div className="rounded-lg border border-black/10 p-3">

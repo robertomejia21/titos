@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UserCog, ShieldCheck, Store, Mail, KeyRound, ShieldAlert, Search, Phone, Upload, MessageCircle, LoaderCircle, TriangleAlert, CircleCheck, Check, CheckCheck, Clock } from "lucide-react";
-import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid } from "@/components/ui";
+import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { PERMISOS, permisosDeAmbito, type AmbitoRolPermiso } from "@/lib/permisos";
 import { PermisosUsuarioEditor } from "./PermisosUsuarioEditor";
 import { DepartamentosManager, type Departamento } from "./DepartamentosManager";
@@ -999,6 +1000,7 @@ export function UsuariosRolesManager() {
   const [creandoRol, setCreandoRol] = useState(false);
   const [importando, setImportando] = useState(false);
   const [reenviando, setReenviando] = useState<Usuario | null>(null);
+  const { pagina: paginaUsuarios, paginacion: paginacionUsuarios } = usePaginacion(usuariosVisibles, [busqueda, estado, filtroRol, filtroSucursal, orden].join("|"));
 
   async function cargar() {
     setCargando(true);
@@ -1076,61 +1078,62 @@ export function UsuariosRolesManager() {
           ) : usuariosVisibles.length === 0 ? (
             <EmptyState message="No hay usuarios que coincidan. Cambia la búsqueda o limpia los filtros." />
           ) : (
+            <>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-3">Nombre</th>
-                    <th className="py-2 pr-3">Usuario</th>
-                    <th className="py-2 pr-3">Dónde</th>
-                    <th className="py-2 pr-3">Rol</th>
-                    <th className="py-2 pr-3">Estado</th>
-                    <th className="py-2 pr-3" />
+                  <tr className="border-b border-black/10 text-xs font-medium text-black/50">
+                    <th className="px-2 py-1.5">Nombre</th>
+                    <th className="px-2 py-1.5">Usuario</th>
+                    <th className="px-2 py-1.5">Dónde</th>
+                    <th className="px-2 py-1.5">Puesto</th>
+                    <th className="px-2 py-1.5">Estado</th>
+                    <th className="px-2 py-1.5" />
                   </tr>
                 </thead>
                 <tbody>
-                  {usuariosVisibles.map((u) => (
-                    <tr key={u._id} className="border-b border-black/5">
-                      <td className="py-2 pr-3 font-medium">
+                  {paginaUsuarios.map((u) => (
+                    <tr key={u._id} className="border-b border-black/5 hover:bg-black/[0.02]">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                         {u.nombre}
                         {u.propio ? <span className="ml-1 text-xs text-titos-green-700">(tú)</span> : null}
-
                       </td>
-                      <td className="py-2 pr-3 text-black/60">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60" title={u.email ?? undefined}>
                         {u.usuario ?? <span className="text-black/30">— sin usuario —</span>}
-                        {u.email ? <span className="block text-xs text-black/35">{u.email}</span> : null}
                       </td>
-                      <td className="py-2 pr-3 text-black/60">
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
                         {u.role === "matriz" ? "Matriz" : (u.sucursal?.nombre ?? "— sin sucursal —")}
                       </td>
-                      <td className="py-2 pr-3">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            u.rol ? "bg-titos-green-100 text-titos-green-700" : "bg-black/5 text-black/50"
-                          }`}
-                        >
+                      <td className="whitespace-nowrap px-2 py-1.5">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${u.rol ? "bg-titos-green-100 text-titos-green-700" : "bg-black/5 text-black/50"}`}>
                           {rolMostrado(u)}
                         </span>
-                        {u.permisosIndividuales !== null && u.permisosIndividuales !== undefined ? <p className="mt-1 text-xs text-black/75">Permisos personalizados</p> : null}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className={`inline-block rounded px-2 py-1 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span>
-                      </td>
-                      <td className="py-2 pr-3 text-right flex gap-1 justify-end">
-                        {u.telefono && u.usuario ? (
-                          <Button variant="ghost" onClick={() => setReenviando(u)}>
-                            Reenviar acceso
-                          </Button>
+                        {u.permisosIndividuales !== null && u.permisosIndividuales !== undefined ? (
+                          <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800" title="Tiene permisos personalizados">personalizado</span>
                         ) : null}
-                        <Button variant="ghost" onClick={() => setUsuarioModal(u)}>
-                          Editar
-                        </Button>
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-1.5">
+                        <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${u.activo ? "bg-titos-green-100 text-titos-green-900" : "bg-black/5 text-black/70"}`}>{u.activo ? "Activo" : "Inactivo"}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                        <div className="inline-flex gap-1">
+                          {u.telefono && u.usuario ? (
+                            <Button variant="ghost" size="sm" onClick={() => setReenviando(u)}>
+                              Reenviar acceso
+                            </Button>
+                          ) : null}
+                          <Button variant="ghost" size="sm" onClick={() => setUsuarioModal(u)}>
+                            Editar
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <Pagination {...paginacionUsuarios} />
+            </>
           )}
         </Card>
       ) : (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, Card, Input, EmptyState, Modal, FormGrid, FormField } from "@/components/ui";
+import { Button, Card, Input, EmptyState, Modal, FormGrid, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Truck, User, MessageCircle, Mail, Pencil, Power, PowerOff, PauseCircle, PlayCircle, type LucideIcon } from "lucide-react";
 
 type Proveedor = {
@@ -39,10 +40,10 @@ function ActionButton({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`inline-flex h-9 min-w-max shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${actionButtonToneClasses[tone]} ${className}`}
+      className={`inline-flex h-7 min-w-max shrink-0 items-center justify-center gap-1 rounded-md border px-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${actionButtonToneClasses[tone]} ${className}`}
       {...props}
     >
-      <Icon className="h-4 w-4" aria-hidden="true" />
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{children}</span>
     </button>
   );
@@ -225,6 +226,7 @@ export function ProveedoresManager() {
   const [loading, setLoading] = useState(true);
   const [proveedorModal, setProveedorModal] = useState<Proveedor | null>(null);
   const [creando, setCreando] = useState(false);
+  const { pagina: paginaProveedores, paginacion: paginacionProveedores } = usePaginacion(proveedores);
 
   async function cargar() {
     setLoading(true);
@@ -259,29 +261,30 @@ export function ProveedoresManager() {
         ) : proveedores.length === 0 ? (
           <EmptyState message="Todavía no hay proveedores registrados." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2">Contacto</th>
-                  <th className="py-2 pr-2">WhatsApp</th>
-                  <th className="py-2 pr-2">Correo</th>
-                  <th className="py-2 pr-2" />
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Contacto</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">WhatsApp</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Correo</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {proveedores.map((p) => (
+                {paginaProveedores.map((p) => (
                   <tr key={p._id} className={`border-b border-black/5 ${!p.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {p.nombre}
                       {!p.activo ? <span className="ml-1 text-xs text-black/40">(inactivo)</span> : null}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">{p.contacto || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{p.whatsapp || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{p.email || "—"}</td>
-                    <td className="py-2 pr-2">
-                      <div className="flex flex-nowrap justify-end gap-2 whitespace-nowrap">
+                    <td className="max-w-[12rem] truncate px-2 py-1.5 text-black/60" title={p.contacto || undefined}>{p.contacto || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{p.whatsapp || "—"}</td>
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/60" title={p.email || undefined}>{p.email || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
                         <ActionButton icon={Pencil} tone="edit" onClick={() => setProveedorModal(p)}>
                           Ver / Editar
                         </ActionButton>
@@ -306,6 +309,8 @@ export function ProveedoresManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionProveedores} />
+          </>
         )}
       </Card>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField } from "@/components/ui";
+import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Store, MapPin, MessageCircle, User, Mail, Lock, TriangleAlert, Clock } from "lucide-react";
 import { ZONAS_HORARIAS, ZONA_HORARIA_DEFAULT, zonaHorariaLabel } from "@/lib/zonasHorarias";
 
@@ -364,6 +365,8 @@ export function SucursalesManager() {
     cargar();
   }, []);
 
+  const { pagina, paginacion } = usePaginacion(sucursales);
+
   return (
     <div>
       <Card>
@@ -376,22 +379,23 @@ export function SucursalesManager() {
         ) : sucursales.length === 0 ? (
           <EmptyState message="Todavía no hay sucursales registradas." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2">Dirección</th>
-                  <th className="py-2 pr-2">Zona horaria</th>
-                  <th className="py-2 pr-2">WhatsApp</th>
-                  <th className="py-2 pr-2">Usuario</th>
-                  <th className="w-px py-2 pl-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Dirección</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Zona horaria</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">WhatsApp</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Usuario</th>
+                  <th className="w-px px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {sucursales.map((s) => (
+                {pagina.map((s) => (
                   <tr key={s._id} className={`border-b border-black/5 ${!s.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {s.nombre}
                       {s.esMatriz ? (
                         <span className="ml-1.5 rounded-full bg-titos-green-100 px-2 py-0.5 text-xs font-semibold text-titos-green-700">
@@ -400,12 +404,14 @@ export function SucursalesManager() {
                       ) : null}
                       {!s.activo ? <span className="ml-1 text-xs text-black/40">(inactiva)</span> : null}
                     </td>
-                    <td className="py-2 pr-2 text-black/60">{s.direccion || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{zonaHorariaLabel(s.zonaHoraria)}</td>
-                    <td className="py-2 pr-2 text-black/60">{s.whatsapp || "—"}</td>
-                    <td className="py-2 pr-2 text-black/60">{s.usuario?.usuario || s.usuario?.email || "—"}</td>
-                    <td className="py-2 pl-2 text-right whitespace-nowrap">
-                      <div className="flex justify-end gap-1.5">
+                    <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/60" title={s.direccion || undefined}>
+                      {s.direccion || "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{zonaHorariaLabel(s.zonaHoraria)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{s.whatsapp || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{s.usuario?.usuario || s.usuario?.email || "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
                         <Button size="sm" variant="ghost" className="w-24" onClick={() => setSucursalModal(s)}>
                           Ver / Editar
                         </Button>
@@ -421,6 +427,8 @@ export function SucursalesManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

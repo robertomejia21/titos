@@ -57,7 +57,7 @@ const RESUMEN_VACIO: Resumen = {
   porDia: [],
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20;
 
 export function HistorialVentasManager() {
   const zonaHoraria = useZonaHoraria();
@@ -220,19 +220,19 @@ export function HistorialVentasManager() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-3">Sucursal</th>
-                    <th className="py-2 pr-3 text-right">Ventas</th>
-                    <th className="py-2 pr-3 text-right">Total</th>
-                    <th className="py-2 text-right">Participación</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Ventas</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Total</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Participación</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resumen.porSucursal.map((s) => (
                     <tr key={s.sucursalId} className="border-b border-black/5">
-                      <td className="py-2 pr-3 font-medium text-titos-green-900">{s.nombre}</td>
-                      <td className="py-2 pr-3 text-right">{s.cantidad}</td>
-                      <td className="py-2 pr-3 text-right font-semibold">{formatMoney(s.total)}</td>
-                      <td className="py-2 text-right text-black/50">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{s.nombre}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">{s.cantidad}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">{formatMoney(s.total)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/50">
                         {resumen.total > 0 ? `${((s.total / resumen.total) * 100).toFixed(1)}%` : "—"}
                       </td>
                     </tr>
@@ -292,50 +292,53 @@ export function HistorialVentasManager() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-3">Folio</th>
-                    <th className="py-2 pr-3">Fecha</th>
-                    <th className="py-2 pr-3">Sucursal</th>
-                    <th className="py-2 pr-3">Cliente</th>
-                    <th className="py-2 pr-3 text-right">Artículos</th>
-                    <th className="py-2 pr-3">Forma de pago</th>
-                    <th className="py-2 text-right">Total</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Folio</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Fecha</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Cliente</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Artículos</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Forma de pago</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pagina.map((v) => (
+                  {pagina.map((v) => {
+                    const formaPago = (v.pagos ?? [])
+                      .map((p) => {
+                        const etiqueta = ETIQUETA_METODO[p.metodoPago] ?? p.metodoPago;
+                        // La tarjeta se lee con su tipo: es lo que distingue
+                        // el depósito que va a llegar del banco.
+                        return esTipoTarjeta(p.tarjetaTipo)
+                          ? `${etiqueta} (${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]})`
+                          : etiqueta;
+                      })
+                      .join(" + ");
+                    return (
                     <tr key={v._id} className={`border-b border-black/5 ${v.estado === "cancelada" ? "opacity-50" : ""}`}>
-                      <td className="py-2 pr-3 font-medium text-titos-green-900">
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">
                         {v.folio}
                         {v.esVentas2 ? (
-                          <span className="ml-1.5 rounded-full bg-titos-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-titos-orange-700">
+                          <span className="ml-1.5 rounded-full bg-titos-orange-100 px-2 py-0.5 text-xs font-semibold text-titos-orange-700">
                             NV
                           </span>
                         ) : null}
                         {v.estado === "cancelada" ? (
-                          <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          <span className="ml-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
                             cancelada
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-black/55">{formatFechaHora(v.fecha, zonaHoraria, "—")}</td>
-                      <td className="py-2 pr-3 text-black/70">{v.sucursalNombre}</td>
-                      <td className="py-2 pr-3 text-black/55">{v.clienteNombre || "Público en general"}</td>
-                      <td className="py-2 pr-3 text-right text-black/55">{v.articulos}</td>
-                      <td className="py-2 pr-3 text-black/55">
-                        {(v.pagos ?? [])
-                          .map((p) => {
-                            const etiqueta = ETIQUETA_METODO[p.metodoPago] ?? p.metodoPago;
-                            // La tarjeta se lee con su tipo: es lo que distingue
-                            // el depósito que va a llegar del banco.
-                            return esTipoTarjeta(p.tarjetaTipo)
-                              ? `${etiqueta} (${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]})`
-                              : etiqueta;
-                          })
-                          .join(" + ")}
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/55">{formatFechaHora(v.fecha, zonaHoraria, "—")}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/70">{v.sucursalNombre}</td>
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/55" title={v.clienteNombre || "Público en general"}>{v.clienteNombre || "Público en general"}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right text-black/55">{v.articulos}</td>
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 text-black/55" title={formaPago}>
+                        {formaPago}
                       </td>
-                      <td className="py-2 text-right font-semibold text-titos-green-900">{formatMoney(v.total)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-titos-green-900">{formatMoney(v.total)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

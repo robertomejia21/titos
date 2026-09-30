@@ -281,11 +281,11 @@ export function FacturaGlobalManager({
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-black/15">
-                        <th className="p-2">Ticket</th>
-                        <th className="p-2">Sucursal</th>
-                        <th className="p-2">Tipo</th>
-                        <th className="p-2 text-right">Importe MXN</th>
+                      <tr className="border-b border-black/15 text-black/50">
+                        <th className="px-2 py-1.5 text-xs font-medium">Ticket</th>
+                        <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                        <th className="px-2 py-1.5 text-xs font-medium">Tipo</th>
+                        <th className="px-2 py-1.5 text-right text-xs font-medium">Importe MXN</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -296,12 +296,12 @@ export function FacturaGlobalManager({
                             key={v.ventaId}
                             className="border-b border-black/5"
                           >
-                            <td className="p-2">{v.folio}</td>
-                            <td className="p-2">{v.sucursalNombre}</td>
-                            <td className="p-2">
+                            <td className="whitespace-nowrap px-2 py-1.5">{v.folio}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5">{v.sucursalNombre}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5">
                               {v.esVentas2 ? "Nota de venta" : "Ticket"}
                             </td>
-                            <td className="p-2 text-right">
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right">
                               {formatMoney(v.total)}
                             </td>
                           </tr>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Card, Input, EmptyState, Modal, FormField } from "@/components/ui";
+import { Button, Card, Input, EmptyState, Modal, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { Tag } from "lucide-react";
 
 type CategoriaProducto = {
@@ -182,6 +183,8 @@ export function CategoriasManager() {
     if (res.ok) cargar();
   }
 
+  const { pagina, paginacion } = usePaginacion(categorias);
+
   return (
     <div>
       <Card>
@@ -194,27 +197,28 @@ export function CategoriasManager() {
         ) : categorias.length === 0 ? (
           <EmptyState message="Todavía no hay categorías registradas." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-2">Nombre</th>
-                  <th className="py-2 pr-2" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Nombre</th>
+                  <th className="px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {categorias.map((c) => (
+                {pagina.map((c) => (
                   <tr key={c._id} className={`border-b border-black/5 ${!c.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-2 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {c.nombre}
                       {!c.activo ? <span className="ml-1 text-xs text-black/40">(inactiva)</span> : null}
                     </td>
-                    <td className="py-2 pr-2">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button variant="ghost" onClick={() => setCategoriaModal(c)}>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setCategoriaModal(c)}>
                           Ver / Editar
                         </Button>
-                        <Button variant="ghost" onClick={() => alternarActivo(c)}>
+                        <Button variant="ghost" size="sm" onClick={() => alternarActivo(c)}>
                           {c.activo ? "Desactivar" : "Activar"}
                         </Button>
                       </div>
@@ -224,6 +228,8 @@ export function CategoriasManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacion} />
+          </>
         )}
       </Card>
 

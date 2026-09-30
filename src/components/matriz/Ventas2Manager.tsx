@@ -11,7 +11,8 @@ import {
   RefreshCw,
   SquareCheckBig,
 } from "lucide-react";
-import { Button, Card, EmptyState, FormField, Input, Modal, formatMoney } from "@/components/ui";
+import { Button, Card, EmptyState, FormField, Input, Modal, Pagination, formatMoney } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { formatFechaHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 
 type Sucursal = {
@@ -103,6 +104,7 @@ export function Ventas2Manager() {
     () => activaciones.filter((a) => a.estado === "finalizada" && a.totalRecaudado > 0 && !a.retiradoEn).length,
     [activaciones]
   );
+  const { pagina: paginaActivaciones, paginacion: paginacionActivaciones } = usePaginacion(activaciones);
 
   async function cargar() {
     setLoading(true);
@@ -343,50 +345,52 @@ export function Ventas2Manager() {
         ) : activaciones.length === 0 ? (
           <EmptyState message="Todavia no hay activaciones de Notas de venta." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-3">Sucursal</th>
-                  <th className="py-2 pr-3">Estado</th>
-                  <th className="py-2 pr-3">Lapso</th>
-                  <th className="py-2 pr-3">Regla</th>
-                  <th className="py-2 pr-3">Movs.</th>
-                  <th className="py-2 pr-3">Total</th>
-                  <th className="py-2 pr-3">Avisos</th>
-                  <th className="py-2 pr-3">Retiro</th>
-                  <th className="py-2 pr-3" />
+                  <th className="px-2 py-1.5 text-xs font-medium">Sucursal</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Estado</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Lapso</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Regla</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Movs.</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Total</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Avisos</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Retiro</th>
+                  <th className="px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
-                {activaciones.map((a) => (
-                  <tr key={a.id} className="border-b border-black/5 align-top">
-                    <td className="py-2 pr-3 font-medium text-titos-green-900">{a.sucursalNombre}</td>
-                    <td className="py-2 pr-3">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${estadoClase(a.estado)}`}>
+                {paginaActivaciones.map((a) => (
+                  <tr key={a.id} className="border-b border-black/5">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{a.sucursalNombre}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${estadoClase(a.estado)}`}>
                         {a.estado}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 text-black/60">
-                      <span className="block">{formatoFecha(a.inicio)}</span>
-                      <span className={`block ${a.fin ? "" : "font-semibold text-titos-orange-600"}`}>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
+                      {formatoFecha(a.inicio)}
+                      <span className="text-black/30"> – </span>
+                      <span className={a.fin ? "" : "font-semibold text-titos-orange-600"}>
                         {formatoFin(a)}
                       </span>
                     </td>
-                    <td className="py-2 pr-3">1 / {a.frecuencia}</td>
-                    <td className="py-2 pr-3">{a.cantidadMovimientos}</td>
-                    <td className="py-2 pr-3 font-semibold text-titos-green-900">{formatMoney(a.totalRecaudado)}</td>
-                    <td className="py-2 pr-3 text-xs text-black/55">
-                      <span className="flex items-center gap-1">
+                    <td className="whitespace-nowrap px-2 py-1.5">1 / {a.frecuencia}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{a.cantidadMovimientos}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-titos-green-900">{formatMoney(a.totalRecaudado)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-black/55">
+                      <span className="inline-flex items-center gap-1">
                         <MessageCircleWarning className="h-3.5 w-3.5" />
                         Inicio: {avisoLabel(a.notificacionInicio)}
                       </span>
-                      <span className="mt-1 flex items-center gap-1">
+                      <span className="ml-2 inline-flex items-center gap-1">
                         <MessageCircleWarning className="h-3.5 w-3.5" />
                         Fin: {avisoLabel(a.notificacionFin)}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 text-black/60">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
                       {a.retiradoEn ? (
                         <span className="inline-flex items-center gap-1 text-titos-green-700">
                           <Check className="h-3.5 w-3.5" />
@@ -398,10 +402,10 @@ export function Ventas2Manager() {
                         "-"
                       )}
                     </td>
-                    <td className="py-2 pr-3">
-                      <div className="flex flex-wrap justify-end gap-1">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                      <div className="inline-flex gap-1">
                         {a.estado === "activa" || a.estado === "programada" ? (
-                          <Button variant="danger" onClick={() => setPorDetener(a)} disabled={accionando?.startsWith(a.id)}>
+                          <Button variant="danger" size="sm" onClick={() => setPorDetener(a)} disabled={accionando?.startsWith(a.id)}>
                             <span className="flex items-center gap-1.5">
                               <OctagonX className="h-4 w-4" />
                               Detener
@@ -411,6 +415,7 @@ export function Ventas2Manager() {
                         {a.estado === "finalizada" && a.totalRecaudado > 0 && !a.retiradoEn ? (
                           <Button
                             variant="secondary"
+                            size="sm"
                             onClick={() => accionar(a.id, "retirar")}
                             disabled={accionando === `${a.id}:retirar`}
                           >
@@ -425,6 +430,8 @@ export function Ventas2Manager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionActivaciones} />
+          </>
         )}
       </Card>
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Ticket, CreditCard } from "lucide-react";
-import { Button, Card, Input, Select, EmptyState, FormField } from "@/components/ui";
+import { Button, Card, Input, Select, EmptyState, FormField, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 
 type Emisor = { _id: string; nombre: string; prefijosBin: string[]; activo: boolean };
 type Bin = {
@@ -68,6 +69,8 @@ export function ValesManager() {
 
   const sinAsignar = bins.filter((b) => !b.emisorId);
   const asignados = bins.filter((b) => b.emisorId);
+  const { pagina: paginaSinAsignar, paginacion: paginacionSinAsignar } = usePaginacion(sinAsignar);
+  const { pagina: paginaEmisores, paginacion: paginacionEmisores } = usePaginacion(emisores);
 
   return (
     <div className="space-y-5">
@@ -96,17 +99,17 @@ export function ValesManager() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-3">BIN</th>
-                  <th className="py-2 pr-3">Veces vista</th>
-                  <th className="py-2 pr-3">Emisor</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">BIN</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Veces vista</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Emisor</th>
                 </tr>
               </thead>
               <tbody>
-                {sinAsignar.map((b) => (
+                {paginaSinAsignar.map((b) => (
                   <tr key={b._id} className="border-b border-black/5">
-                    <td className="py-2 pr-3 font-mono font-medium">{b.bin}</td>
-                    <td className="py-2 pr-3 text-black/60">{b.veces}</td>
-                    <td className="py-2 pr-3">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-mono font-medium">{b.bin}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{b.veces}</td>
+                    <td className="px-2 py-1.5">
                       <Select defaultValue="" onChange={(e) => asignar(b.bin, e.target.value)} className="max-w-64">
                         <option value="">Elige el emisor</option>
                         {emisores
@@ -123,6 +126,7 @@ export function ValesManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionSinAsignar} />
         </Card>
       ) : null}
 
@@ -152,24 +156,25 @@ export function ValesManager() {
         ) : emisores.length === 0 ? (
           <EmptyState message="Todavía no hay emisores registrados." />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-black/50">
-                  <th className="py-2 pr-3">Emisor</th>
-                  <th className="py-2 pr-3">BINs reconocidos</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">Emisor</th>
+                  <th className="px-2 py-1.5 text-xs font-medium">BINs reconocidos</th>
                 </tr>
               </thead>
               <tbody>
-                {emisores.map((e) => (
+                {paginaEmisores.map((e) => (
                   <tr key={e._id} className={`border-b border-black/5 ${!e.activo ? "opacity-50" : ""}`}>
-                    <td className="py-2 pr-3 font-medium">
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       <span className="inline-flex items-center gap-1.5">
                         <CreditCard className="h-4 w-4 text-black/30" />
                         {e.nombre}
                       </span>
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="px-2 py-1.5">
                       {e.prefijosBin.length === 0 ? (
                         <span className="text-xs text-black/40">
                           Ninguno todavía — se llenan al pasar la primera tarjeta
@@ -192,6 +197,8 @@ export function ValesManager() {
               </tbody>
             </table>
           </div>
+          <Pagination {...paginacionEmisores} />
+          </>
         )}
 
         {asignados.length > 0 ? (

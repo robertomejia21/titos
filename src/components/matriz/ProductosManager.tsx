@@ -397,22 +397,22 @@ export function ProductosManager({ initialQuery = "", initialCreate = false }: {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 whitespace-nowrap text-black/50">
-                    <th className="py-2 pr-2">Línea</th>
-                    <th className="py-2 pr-2">Categoría</th>
-                    <th className="py-2 pr-2">Código</th>
-                    <th className="sticky left-0 z-10 bg-white py-2 pr-2">Producto</th>
-                    <th className="py-2 pr-2">Anaquel</th>
-                    <th className="py-2 pr-2">Unidad</th>
-                    <th className="py-2 pr-2">Stock</th>
-                    <th className="py-2 pr-2">Mín</th>
-                    <th className="py-2 pr-2">Máx</th>
-                    <th className="py-2 pr-2">Dif.</th>
-                    <th className="py-2 pr-2">Costo</th>
-                    <th className="py-2 pr-2">Público</th>
-                    <th className="py-2 pr-2">Tot. costo</th>
-                    <th className="py-2 pr-2">Tot. público</th>
-                    <th className="py-2 pr-2">Pesaje</th>
-                    <th className="sticky right-0 z-10 bg-white py-2 pr-2" />
+                    <th className="px-2 py-1.5 text-xs font-medium">Línea</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Categoría</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Código</th>
+                    <th className="sticky left-0 z-10 bg-white px-2 py-1.5 text-xs font-medium">Producto</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Anaquel</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Unidad</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Stock</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Mín</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Máx</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Dif.</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Costo</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Público</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Tot. costo</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Tot. público</th>
+                    <th className="px-2 py-1.5 text-xs font-medium">Pesaje</th>
+                    <th className="sticky right-0 z-10 bg-white px-2 py-1.5 text-xs font-medium" />
                   </tr>
                 </thead>
                 <tbody>
@@ -422,49 +422,44 @@ export function ProductosManager({ initialQuery = "", initialCreate = false }: {
                     const totalPublico = p.existenciaMatriz * p.precioVenta;
                     return (
                       <tr key={p._id} className="border-b border-black/5 whitespace-nowrap">
-                        <td className="py-2 pr-2 text-black/60">{p.linea || "—"}</td>
-                        <td className="py-2 pr-2 text-black/60">{p.categoria}</td>
-                        <td className="py-2 pr-2 text-black/50">{p.sku}</td>
-                        <td className="sticky left-0 z-10 w-55 max-w-55 overflow-hidden bg-white py-2 pr-2">
+                        <td className="px-2 py-1.5 text-black/60">{p.linea || "—"}</td>
+                        <td className="px-2 py-1.5 text-black/60">{p.categoria}</td>
+                        <td className="px-2 py-1.5 text-black/50">{p.sku}</td>
+                        <td className="sticky left-0 z-10 w-55 max-w-55 overflow-hidden bg-white px-2 py-1.5">
                           <button
                             type="button"
                             onClick={() => setEditando(p)}
                             className="block max-w-full truncate text-left font-medium text-titos-green-900 hover:underline"
-                            title={p.nombre}
+                            title={p.alias?.length > 0 ? `${p.nombre}\nalias: ${p.alias.join(", ")}` : p.nombre}
                           >
                             {p.nombre}
                           </button>
-                          {p.alias?.length > 0 ? (
-                            <p className="max-w-full truncate text-xs text-black/40" title={p.alias.join(", ")}>
-                              alias: {p.alias.join(", ")}
-                            </p>
-                          ) : null}
                         </td>
-                        <td className="py-2 pr-2">
+                        <td className="px-2 py-1.5">
                           {p.anaquel ? (
-                            <span className="rounded bg-titos-green-900/10 px-1.5 py-0.5 font-mono text-xs text-titos-green-900">
+                            <span className="rounded bg-titos-green-900/10 px-2 py-0.5 font-mono text-xs text-titos-green-900">
                               {p.anaquel}
                             </span>
                           ) : (
                             <span className="text-black/30">—</span>
                           )}
                         </td>
-                        <td className="py-2 pr-2 text-black/60">{p.unidad}</td>
-                        <td className="py-2 pr-2">{p.existenciaMatriz}</td>
-                        <td className="py-2 pr-2 text-black/60">{p.stockMinimo}</td>
-                        <td className="py-2 pr-2 text-black/60">{p.stockMaximo}</td>
-                        <td className={`py-2 pr-2 ${diferencia < 0 ? "text-red-600" : "text-black/60"}`}>{diferencia}</td>
-                        <td className="py-2 pr-2 text-black/60">${p.precioCompra.toFixed(2)}</td>
-                        <td className="py-2 pr-2 text-black/60">${p.precioVenta.toFixed(2)}</td>
-                        <td className="py-2 pr-2 text-black/60">${totalCosto.toFixed(2)}</td>
-                        <td className="py-2 pr-2 text-black/60">${totalPublico.toFixed(2)}</td>
-                        <td className="py-2 pr-2 text-black/60">{p.requierePesaje ? "Sí" : "—"}</td>
-                        <td className="sticky right-0 z-10 bg-white py-2 pr-2">
-                          <div className="flex gap-1">
-                            <Button variant="ghost" onClick={() => setEditando(p)}>
+                        <td className="px-2 py-1.5 text-black/60">{p.unidad}</td>
+                        <td className="px-2 py-1.5">{p.existenciaMatriz}</td>
+                        <td className="px-2 py-1.5 text-black/60">{p.stockMinimo}</td>
+                        <td className="px-2 py-1.5 text-black/60">{p.stockMaximo}</td>
+                        <td className={`px-2 py-1.5 ${diferencia < 0 ? "text-red-600" : "text-black/60"}`}>{diferencia}</td>
+                        <td className="px-2 py-1.5 text-black/60">${p.precioCompra.toFixed(2)}</td>
+                        <td className="px-2 py-1.5 text-black/60">${p.precioVenta.toFixed(2)}</td>
+                        <td className="px-2 py-1.5 text-black/60">${totalCosto.toFixed(2)}</td>
+                        <td className="px-2 py-1.5 text-black/60">${totalPublico.toFixed(2)}</td>
+                        <td className="px-2 py-1.5 text-black/60">{p.requierePesaje ? "Sí" : "—"}</td>
+                        <td className="sticky right-0 z-10 whitespace-nowrap bg-white px-2 py-1.5 text-right">
+                          <div className="inline-flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setEditando(p)}>
                               Editar
                             </Button>
-                            <Button variant="ghost" onClick={() => setProveedoresModal(p)}>
+                            <Button variant="ghost" size="sm" onClick={() => setProveedoresModal(p)}>
                               Proveedores
                             </Button>
                           </div>

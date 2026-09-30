@@ -163,7 +163,7 @@ export function CancelacionesManager() {
                     <button
                       type="button"
                       onClick={() => setExpandido(abierto ? null : c._id)}
-                      className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-left text-sm hover:bg-black/2"
+                      className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 text-left text-sm hover:bg-black/2"
                     >
                       <span className="flex items-center gap-2 font-medium text-titos-green-900">
                         {abierto ? (
@@ -173,7 +173,7 @@ export function CancelacionesManager() {
                         )}
                         {c.folio}
                       </span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${CLASE_TIPO[c.tipo]}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${CLASE_TIPO[c.tipo]}`}>
                         {ETIQUETA_TIPO[c.tipo]}
                       </span>
                       <span className="text-black/60">{c.sucursalNombre || "—"}</span>

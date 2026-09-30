@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, FormField, formatMoney } from "@/components/ui";
+import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, FormField, formatMoney, Pagination } from "@/components/ui";
+import { usePaginacion } from "@/components/usePaginacion";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
 import { costoRecepcion, type RecepcionCostos } from "@/lib/costosRecepcion";
@@ -501,21 +502,21 @@ function OrdenModal({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-black/10 text-black/50">
-              <th className="py-1.5 pr-2">Producto</th>
-              <th className="py-1.5 pr-2">Cantidad</th>
-              <th className="py-1.5 pr-2">Precio unit.</th>
-              <th className="py-1.5 pr-2">Subtotal</th>
-              {orden.estado === "solicitada" ? <th className="py-1.5 pr-2">Recibido</th> : null}
-              {orden.estado === "recibida" ? <th className="py-1.5 pr-2">Recibido</th> : null}
-              {!editable ? <th className="py-1.5 pr-2">Nota de recepción</th> : null}
-              {editable ? <th className="py-1.5 pr-2" /> : null}
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Producto</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Cantidad</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Precio unit.</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Subtotal</th>
+              {orden.estado === "solicitada" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
+              {orden.estado === "recibida" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
+              {!editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Nota de recepción</th> : null}
+              {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" /> : null}
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
               <tr key={item.productoId} className="border-b border-black/5">
-                <td className="py-1.5 pr-2 font-medium">{item.nombreProducto}</td>
-                <td className="py-1.5 pr-2">
+                <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={item.nombreProducto}>{item.nombreProducto}</td>
+                <td className="px-2 py-1.5">
                   {editable ? (
                     <Input
                       type="number"
@@ -528,7 +529,7 @@ function OrdenModal({
                     item.cantidadOrdenada
                   )}
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="px-2 py-1.5">
                   {editable || orden.estado === "solicitada" ? (
                     <Input
                       type="number"
@@ -543,14 +544,14 @@ function OrdenModal({
                     formatMoney(orden.recepcionCostos?.detalle.find(i=>i.productoId===item.productoId)?.costo ?? item.precioUnitario)
                   )}
                 </td>
-                <td className="py-1.5 pr-2">
+                <td className="whitespace-nowrap px-2 py-1.5">
                   {formatMoney(orden.recepcionCostos?.detalle.find(i=>i.productoId===item.productoId)?.subtotal ?? montoLinea(item))}
                   {item.cantidadRecibida !== null && item.cantidadRecibida !== item.cantidadOrdenada ? (
                     <span className="ml-1 text-xs text-amber-600">(ajustado)</span>
                   ) : null}
                 </td>
                 {orden.estado === "solicitada" ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="px-2 py-1.5">
                     <Input
                       type="number"
                       min="0"
@@ -564,21 +565,21 @@ function OrdenModal({
                   </td>
                 ) : null}
                 {orden.estado === "recibida" ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="px-2 py-1.5">
                     {item.cantidadRecibida}
                     <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={item.cantidadRecibida} referencia="lo ordenado" />
                   </td>
                 ) : null}
-                {!editable ? <td className="py-1.5 pr-2">
+                {!editable ? <td className="px-2 py-1.5">
                   {orden.estado === "solicitada" ? <textarea maxLength={1000}
                     aria-label={`Nota de recepción de ${item.nombreProducto}`}
                     placeholder="Faltante, daño u observación" value={notas[item.productoId] ?? ""}
                     onChange={(e) => setNotas((prev) => ({...prev, [item.productoId]: e.target.value}))}
                     className="min-w-44 rounded border border-black/20 p-2 text-sm focus-visible:outline-2 focus-visible:outline-titos-green-600" />
-                    : <span className="whitespace-pre-wrap">{item.notaRecepcion || "—"}</span>}
+                    : <span className="block max-w-[16rem] truncate" title={item.notaRecepcion || undefined}>{item.notaRecepcion || "—"}</span>}
                 </td> : null}
                 {editable ? (
-                  <td className="py-1.5 pr-2">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     <button onClick={() => quitarItem(item.productoId)} className="text-xs text-red-500">
                       Quitar
                     </button>
@@ -590,8 +591,8 @@ function OrdenModal({
           <tfoot>
             <tr>
               <td colSpan={2} />
-              <td className="pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
-              <td className="pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
+              <td className="px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
+              <td className="whitespace-nowrap px-2 pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
             </tr>
           </tfoot>
         </table>
@@ -850,6 +851,7 @@ export function OrdenesCompraManager() {
     () => [...ordenes].sort((a, b) => (a.estado === "borrador" ? -1 : b.estado === "borrador" ? 1 : 0)),
     [ordenes]
   );
+  const { pagina: paginaOrdenes, paginacion: paginacionOrdenes } = usePaginacion(ordenesOrdenadas);
 
   const solicitudesPendientes = solicitudes.filter((s) => s.estado === "pendiente");
 
@@ -897,11 +899,11 @@ export function OrdenesCompraManager() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-black/10 text-black/50">
-                      <th className="py-2 pr-2" />
-                      <th className="py-2 pr-2">Producto</th>
-                      <th className="py-2 pr-2">Motivo</th>
-                      <th className="py-2 pr-2">Proveedor sugerido</th>
-                      <th className="py-2 pr-2">Cantidad a pedir</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
+                      <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Producto</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Motivo</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Proveedor sugerido</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Cantidad a pedir</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -910,16 +912,16 @@ export function OrdenesCompraManager() {
                       const proveedorActual = proveedorSeleccionado(n);
                       return (
                         <tr key={n._id} className={`border-b border-black/5 ${!incluida(n) ? "opacity-50" : ""}`}>
-                          <td className="py-2 pr-2">
+                          <td className="px-2 py-1.5">
                             <input
                               type="checkbox"
                               checked={incluida(n)}
                               onChange={(e) => actualizarSeleccion(n._id, { incluida: e.target.checked })}
                             />
                           </td>
-                          <td className="py-2 pr-2 font-medium">{n.nombreProducto}</td>
-                          <td className="py-2 pr-2 text-black/60">{MOTIVO_LABEL[n.motivo]}</td>
-                          <td className="py-2 pr-2">
+                          <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={n.nombreProducto}>{n.nombreProducto}</td>
+                          <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{MOTIVO_LABEL[n.motivo]}</td>
+                          <td className="px-2 py-1.5">
                             <Select
                               value={proveedorActual}
                               onChange={(e) => actualizarSeleccion(n._id, { proveedorId: e.target.value })}
@@ -940,7 +942,7 @@ export function OrdenesCompraManager() {
                                   ))}
                             </Select>
                           </td>
-                          <td className="py-2 pr-2">
+                          <td className="px-2 py-1.5">
                             <Input
                               type="number"
                               min="1"
@@ -967,36 +969,39 @@ export function OrdenesCompraManager() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-black/50">
-                    <th className="py-2 pr-2">Proveedor</th>
-                    <th className="py-2 pr-2">Folio</th>
-                    <th className="py-2 pr-2">Estado</th>
-                    <th className="py-2 pr-2">Productos</th>
-                    <th className="py-2 pr-2">Total</th>
-                    <th className="py-2 pr-2">Fecha</th>
-                    <th className="py-2 pr-2" />
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Proveedor</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Folio</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Estado</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Productos</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Total</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Fecha</th>
+                    <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                   </tr>
                 </thead>
                 <tbody>
-                  {ordenesOrdenadas.map((o) => (
+                  {paginaOrdenes.map((o) => (
                     <tr key={o._id} className="border-b border-black/5">
-                      <td className="py-2 pr-2 font-medium">{nombreProveedor(o)}</td>
-                      <td className="py-2 pr-2 text-black/40">{o.folio}</td>
-                      <td className="py-2 pr-2">
+                      <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={nombreProveedor(o)}>{nombreProveedor(o)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{o.folio}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5">
                         <EstadoBadge estado={o.estado} />
                       </td>
-                      <td className="py-2 pr-2 text-black/60">{o.items.length}</td>
-                      <td className="py-2 pr-2 font-medium text-titos-green-900">{formatMoney(totalOrden(o))}</td>
-                      <td className="py-2 pr-2 text-black/40">{fechaRelevante(o)}</td>
-                      <td className="py-2 pr-2">
-                        <Button variant="ghost" onClick={() => setOrdenModal(o)}>
-                          Ver / Editar
-                        </Button>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{o.items.length}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{formatMoney(totalOrden(o))}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{fechaRelevante(o)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                        <div className="inline-flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setOrdenModal(o)}>
+                            Ver / Editar
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <Pagination {...paginacionOrdenes} />
           </Card>
         )
       ) : solicitudes.length === 0 ? (
