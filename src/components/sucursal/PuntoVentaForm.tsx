@@ -31,6 +31,7 @@ import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { CapturaPeso } from "@/components/sucursal/CapturaPeso";
 import { useEscaner } from "@/components/sucursal/useEscaner";
+import { codigoSinLetraDeLector } from "@/lib/escaner";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
@@ -1125,7 +1126,14 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     if (previo && previo.valor === valor && previo.fuente !== fuente && ahora - previo.t < 1500) return;
     ultimoEscaneo.current = { valor, fuente, t: ahora };
 
-    const { exacto, coincidencias } = buscarProducto(productos, valor);
+    const busqueda = buscarProducto(productos, valor);
+    const coincidencias = busqueda.coincidencias;
+    let exacto = busqueda.exacto;
+    // Si el código no coincide tal cual, se prueba sin la letra que a veces agrega el lector.
+    if (!exacto) {
+      const limpio = codigoSinLetraDeLector(valor);
+      if (limpio !== valor) exacto = buscarProducto(productos, limpio).exacto;
+    }
 
     if (exacto) {
       if (fuente === "teclado") setCodigo("");

@@ -18,3 +18,18 @@ export function leerCodigoDeRespuesta(texto: string): LecturaEscaner | null {
     return null;
   }
 }
+
+/**
+ * Algunos lectores anteponen o agregan una letra (o un identificador tipo "]E0") al código.
+ * Devuelve el código sin ese añadido; si no hay nada que quitar, lo devuelve igual.
+ * Solo se usa cuando el código tal cual no coincide con ningún producto.
+ */
+export function codigoSinLetraDeLector(valor: string): string {
+  const v = valor.trim();
+  const m =
+    v.match(/^\][A-Za-z]\d(\d+)$/) ?? // identificador AIM: ]E0 + código
+    v.match(/^[A-Za-z](\d+)[A-Za-z]$/) ?? // letra al inicio y al final
+    v.match(/^[A-Za-z](\d+)$/) ?? // letra al inicio
+    v.match(/^(\d+)[A-Za-z]$/); // letra al final
+  return m ? m[1] : v;
+}

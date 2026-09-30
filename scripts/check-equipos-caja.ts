@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "../src/lib/db";
 import { hashPassword, signSession } from "../src/lib/auth";
 import { leerPesoDeRespuesta, pesoBasculaEnKg } from "../src/lib/bascula";
-import { leerCodigoDeRespuesta } from "../src/lib/escaner";
+import { leerCodigoDeRespuesta, codigoSinLetraDeLector } from "../src/lib/escaner";
 import { EQUIPO_VACIO, pesoEnKg, validarEquipoCaja, autorizacionTarjeta } from "../src/lib/equiposCaja";
 import { leerPuertoDiagnostico, type PuertoSerial } from "../src/lib/serialDiagnostico";
 import { GET, PUT } from "../src/app/api/equipos-caja/route";
@@ -55,6 +55,9 @@ async function main() {
   assert.equal(leerCodigoDeRespuesta('{"ok": false, "error": "todavia no se ha escaneado nada"}'), null);
   assert.equal(leerCodigoDeRespuesta('{"ok": true, "codigo": "", "ts": 5}'), null);
   assert.equal(leerCodigoDeRespuesta("basura"), null);
+  for (const [entrada, esperado] of [["A7501234567890", "7501234567890"], ["7501234567890B", "7501234567890"], ["A7501234567890B", "7501234567890"], ["]E07501234567890", "7501234567890"], ["7501234567890", "7501234567890"], ["CAFE", "CAFE"], ["", ""]]) {
+    assert.equal(codigoSinLetraDeLector(entrada), esperado, `letra de lector: ${entrada}`);
+  }
   assert.equal(leerPesoDeRespuesta("error"), null);
   assert.equal(pesoEnKg("1.5", "g"), null, "No redondear gramos fraccionarios silenciosamente");
   assert.equal(autorizacionTarjeta(" 012345 "), "012345");
