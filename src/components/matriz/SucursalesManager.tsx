@@ -52,11 +52,10 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // El usuario de acceso es opcional, pero a medias no sirve: o se capturan los
-  // dos campos o ninguno. Antes los dos eran obligatorios y el botón se quedaba
-  // apagado sin explicar por qué.
-  const capturoAlgo = !!form.usuario.trim() || !!form.password || !!form.email.trim();
-  const credencialIncompleta = capturoAlgo && (!form.usuario.trim() || form.password.length < 6);
+  // Sin usuario no hay login. Correo y contraseña sueltos (casi siempre el
+  // navegador rellenándolos) no deben apagar "Crear sucursal".
+  const quiereUsuario = !!form.usuario.trim();
+  const credencialIncompleta = quiereUsuario && form.password.length < 6;
 
   async function crear() {
     setError(null);
@@ -65,7 +64,9 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
     const res = await fetch("/api/sucursales", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(
+        quiereUsuario ? form : { ...form, usuario: "", email: "", password: "" }
+      ),
     });
 
     setSaving(false);
@@ -119,15 +120,17 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
               <p className="mt-1 text-xs text-black/40">Si lo dejas vacío, queda a tu nombre.</p>
             </FormField>
             <FormField label="Usuario de acceso">
-              <Input icon={User} value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} placeholder="ej. centro" autoComplete="off" />
+              <Input icon={User} name="sucursal-usuario" value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} placeholder="ej. centro" autoComplete="off" />
             </FormField>
             <FormField label="Correo (opcional)">
-              <Input icon={Mail} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input icon={Mail} name="sucursal-correo" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </FormField>
             <FormField label="Contraseña">
               <Input
                 icon={Lock}
                 type="password"
+                name="sucursal-clave-nueva"
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Mínimo 6 caracteres"
@@ -136,8 +139,7 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
           </FormGrid>
           {credencialIncompleta ? (
             <p className="mt-2 text-xs font-medium text-amber-700">
-              Para crear el usuario faltan datos: usuario y contraseña de al menos 6 caracteres. Bórralos si
-              prefieres dar de alta la tienda sin acceso todavía.
+              La contraseña del usuario de acceso necesita al menos 6 caracteres.
             </p>
           ) : null}
         </div>

@@ -54,18 +54,16 @@ export async function POST(req: NextRequest) {
     return badRequest("Zona horaria inválida");
   }
 
-  // El usuario de acceso es OPCIONAL: dar de alta la tienda y decidir después
-  // quién la va a operar son dos momentos distintos, y exigir los dos juntos
-  // dejaba el botón de "Crear sucursal" apagado sin decir por qué. Si se
-  // capturan, se piden completos: media credencial no sirve para entrar.
+  // El usuario de acceso es opcional. Correo o contraseña solos (el navegador
+  // los rellena con un acceso guardado) no crean usuario ni bloquean el alta.
   const nombreUsuario = String(body?.usuario ?? "").trim();
   const email = String(body?.email ?? "").trim().toLowerCase();
   const password = String(body?.password ?? "");
-  const creaUsuario = !!nombreUsuario || !!password || !!email;
+  const creaUsuario = !!nombreUsuario;
 
   if (creaUsuario) {
-    if (!nombreUsuario) return badRequest("Captura el usuario de acceso o deja vacía también la contraseña");
     if (password.length < 6) return badRequest("La contraseña de acceso debe tener al menos 6 caracteres");
+    if (email && !email.includes("@")) return badRequest("El correo no es válido");
   }
 
   await connectDB();
