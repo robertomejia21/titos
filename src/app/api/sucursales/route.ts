@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
     usuario: nombreUsuario,
     email: email || undefined,
     passwordHash: await hashPassword(password),
-    nombre: body.usuarioNombre || nombre,
+    // Sin responsable capturado, la sucursal queda a nombre de quien la da de alta.
+    nombre: body.usuarioNombre || session.nombre || nombre,
     role: "sucursal",
     sucursalId: sucursal._id,
   });
