@@ -114,8 +114,9 @@ function CrearSucursalModal({ onClose, onCreada }: { onClose: () => void; onCrea
             Puedes dejarlo vacío y dar de alta la tienda ahora; el usuario se crea después desde Usuarios y roles.
           </p>
           <FormGrid>
-            <FormField label="Nombre del responsable" className="sm:col-span-2">
+            <FormField label="Nombre del responsable (opcional)" className="sm:col-span-2">
               <Input icon={User} value={form.usuarioNombre} onChange={(e) => setForm({ ...form, usuarioNombre: e.target.value })} />
+              <p className="mt-1 text-xs text-black/40">Si lo dejas vacío, queda a tu nombre.</p>
             </FormField>
             <FormField label="Usuario de acceso">
               <Input icon={User} value={form.usuario} onChange={(e) => setForm({ ...form, usuario: e.target.value })} placeholder="ej. centro" autoComplete="off" />
