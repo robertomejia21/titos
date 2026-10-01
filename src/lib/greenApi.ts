@@ -50,17 +50,59 @@ function mediaUrl() {
 
 /**
  * En la base los celulares de México se guardan como 52 + 10 dígitos, pero en
- * Green API las cuentas mexicanas existen como 521 + 10: mandar a 52… crea un
- * chat fantasma (aparece con un ID de privacidad, p. ej. "998735588…") y el
- * mensaje nunca llega. Verificado el 2026-09-29 con 6861571095.
+ * WhatsApp una cuenta mexicana existe en UNA de dos formas: las antiguas como
+ * 521 + 10 y las recientes como 52 + 10. Mandar a la forma equivocada crea un
+ * chat fantasma (aparece con un ID de privacidad) y el mensaje nunca llega.
+ * Verificado el 2026-09-29 con 6861571095 (sólo existe en 521…) y el
+ * 2026-10-01 con 6864212325 (sólo existe en 52…). Devuelve las formas a probar,
+ * primero la más común.
  */
-export function numeroGreenApi(phone: string) {
+export function variantesNumero(phone: string): string[] {
   const digitos = phone.replace(/\D/g, "");
-  return digitos.length === 12 && digitos.startsWith("52") ? `521${digitos.slice(2)}` : digitos;
+  if (digitos.length === 12 && digitos.startsWith("52")) return [`521${digitos.slice(2)}`, digitos];
+  if (digitos.length === 13 && digitos.startsWith("521")) return [digitos, `52${digitos.slice(3)}`];
+  return [digitos];
 }
 
-function chatId(phone: string) {
-  return `${numeroGreenApi(phone)}@c.us`;
+// ponytail: caché por proceso; en arranque en frío cuesta una consulta extra por
+// número. Si duele, guardar la forma confirmada en el documento del usuario.
+const formaConfirmada = new Map<string, string>();
+
+async function existeEnWhatsapp(numero: string) {
+  requireEnv();
+  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/checkWhatsapp/${API_TOKEN}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumber: Number(numero) }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { existsWhatsapp: boolean };
+  return data.existsWhatsapp;
+}
+
+/** La forma del número con la que WhatsApp sí conoce la cuenta. */
+export async function numeroGreenApi(phone: string) {
+  const variantes = variantesNumero(phone);
+  if (variantes.length === 1) return variantes[0];
+  const conocida = formaConfirmada.get(variantes[0]);
+  if (conocida) return conocida;
+  for (const v of variantes) {
+    if (await existeEnWhatsapp(v).catch(() => false)) {
+      formaConfirmada.set(variantes[0], v);
+      return v;
+    }
+  }
+  // Ninguna existe (o Green API no respondió): se manda como antes y
+  // getMessageStatus reportará noAccount.
+  return variantes[0];
+}
+
+async function chatId(phone: string) {
+  return `${await numeroGreenApi(phone)}@c.us`;
 }
 
 export async function sendMessage(phone: string, message: string) {
@@ -69,7 +111,7 @@ export async function sendMessage(phone: string, message: string) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId: chatId(phone), message }),
+    body: JSON.stringify({ chatId: await chatId(phone), message }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -277,20 +319,16 @@ export async function getStateInstance() {
   return res.json() as Promise<{ stateInstance: string }>;
 }
 
-/** Si el número tiene cuenta de WhatsApp (sin enviarle nada). */
+/** Si el número tiene cuenta de WhatsApp en alguna de sus formas (sin enviarle nada). */
 export async function checkWhatsapp(phone: string) {
-  requireEnv();
-  const url = `${baseUrl()}/waInstance${INSTANCE_ID}/checkWhatsapp/${API_TOKEN}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phoneNumber: Number(numeroGreenApi(phone)) }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Green API respondió ${res.status}: ${detail.slice(0, 300)}`);
+  const variantes = variantesNumero(phone);
+  for (const v of variantes) {
+    if (await existeEnWhatsapp(v)) {
+      formaConfirmada.set(variantes[0], v);
+      return { existsWhatsapp: true };
+    }
   }
-  return res.json() as Promise<{ existsWhatsapp: boolean }>;
+  return { existsWhatsapp: false };
 }
 
 /**
@@ -303,7 +341,7 @@ export async function getMessageStatus(phone: string, idMessage: string) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId: chatId(phone), idMessage }),
+    body: JSON.stringify({ chatId: await chatId(phone), idMessage }),
   });
   if (!res.ok) return null;
   const data = (await res.json().catch(() => null)) as { statusMessage?: string } | null;
@@ -346,7 +384,7 @@ export async function sendFileByUrl(phone: string, urlFile: string, fileName: st
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chatId: chatId(phone), urlFile, fileName, caption }),
+    body: JSON.stringify({ chatId: await chatId(phone), urlFile, fileName, caption }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -361,7 +399,7 @@ export async function sendFileByUpload(phone: string, fileBase64: string, fileNa
   // FormData pone el boundary y manda el PDF como binario: armarlo a mano y
   // mandarlo en base64 llegaba corrupto.
   const form = new FormData();
-  form.append("chatId", chatId(phone));
+  form.append("chatId", await chatId(phone));
   form.append("fileName", fileName);
   form.append("caption", caption);
   form.append(
@@ -389,7 +427,7 @@ export async function sendButtonsMessage(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chatId: chatId(phone),
+      chatId: await chatId(phone),
       body,
       buttons: buttons.slice(0, 3),
       ...(footer ? { footer } : {}),
