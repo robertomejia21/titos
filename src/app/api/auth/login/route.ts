@@ -15,14 +15,25 @@ export async function POST(req: NextRequest) {
   }
 
   await connectDB();
-  const user = await UserModel.findOne({ $or: [{ usuario }, { email: usuario.toLowerCase() }], activo: true }).lean();
-
-  if (!user) {
-    return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
+  const escLogin = usuario.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const candidatos = await UserModel.find({
+    activo: true,
+    $or: [
+      { usuario },
+      { email: usuario.toLowerCase() },
+      { usuario: { $regex: `^${escLogin}$`, $options: "i" } },
+      { nombre: { $regex: `^${escLogin}$`, $options: "i" } },
+    ],
+  }).limit(20).lean();
+  const exactos = candidatos.filter((c) => c.usuario === usuario || c.email === usuario.toLowerCase());
+  let cuenta: (typeof candidatos)[number] | null = null;
+  for (const c of exactos.length ? exactos : candidatos) {
+    if (await verifyPassword(password, c.passwordHash)) {
+      cuenta = c;
+      break;
+    }
   }
-
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
+  if (!cuenta) {
     return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
   }
 
@@ -31,21 +42,21 @@ export async function POST(req: NextRequest) {
   await asegurarRolesSemilla();
 
   const token = await signSession({
-    userId: String(user._id),
-    email: user.email ?? null,
-    nombre: user.nombre,
-    role: user.role as "matriz" | "sucursal",
-    sucursalRol: user.role === "sucursal" ? ((user.sucursalRol as "admin" | "ventas") ?? "admin") : null,
-    sucursalId: user.sucursalId ? String(user.sucursalId) : null,
-    permisos: await permisosDeUsuario(user),
-    permisosIndividuales: Array.isArray(user.permisosIndividuales),
-    permisosSoloConsulta: user.permisosSoloConsulta ?? [],
+    userId: String(cuenta._id),
+    email: cuenta.email ?? null,
+    nombre: cuenta.nombre,
+    role: cuenta.role as "matriz" | "sucursal",
+    sucursalRol: cuenta.role === "sucursal" ? ((cuenta.sucursalRol as "admin" | "ventas") ?? "admin") : null,
+    sucursalId: cuenta.sucursalId ? String(cuenta.sucursalId) : null,
+    permisos: await permisosDeUsuario(cuenta),
+    permisosIndividuales: Array.isArray(cuenta.permisosIndividuales),
+    permisosSoloConsulta: cuenta.permisosSoloConsulta ?? [],
   });
 
   const res = NextResponse.json({
-    role: user.role,
-    nombre: user.nombre,
-    sucursalId: user.sucursalId ? String(user.sucursalId) : null,
+    role: cuenta.role,
+    nombre: cuenta.nombre,
+    sucursalId: cuenta.sucursalId ? String(cuenta.sucursalId) : null,
   });
 
   res.cookies.set(SESSION_COOKIE, token, {
