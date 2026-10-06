@@ -673,6 +673,123 @@ const ACCIONES = {
       .fill("Llegaron menos cajas de las ordenadas; el proveedor repone el jueves.").catch(() => {});
     await page.waitForTimeout(1000);
   },
+
+  // ── Semana 12 ───────────────────────────────────────────────────────
+
+  /**
+   * Simula una lectura del escáner por el puente local: el código llega con una
+   * letra de más al final y el punto de venta lo agrega directo a la lista de
+   * cobro. El puente se intercepta en el navegador; no se cobra nada.
+   */
+  async escanerAlCarrito(page) {
+    const productos = await page.evaluate(async () => {
+      const res = await fetch("/api/productos");
+      return res.ok ? res.json() : [];
+    });
+    const piezas = productos.filter((p) => p?.sku && !p.requierePesaje && p.unidad !== "kg");
+    const elegidos = [
+      ...piezas.filter((p) => /^\d{6,}$/.test(p.sku)),
+      ...piezas.filter((p) => !/^\d{6,}$/.test(p.sku)),
+    ].slice(0, 2);
+    if (elegidos.length === 0) return;
+
+    let lectura = null;
+    await page.route("**/escaner", (route) =>
+      lectura
+        ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, ...lectura }) })
+        : route.fulfill({ status: 502, contentType: "application/json", body: '{"ok":false}' })
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await esperarDatos(page);
+    await ocultarOverlayDev(page);
+
+    // El primer código lleva la letra que algunos lectores agregan al final.
+    for (const [i, producto] of elegidos.entries()) {
+      lectura = { codigo: i === 0 ? `${producto.sku}A` : producto.sku, ts: Date.now() / 1000 + i };
+      await page.waitForTimeout(1600);
+    }
+    await page.unroute("**/escaner");
+    await page.waitForTimeout(500);
+  },
+
+  /**
+   * Abre "Reenviar acceso" con la respuesta del servidor simulada en el
+   * navegador: NO se manda ningún WhatsApp ni se cambia la contraseña.
+   */
+  async reenviarAccesoConNip(page) {
+    await ACCIONES.reenviarAccesoSimulado(page, {
+      estados: ["delivered", "read"],
+      incluidos: ["NIP de gerente"],
+      avisos: [],
+    });
+  },
+
+  /** El mismo modal cuando el NIP se asignó antes del cambio y no se puede recuperar. */
+  async reenviarAccesoConAviso(page) {
+    await ACCIONES.reenviarAccesoSimulado(page, {
+      estados: ["delivered", "sent"],
+      incluidos: [],
+      avisos: [
+        "El NIP de gerente no se incluyó: se asignó antes de poder enviarse. Edita al usuario y asígnale uno nuevo para que le llegue.",
+      ],
+    });
+  },
+
+  async reenviarAccesoSimulado(page, respuesta) {
+    await page.route("**/api/usuarios/reenviar-verificacion**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, telefono: "526640000000", ids: ["demo-1", "demo-2"], ...respuesta }),
+      })
+    );
+    await page.getByRole("button", { name: "Reenviar acceso", exact: true }).first().click();
+    await page.getByText(/Acceso (entregado|enviado)/).first().waitFor({ timeout: 8000 });
+    await page.waitForTimeout(700);
+    await page.unroute("**/api/usuarios/reenviar-verificacion**");
+  },
+
+  /** Edición de un usuario: el WhatsApp se captura a 10 dígitos. */
+  async telefonoDiezDigitos(page) {
+    await page.getByRole("button", { name: "Editar", exact: true }).first().click();
+    await page.getByText(/Teléfono \(WhatsApp\)/).first().waitFor({ timeout: 8000 });
+    // Teléfono y nacimiento de ejemplo, solo en pantalla: no se guarda y no
+    // salen los datos personales del colaborador.
+    await page.locator('input[type="tel"], input[inputmode="numeric"]').first().fill("6640000000").catch(() => {});
+    await page.locator('input[type="date"]').first().fill("1990-01-01").catch(() => {});
+    await page.getByText(/Teléfono \(WhatsApp\)/).first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(700);
+  },
+
+  /** Alta de sucursal: el responsable es opcional y el usuario de acceso también. */
+  async sucursalResponsableOpcional(page) {
+    await ACCIONES.altaSucursal(page);
+    await page.getByText(/Si lo dejas vacío, queda a tu nombre/).first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+  },
+
+  /** Tabla larga ya paginada: se baja hasta el pie con "Mostrando 1–20 de N". */
+  async tablaPaginada(page) {
+    await page
+      .getByText(/^Mostrando \d/)
+      .first()
+      .evaluate((el) => el.scrollIntoView({ block: "end", behavior: "instant" }));
+    await page.waitForTimeout(600);
+  },
+
+  /**
+   * Pantalla de inicio de sesión con el usuario escrito en mayúsculas. Cierra la
+   * sesión del navegador, así que va al final de la lista.
+   */
+  async loginMayusculas(page) {
+    await page.context().clearCookies();
+    await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.locator('input[autocomplete="username"]').fill("SuperAdmin");
+    await page.locator('input[autocomplete="current-password"]').fill("contraseña");
+    await page.waitForTimeout(400);
+  },
 };
 
 /** Pantallas a capturar: [archivo, ruta, cuenta, accion?, semana] */
@@ -763,6 +880,16 @@ const PANTALLAS = [
   ["s10-producto-fiscal", "/matriz/productos", "matriz", "productoFiscal", 10],
   ["s10-menu-busqueda", "/matriz/productos", "matriz", "busquedaProductos", 10],
   ["s10-recepcion-faltante", "/matriz/ordenes-compra", "matriz", "recepcionFaltante", 10],
+
+  ["s12-pos-escaner", "/matriz/mostrador", "matriz", "escanerAlCarrito", 12],
+  ["s12-usuarios-tabla", "/matriz/usuarios", "matriz", null, 12],
+  ["s12-reenviar-nip", "/matriz/usuarios", "matriz", "reenviarAccesoConNip", 12],
+  ["s12-reenviar-aviso", "/matriz/usuarios", "matriz", "reenviarAccesoConAviso", 12],
+  ["s12-usuario-telefono", "/matriz/usuarios", "matriz", "telefonoDiezDigitos", 12],
+  ["s12-tabla-productos", "/matriz/productos", "matriz", "tablaPaginada", 12],
+  ["s12-sucursal-alta", "/matriz/sucursales", "matriz", "sucursalResponsableOpcional", 12],
+  // Va al final: cierra la sesión para fotografiar la pantalla de entrada.
+  ["s12-login", "/matriz", "matriz", "loginMayusculas", 12],
 ];
 
 /** --semana=6 limita la corrida a esa entrega y deja intacto el histórico. */
@@ -778,8 +905,9 @@ async function iniciarSesion(page, cuenta) {
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1500);
 
-  const email = page.locator('input[type="email"]');
-  const password = page.locator('input[type="password"]');
+  // El campo de usuario acepta usuario, correo o nombre.
+  const email = page.locator('input[autocomplete="username"]');
+  const password = page.locator('input[autocomplete="current-password"]');
 
   await email.fill(cuenta.email);
   await password.fill(cuenta.password);
