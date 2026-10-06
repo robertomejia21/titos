@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>DaVinci · Semana 11 · Avances Mercados Titos</title>
+    <title>DaVinci · Semana 12 · Avances Mercados Titos</title>
     <link rel="icon" href="img/logo-davinci.png" />
     <style>
       /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
@@ -507,79 +507,11 @@
       }
       .boton-semana:hover { background: var(--naranja-claro); }
 
-      /* ── Tickets de muestra (exclusivo de esta entrega) ─────────────── */
-      .ticket-demo {
-        display: grid;
-        gap: 22px;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        margin-top: 26px;
-        justify-items: center;
-      }
-      .ticket {
-        width: 100%;
-        max-width: 300px;
-        padding: 20px 18px;
-        background: #fff;
-        border: 1px solid var(--gris-linea);
-        border-radius: 6px;
-        box-shadow: var(--sombra);
-        font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
-        font-size: 12.5px;
-        line-height: 1.5;
-        color: var(--carbon);
-      }
-      .ticket p { margin: 0; }
-      .t-centro { text-align: center; }
-      .t-titulo { font-size: 15px; font-weight: 800; letter-spacing: 0.06em; }
-      .t-suc { font-size: 13.5px; font-weight: 700; margin-top: 2px; }
-      .t-ast { color: var(--naranja); font-size: 18px; font-weight: 800; }
-      .t-sep { border-top: 1px dashed rgba(55, 52, 53, 0.35); margin: 8px 0; height: 0; }
-      .t-fila { display: flex; justify-content: space-between; gap: 10px; }
-      .t-fuerte { font-weight: 800; font-size: 14px; }
-      .t-tenue { color: var(--gris-texto); font-size: 11.5px; }
-      .ticket-pie {
-        margin-top: 20px;
-        text-align: center;
-        font-size: 14.5px;
-        color: var(--gris-texto);
-      }
-      .ticket-pie strong { color: var(--carbon); font-weight: 700; }
-
       /* La barra superior es fija: sin este margen, el enlace del menú deja
          el título de la sección escondido detrás de ella. */
       .seccion { scroll-margin-top: 92px; }
-      /* ── Tabla de costos (comparación de proveedores) ───────────────── */
-      .costos {
-        width: 100%;
-        margin-top: 24px;
-        border-collapse: collapse;
-        font-size: 14px;
-        background: #fff;
-        border: 1px solid var(--gris-linea);
-        border-radius: var(--radio);
-        overflow: hidden;
-      }
-      .costos caption {
-        caption-side: bottom;
-        padding: 12px 4px 0;
-        text-align: left;
-        font-size: 13px;
-        color: var(--gris-texto);
-      }
-      .costos th,
-      .costos td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--gris-linea); }
-      .costos thead th {
-        background: var(--carbon-suave);
-        font-size: 12.5px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--carbon-medio);
-      }
-      .costos td:not(:first-child),
-      .costos thead th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
-      .costos tbody tr:last-child td { border-bottom: 0; }
-      .costos tbody th { font-weight: 600; }
-      .tabla-scroll { overflow-x: auto; }
+      .regla h4 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+      .regla { flex-direction: column; gap: 2px; }
     </style>
   </head>
   <body>
@@ -600,34 +532,35 @@
         <a href="semana-8.html">Semana 8</a>
         <a href="semana-9.html">Semana 9</a>
         <a href="semana-10.html">Semana 10</a>
-        <a class="actual" href="semana-11.html">Semana 11</a>
-        <a href="semana-12.html">Semana 12</a>
+        <a href="semana-11.html">Semana 11</a>
+        <a class="actual" href="semana-12.html">Semana 12</a>
       </div>
       <div class="nav-links">
         <a href="#resumen">Resumen</a>
-        <a href="#kilos">Kilos</a>
-        <a href="#pantalla">Pantalla</a>
-        <a href="#ticket">Ticket</a>
+        <a href="#escaner">Escáner</a>
+        <a href="#accesos">Accesos</a>
+        <a href="#tablas">Tablas</a>
+        <a href="#altas">Altas y entrada</a>
         <a href="#pendientes">Pendientes</a>
       </div>
     </nav>
 
     <header class="portada">
       <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
-      <div><span class="etiqueta">Semana 11 · Entrega de avances</span></div>
-      <h1>La caja pesa en kilos y el ticket ya lleva la marca</h1>
+      <div><span class="etiqueta">Semana 12 · Entrega de avances</span></div>
+      <h1>El escáner ya llena la cuenta y el acceso <em>llega completo</em></h1>
       <p class="bajada">
-        Cinco puntos aplicados. El de fondo: el peso de la báscula aparece a la vista, en kilos
-        y listo para aceptar, y el total se calcula al instante. Junto a eso, la pantalla de pesado se
-        simplificó y el ticket térmico ya lleva el logo de Mercados Titos, con un ticket de prueba
-        para revisar la impresora.
+        Diez puntos aplicados. El escáner de código de barras agrega el producto directo a la lista
+        de cobro. El WhatsApp de acceso ahora confirma que el mensaje sí llegó y lleva los NIP que
+        cada quien necesita. Además, todas las tablas del sistema quedaron a 20 renglones y más
+        compactas.
       </p>
 
       <div class="metricas">
-        <div class="metrica"><strong>5</strong><span>Puntos atendidos</span></div>
-        <div class="metrica"><strong>3</strong><span>Pantallas de ejemplo</span></div>
+        <div class="metrica"><strong>10</strong><span>Puntos atendidos</span></div>
+        <div class="metrica"><strong>8</strong><span>Pantallas de ejemplo</span></div>
+        <div class="metrica"><strong>20</strong><span>Renglones por página</span></div>
         <div class="metrica"><strong>3</strong><span>Pendientes por cerrar</span></div>
-        <div class="metrica"><strong>0</strong><span>Puntos en pausa</span></div>
       </div>
     </header>
 
@@ -635,55 +568,85 @@
     <section class="seccion" id="resumen">
       <div class="encabezado revelar">
         <span class="numero">01 · Resumen</span>
-        <h2>Los cinco puntos de esta entrega</h2>
+        <h2>Los diez puntos de esta entrega</h2>
         <p>
-          Todos quedaron aplicados sobre el sistema. Abajo el resumen de cada uno; más adelante los
-          detallamos con pantallas.
+          Todos quedaron aplicados en el sistema. Aquí va un resumen de cada uno; más adelante se
+          explican con pantallas.
         </p>
       </div>
 
       <div class="tarjetas">
         <article class="tarjeta revelar">
-          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M12 3v18M5 8l7-5 7 5M4 21h16</svg></span>
-          <h3>Todo en kilos</h3>
-          <p>El peso, el cálculo y el ticket van en kilos con tres decimales: ya no hay que elegir unidad ni hacer cuentas aparte.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M12 8v8M16 8v8"/></svg></span>
+          <h3>Escáner directo a la cuenta</h3>
+          <p>Cada código que lee el escáner agrega el producto a la lista de cobro. Si se vende por kilo, abre la pantalla de pesado.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M3 12a9 9 0 0 1 18 0M12 12l4-4M12 12v.01</svg></span>
-          <h3>Peso en vivo</h3>
-          <p>Al elegir un producto que se vende por kilo, el peso aparece en grande y avisa cuando ya es estable. Solo queda aceptar.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></span>
+          <h3>Tolera una letra de más</h3>
+          <p>Algunos lectores agregan una letra al inicio o al final del código. Si así no aparece el producto, el sistema lo busca sin esa letra.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M5 12l4 4L19 6</svg></span>
-          <h3>Pantalla de pesado más simple</h3>
-          <p>Sin X ni barra de desplazamiento, con Cancelar y Aceptar arriba, botones grandes para pantalla táctil y Enter para aceptar.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7a4 4 0 1 1-4 4M11 11l-8 8M6 16l2 2M9 13l2 2"/></svg></span>
+          <h3>Los NIP llegan por WhatsApp</h3>
+          <p>El gerente de tienda recibe su NIP junto con su usuario y contraseña, y quien administra usuarios recibe el NIP para crear supervisores.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M6 2h12v20l-3-2-3 2-3-2-3 2zM9 8h6M9 12h4</svg></span>
-          <h3>Logo en el ticket</h3>
-          <p>El ticket térmico lleva el logo de Mercados Titos en blanco y negro, ajustado al papel de 80 mm de la impresora de la caja.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l5 5L18 6M12 17l1 1L22 9"/></svg></span>
+          <h3>Se confirma que el mensaje llegó</h3>
+          <p>Reenviar acceso abre una ventana con el estado real de cada mensaje (en cola, enviado, entregado o leído) o, si falla, la causa.</p>
         </article>
 
         <article class="tarjeta revelar">
-          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z</svg></span>
-          <h3>Ticket de prueba</h3>
-          <p>Un botón en Equipos de caja imprime un ticket de prueba, sin crear ventas, para revisar logo, bordes y corte.</p>
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2"/></svg></span>
+          <h3>WhatsApp a 10 dígitos</h3>
+          <p>El teléfono se captura con los 10 dígitos y la lada la pone el sistema. Si se pega un número con lada, se recorta solo.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg></span>
+          <h3>Mensajes que ya no se pierden</h3>
+          <p>WhatsApp registra unos celulares de México como 52 y otros como 521. El sistema prueba las dos formas y manda a la que existe.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M3 10h18M3 15h18M3 20h18"/></svg></span>
+          <h3>Tablas de 20 renglones</h3>
+          <p>Todos los listados muestran 20 renglones por página, con filas más bajas y las acciones en una sola línea.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5M4 9v11h16V9M9 20v-6h6v6"/></svg></span>
+          <h3>Alta de sucursal sin trabas</h3>
+          <p>El responsable es opcional, y si se deja vacío la sucursal queda a nombre de quien la crea. El autollenado del navegador ya no bloquea el botón.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></span>
+          <h3>Entrar es más fácil</h3>
+          <p>El inicio de sesión acepta el usuario con mayúsculas o minúsculas, y también con el nombre de la persona.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"/></svg></span>
+          <h3>Altas de usuario sin errores</h3>
+          <p>Un usuario sin correo ya no impide dar de alta a otros. Al editar, falta un dato y el formulario dice cuál, en vez de un error genérico.</p>
         </article>
       </div>
     </section>
 
-    <!-- ── Kilos ────────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="kilos">
+    <!-- ── Escáner ──────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="escaner">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">02 · El cambio de fondo</span>
-          <h2>Se pesa una vez y el total sale solo</h2>
+          <span class="numero">02 · En la caja</span>
+          <h2>Se escanea y el producto ya está en la cuenta</h2>
           <p>
-            Los productos se venden por kilo: el peso de la báscula llega a la pantalla y la cuenta
-            ya no se hace a mano.
+            Este era el pendiente principal de la semana pasada. El lector está conectado a la caja
+            y el punto de venta lo consulta constantemente.
           </p>
         </div>
 
@@ -691,130 +654,166 @@
           <div class="caso antes">
             <p class="rotulo">Lo que pasaba</p>
             <p class="detalle">
-              El cajero tenía que <strong>copiar el peso del visor</strong> al sistema y hacer la
-              cuenta aparte. Cada pesada era un punto donde podía haber un error de captura.
+              El código escaneado había que <strong>pasarlo al campo de búsqueda</strong>. Además,
+              si el lector agregaba una letra al código, el producto <strong>no se encontraba</strong>.
             </p>
           </div>
 
           <div class="caso despues">
             <p class="rotulo">Lo que pasa ahora</p>
             <p class="detalle">
-              La báscula manda el peso y <strong>aparece en la pantalla, en kilos</strong>. Cuando se
-              estabiliza, solo se pulsa Aceptar; el total se calcula al instante con el precio por
-              kilo.
+              Cada código nuevo que lee el escáner <strong>agrega el producto a la lista de cobro</strong>,
+              igual que si se escribiera el código. Si el producto se vende por kilo, se abre la
+              pantalla de pesado.
             </p>
             <p class="detalle">
-              Si no hay báscula, el peso se <strong>escribe a mano</strong>, en kilos.
+              Si el código trae <strong>una letra de más</strong>, el sistema la quita y vuelve a buscar.
             </p>
           </div>
         </div>
 
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
-            <button role="tab" data-tab="kilos-bascula" aria-selected="true">Con báscula</button>
-            <button role="tab" data-tab="kilos-manual">A mano</button>
+            <button role="tab" data-tab="escaner-carrito" aria-selected="true">Código escaneado</button>
           </div>
 
-          <div class="lamina visible" data-panel="kilos-bascula">
+          <div class="lamina visible" data-panel="escaner-carrito">
             <figure>
-              <img src="img/s11-modal-bascula.png" alt="Pantalla de pesado con el peso estable de 1.250 kg y el total" />
+              <img src="img/s12-pos-escaner.png" alt="Punto de venta con un producto agregado por el escáner a la lista de cobro" />
               <figcaption>
-                <strong>El peso llega solo.</strong> Se muestra en kilos, en grande. Cuando
-                el peso es firme aparece "Peso estable" en
-                verde y se habilita Aceptar. Producto de ejemplo, no de su catálogo.
+                <strong>Del lector a la cuenta, sin teclear.</strong> En esta prueba se escanearon dos
+                productos; uno de los códigos llegó con una letra de más al final y aun así los dos
+                entraron con cantidad 1. La lectura se simuló en el navegador; no se cobró nada.
               </figcaption>
             </figure>
           </div>
-
-          <div class="lamina" data-panel="kilos-manual">
-            <figure>
-              <img src="img/s11-modal-manual.png" alt="Pantalla de pesado sin báscula, con el peso escrito a mano en kilos" />
-              <figcaption>
-                <strong>Sin báscula, se escribe el peso.</strong> Un aviso lo dice sin alarmar. El
-                cálculo y el total se actualizan mientras se teclea.
-              </figcaption>
-            </figure>
-          </div>
-
         </div>
 
         <div class="reglas revelar">
           <div class="regla">
-            <h4>Se cobra en kilos</h4>
-            <p>La venta, el total y el ticket llevan kilos con tres decimales, sea que el peso llegue de la báscula o se escriba a mano.</p>
+            <h4>No se agrega por detrás del cobro</h4>
+            <p>Si hay una ventana abierta (cobro, pesado o cancelación), el código no se procesa, para que nada se cuele en una venta que ya se está cobrando.</p>
           </div>
           <div class="regla">
-            <h4>El total se ve mientras se pesa</h4>
-            <p>Peso por precio por kilo, antes de promociones, aparece en la misma pantalla; al aceptar, el renglón entra al carrito con ese mismo importe.</p>
+            <h4>Sin lecturas dobles</h4>
+            <p>Si el mismo código llega por el teclado y por el lector casi al mismo tiempo, se cuenta una sola vez. Dos escaneos seguidos por la misma vía sí suman dos piezas.</p>
           </div>
           <div class="regla">
-            <h4>Aceptar espera al peso firme</h4>
-            <p>Con báscula, no se puede aceptar mientras el peso todavía se mueve, salvo que el cajero lo ajuste a mano.</p>
+            <h4>El escáner no adivina</h4>
+            <p>Si el código no corresponde exactamente a un producto, la caja avisa "No se encontró" en vez de agregar uno parecido.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── Pantalla ─────────────────────────────────────────────────── -->
-    <section class="seccion" id="pantalla">
+    <!-- ── Accesos ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="accesos">
       <div class="encabezado revelar">
-        <span class="numero">03 · Menos pasos</span>
-        <h2>Una pantalla que cabe completa y se opera con teclado</h2>
+        <span class="numero">03 · Accesos por WhatsApp</span>
+        <h2>El acceso llega completo y se sabe que llegó</h2>
         <p>
-          El pesado se repite decenas de veces al día, sobre todo en carnicería. Cada clic de más se
-          nota.
+          Antes, "Reenviar acceso" solo decía que el mensaje se había mandado. Ahora el sistema
+          revisa con WhatsApp que realmente salga y llegue.
         </p>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="acceso-nip" aria-selected="true">Acceso con NIP</button>
+          <button role="tab" data-tab="acceso-aviso">NIP por reasignar</button>
+          <button role="tab" data-tab="acceso-telefono">Teléfono a 10 dígitos</button>
+        </div>
+
+        <div class="lamina visible" data-panel="acceso-nip">
+          <figure>
+            <img src="img/s12-reenviar-nip.png" alt="Ventana de Reenviar acceso con el saludo entregado, las credenciales leídas y el NIP de gerente incluido" />
+            <figcaption>
+              <strong>Cada mensaje con su estado.</strong> El saludo y las credenciales se marcan como
+              entregados o leídos, y abajo se indica qué NIP se incluyó en el mensaje. Ejemplo con la
+              respuesta de WhatsApp simulada: no se envió ningún mensaje y el número es ficticio.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="acceso-aviso">
+          <figure>
+            <img src="img/s12-reenviar-aviso.png" alt="Ventana de Reenviar acceso con un aviso de que el NIP de gerente no se incluyó" />
+            <figcaption>
+              <strong>Si falta algo, lo dice.</strong> Un NIP asignado antes de este cambio no se
+              puede recuperar, así que la ventana avisa que hay que asignar uno nuevo. Mientras el
+              mensaje no se entregue, "Volver a revisar" consulta el estado otra vez sin reenviarlo.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="acceso-telefono">
+          <figure>
+            <img src="img/s12-usuario-telefono.png" alt="Edición de usuario con el teléfono de WhatsApp capturado a 10 dígitos" />
+            <figcaption>
+              <strong>Solo los 10 dígitos.</strong> El código de país se elige aparte y el sistema
+              arma el número completo para WhatsApp. El teléfono y la fecha de esta pantalla son de
+              ejemplo.
+            </figcaption>
+          </figure>
+        </div>
       </div>
 
       <div class="reglas revelar">
         <div class="regla">
-          <h4>Cancelar y Aceptar arriba</h4>
-          <p>Ocupan el lugar de la X, siempre a la vista, aun en pantallas de poca altura donde los botones de abajo quedaban fuera.</p>
+          <h4>Se revisa antes de enviar</h4>
+          <p>Si la línea de WhatsApp del sistema está desconectada o el número no tiene WhatsApp, la ventana lo dice en lugar de dar por enviado el mensaje.</p>
         </div>
         <div class="regla">
-          <h4>Sin barra de desplazamiento</h4>
-          <p>La ventana se compactó para que quepa completa y la barra del costado ya no se ve.</p>
+          <h4>52 o 521, el que exista</h4>
+          <p>Hay celulares de México registrados en WhatsApp como 521 y otros como 52. El sistema prueba las dos formas, guarda la que funciona y la usa en todos los envíos, así que ya no hay mensajes a chats que nadie ve.</p>
         </div>
         <div class="regla">
-          <h4>Enter acepta</h4>
-          <p>Con el peso listo, Enter confirma desde cualquier parte de la ventana. Escape cancela.</p>
+          <h4>Los NIP viajan protegidos</h4>
+          <p>Para poder reenviarlos, los NIP se guardan cifrados. Para autorizar se sigue usando la versión protegida de siempre, que nadie puede leer.</p>
         </div>
         <div class="regla">
-          <h4>Botones para dedo</h4>
-          <p>Los botones miden 44 píxeles de alto y reaccionan al presionar, pensando en pantallas táctiles.</p>
-        </div>
-        <div class="regla">
-          <h4>Solo lo necesario</h4>
-          <p>Con báscula el campo manual baja de tamaño y solo sirve para ajustar. Se quitó además el enlace a la guía de báscula del interior de la ventana.</p>
+          <h4>Un mensaje por envío</h4>
+          <p>El mensaje sale una sola vez aunque la ventana se abra dos veces.</p>
         </div>
       </div>
     </section>
 
-    <!-- ── Ticket ───────────────────────────────────────────────────── -->
-    <section class="seccion alterna" id="ticket">
+    <!-- ── Tablas ───────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="tablas">
       <div class="interior">
         <div class="encabezado revelar">
-          <span class="numero">04 · La marca en el papel</span>
-          <h2>El ticket ya lleva el logo de Mercados Titos</h2>
+          <span class="numero">04 · Todo el sistema</span>
+          <h2>Tablas de 20 renglones, más compactas</h2>
           <p>
-            El encabezado dejó de ser solo texto: ahora abre con el logo, pensado para la impresora
-            térmica de la caja.
+            Antes, unos listados mostraban todo junto y otros paginaban de 15, 25 o 50. Ahora todos
+            muestran 20 renglones por página, y cabe más información en pantalla.
           </p>
         </div>
 
         <div class="visor revelar" data-visor>
           <div class="pestanas" role="tablist">
-            <button role="tab" data-tab="ticket-prueba" aria-selected="true">El ticket de prueba</button>
+            <button role="tab" data-tab="tabla-usuarios" aria-selected="true">Usuarios y roles</button>
+            <button role="tab" data-tab="tabla-productos">Catálogo de productos</button>
           </div>
 
-          <div class="lamina visible" data-panel="ticket-prueba">
+          <div class="lamina visible" data-panel="tabla-usuarios">
             <figure>
-              <img src="img/s11-ticket-prueba.png" alt="Ticket de prueba con el logo de Mercados Titos, regla de 32 columnas, un producto por kilo y el total" />
+              <img src="img/s12-usuarios-tabla.png" alt="Listado de usuarios con renglones compactos y las acciones en una sola línea" />
               <figcaption>
-                <strong>Blanco y negro, sin depender de internet.</strong> El logo se adaptó para
-                papel térmico: las letras en negro sólido y la fruta con trama, para que se distinga
-                sin volverse una mancha. La regla de 32 columnas y los dígitos de ejemplo sirven
-                para ver de un vistazo si algún borde se corta.
+                <strong>Una línea por persona.</strong> "Reenviar acceso" y "Editar" ya no se parten en
+                dos renglones, y el listado de usuarios, que antes mostraba a todos de golpe, ahora
+                pagina de 20 en 20.
+              </figcaption>
+            </figure>
+          </div>
+
+          <div class="lamina" data-panel="tabla-productos">
+            <figure>
+              <img src="img/s12-tabla-productos.png" alt="Catálogo de productos con 20 renglones y la paginación al pie" />
+              <figcaption>
+                <strong>Más de cinco mil productos, 20 a la vez.</strong> Al pie se ve cuántos hay en
+                total y en qué página va. Los nombres largos se recortan y completos se ven al pasar
+                el ratón encima.
               </figcaption>
             </figure>
           </div>
@@ -822,58 +821,116 @@
 
         <div class="reglas revelar">
           <div class="regla">
-            <h4>Ajustado al papel de 80 mm</h4>
-            <p>Los márgenes laterales se dejaron a la medida de la zona que la impresora imprime realmente, para que ningún borde se pierda.</p>
+            <h4>Los filtros regresan a la página 1</h4>
+            <p>Al buscar o cambiar un filtro, el listado vuelve al principio para que ningún resultado quede escondido en otra página.</p>
           </div>
           <div class="regla">
-            <h4>Ticket de prueba sin venta</h4>
-            <p>En Equipos de caja hay un botón para imprimirlo. No crea ventas, no cobra ni toca el inventario; sirve para revisar la impresora cuando haga falta.</p>
+            <h4>Lo que se captura no se pagina</h4>
+            <p>El carrito, las líneas de una orden, pedido o devolución y las hojas para imprimir también se compactaron, pero siguen mostrando todo, para no perder renglones a medio capturar.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ── Pendientes ───────────────────────────────────────────────── -->
-    <section class="seccion" id="pendientes">
+    <!-- ── Altas y entrada ──────────────────────────────────────────── -->
+    <section class="seccion" id="altas">
       <div class="encabezado revelar">
-        <span class="numero">05 · Lo que falta</span>
-        <h2>Lo que esta entrega deja abierto</h2>
+        <span class="numero">05 · Altas y entrada</span>
+        <h2>Menos cosas que detienen el trabajo</h2>
+        <p>
+          Correcciones a casos reales que se presentaron esta semana al dar de alta sucursales y
+          usuarios, y al iniciar sesión.
+        </p>
       </div>
 
-      <div class="pendientes revelar">
-        <h4>Dicho de frente, para que nadie lo dé por hecho</h4>
-        <ul>
-          <li><strong>Escáner de código de barras: ya está configurado, falta pasar un producto.</strong> Queda pendiente la prueba real: que alguien escanee un producto en la caja para confirmar que el código se lee y el artículo se agrega a la lista de cobro.</li>
-          <li><strong>Terminal bancaria: ya se entregó la información para solicitar el SDK.</strong> El cobro con terminal se conectará cuando el proveedor entregue el SDK; mientras tanto se sigue registrando el folio de autorización a mano.</li>
-          <li><strong>El ticket de prueba falta imprimirlo en la caja.</strong> Las pantallas de esta presentación son de ejemplo. Conviene imprimir el ticket de prueba en la impresora real y revisar logo, bordes y corte antes de darlo por cerrado.</li>
-        </ul>
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="alta-sucursal" aria-selected="true">Nueva sucursal</button>
+          <button role="tab" data-tab="alta-login">Inicio de sesión</button>
+        </div>
+
+        <div class="lamina visible" data-panel="alta-sucursal">
+          <figure>
+            <img src="img/s12-sucursal-alta.png" alt="Formulario de nueva sucursal con el responsable y el usuario de acceso opcionales" />
+            <figcaption>
+              <strong>La sucursal se da de alta aunque falten datos.</strong> El responsable y el
+              usuario de acceso son opcionales. Si el responsable se deja vacío, la sucursal queda a
+              nombre de quien la crea, y el usuario de acceso se puede crear después desde Usuarios
+              y roles.
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="lamina" data-panel="alta-login">
+          <figure>
+            <img src="img/s12-login.png" alt="Pantalla de inicio de sesión con el usuario escrito con mayúsculas" />
+            <figcaption>
+              <strong>"SuperAdmin" o "superadmin", da igual.</strong> El usuario ya no se rechaza por
+              una mayúscula, y también se puede entrar escribiendo el nombre de la persona.
+            </figcaption>
+          </figure>
+        </div>
       </div>
 
       <div class="reglas revelar">
         <div class="regla">
-          <h4>Un paso al desplegar</h4>
-          <p>Recargar el navegador de la caja, con Ctrl + Shift + R, para que cargue la versión nueva de la pantalla de pesado y del ticket.</p>
+          <h4>El navegador ya no estorba</h4>
+          <p>Antes, si el navegador llenaba solo el correo o la contraseña, el botón "Crear sucursal" se desactivaba. Ahora esos campos solo cuentan si también se escribe el usuario de acceso.</p>
         </div>
         <div class="regla">
-          <h4>Nada anterior se toca</h4>
-          <p>Las ventas, los folios y los tickets ya emitidos se conservan tal cual; solo cambia cómo se pesa y cómo abre el ticket nuevo.</p>
+          <h4>Usuarios sin correo</h4>
+          <p>Antes, si algún usuario no tenía correo, ya no se podía dar de alta a ningún otro sin correo. Ya está corregido, y si un usuario o correo se repite, el mensaje dice cuál.</p>
+        </div>
+        <div class="regla">
+          <h4>Editar sin datos que no se tienen</h4>
+          <p>El apellido y la fecha de nacimiento solo se piden si ya estaban capturados. Así se puede corregir un teléfono sin tener esos datos.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="pendientes">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">06 · Lo que falta</span>
+          <h2>Lo que esta entrega deja abierto</h2>
+        </div>
+
+        <div class="pendientes revelar">
+          <h4>Para que nadie lo dé por hecho</h4>
+          <ul>
+            <li><strong>Reasignar los NIP de los gerentes.</strong> Los NIP que se asignaron antes de este cambio no se pueden recuperar para enviarlos. Hay que editar a cada gerente de tienda, asignarle un NIP nuevo y volver a guardar en Configuración el NIP para crear supervisores; a partir de ahí, ya viajan en el WhatsApp de acceso.</li>
+            <li><strong>Escáner: falta probarlo en la caja con productos reales.</strong> En esta presentación la lectura se simuló. Hay que escanear varios productos en la caja para confirmar que entran a la lista de cobro.</li>
+            <li><strong>Terminal bancaria: seguimos esperando el SDK.</strong> El cobro con terminal se conectará cuando el proveedor lo entregue. Mientras tanto, el folio de autorización se sigue registrando a mano.</li>
+          </ul>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Un paso al desplegar</h4>
+            <p>Recargar el navegador de cada caja con Ctrl + Shift + R para que cargue la versión nueva del punto de venta y del escáner.</p>
+          </div>
+          <div class="regla">
+            <h4>Nada anterior se toca</h4>
+            <p>Usuarios, contraseñas, ventas y sucursales existentes se conservan tal cual. Solo cambia cómo se envía el acceso y cómo se ven los listados.</p>
+          </div>
         </div>
       </div>
     </section>
 
     <section class="cierre">
       <img src="img/logo-davinci.png" alt="DaVinci" />
-      <h2>Cinco de cinco</h2>
+      <h2>Diez de diez</h2>
       <p>
         Todo lo de esta semana está aplicado en el sistema.<br />
-        Las pantallas de esta presentación son de ejemplo, con un producto de muestra; las de su
-        instalación se toman al probar en la caja.
+        En las pantallas con datos de personas, el teléfono, la fecha y la respuesta de WhatsApp son
+        de ejemplo.
       </p>
-      <p><a class="boton-semana" href="semana-10.html">← Repasar la semana 10</a></p>
+      <p><a class="boton-semana" href="semana-11.html">← Repasar la semana 11</a></p>
     </section>
 
     <footer class="pie">
-      DaVinci · Presentación de avances para Mercados Titos · Semana 11
+      DaVinci · Presentación de avances para Mercados Titos · Semana 12
       <span id="fecha"></span>
     </footer>
 
