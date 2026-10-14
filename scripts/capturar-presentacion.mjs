@@ -790,6 +790,15 @@ const ACCIONES = {
     await page.locator('input[autocomplete="current-password"]').fill("contraseña");
     await page.waitForTimeout(400);
   },
+
+  // ── Semana 13 ───────────────────────────────────────────────────────
+
+  /** Cobro con tarjeta como queda hoy: la autorización se captura a mano. */
+  async cobroConTarjeta(page) {
+    await ACCIONES.cobroRapido(page);
+    await page.getByRole("button", { name: "Tarjeta", exact: true }).click();
+    await page.waitForTimeout(800);
+  },
 };
 
 /** Pantallas a capturar: [archivo, ruta, cuenta, accion?, semana] */
@@ -888,6 +897,7 @@ const PANTALLAS = [
   ["s12-usuario-telefono", "/matriz/usuarios", "matriz", "telefonoDiezDigitos", 12],
   ["s12-tabla-productos", "/matriz/productos", "matriz", "tablaPaginada", 12],
   ["s12-sucursal-alta", "/matriz/sucursales", "matriz", "sucursalResponsableOpcional", 12],
+  ["s13-cobro-tarjeta", "/matriz/mostrador", "matriz", "cobroConTarjeta", 13],
   // Va al final: cierra la sesión para fotografiar la pantalla de entrada.
   ["s12-login", "/matriz", "matriz", "loginMayusculas", 12],
 ];

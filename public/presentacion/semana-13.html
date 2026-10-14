@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DaVinci · Semana 13 · Avances Mercados Titos</title>
+    <link rel="icon" href="img/logo-davinci.png" />
+    <style>
+      /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
+      :root {
+        --naranja: #f58634;
+        --naranja-claro: #ffa365;
+        --naranja-suave: #fff1e6;
+        --carbon: #373435;
+        --carbon-medio: #575253;
+        --carbon-suave: #f4f2f2;
+        --blanco: #ffffff;
+        --gris-linea: rgba(55, 52, 53, 0.12);
+        --gris-texto: rgba(55, 52, 53, 0.62);
+        --verde: #2f9e5f;
+        --sombra: 0 18px 50px rgba(55, 52, 53, 0.16);
+        --radio: 18px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: var(--carbon);
+        background: var(--blanco);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+      p { margin: 0; }
+
+      /* ── Barra de progreso de lectura ───────────────────────────────── */
+      .progreso {
+        position: fixed;
+        inset: 0 auto auto 0;
+        height: 4px;
+        width: 0;
+        background: linear-gradient(90deg, var(--naranja), var(--naranja-claro));
+        z-index: 100;
+        transition: width 0.1s linear;
+      }
+
+      /* ── Navegación superior ────────────────────────────────────────── */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 32px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .nav img { height: 34px; width: auto; display: block; }
+      .nav-marca { display: flex; align-items: center; gap: 12px; }
+      .nav-marca span {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .nav-marca small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--gris-texto);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      /* ── Selector de semana ─────────────────────────────────────────── */
+      .semanas {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--carbon-suave);
+        border: 1px solid var(--gris-linea);
+      }
+      .semanas a {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .semanas a.actual { background: var(--carbon); color: #fff; }
+      .semanas .indice {
+        display: grid;
+        place-items: center;
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas .indice:hover { background: var(--naranja); color: #fff; }
+
+      .nav-links { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+      .nav-links a {
+        padding: 7px 13px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+        white-space: nowrap;
+      }
+      .nav-links a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .nav-links a.activo { background: var(--naranja); color: #fff; }
+
+      /* ── Portada ────────────────────────────────────────────────────── */
+      .portada {
+        position: relative;
+        overflow: hidden;
+        padding: 90px 32px 80px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .portada::before,
+      .portada::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .portada::before {
+        width: 460px; height: 460px;
+        top: -220px; right: -140px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.42), transparent 68%);
+      }
+      .portada::after {
+        width: 380px; height: 380px;
+        bottom: -200px; left: -120px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.26), transparent 68%);
+      }
+      .portada > * { position: relative; z-index: 1; }
+      .portada .escudo {
+        display: inline-grid;
+        place-items: center;
+        width: 96px; height: 96px;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: var(--sombra);
+        margin-bottom: 26px;
+      }
+      .portada .escudo img { width: 60px; height: auto; display: block; }
+      .portada h1 { font-size: clamp(32px, 5.2vw, 54px); font-weight: 800; }
+      .portada h1 em { font-style: normal; color: var(--naranja-claro); }
+      .portada .bajada {
+        max-width: 640px;
+        margin: 18px auto 0;
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.76);
+      }
+      .etiqueta {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 999px;
+        background: rgba(245, 134, 52, 0.18);
+        border: 1px solid rgba(245, 134, 52, 0.42);
+        color: var(--naranja-claro);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 22px;
+      }
+
+      .metricas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        max-width: 880px;
+        margin: 44px auto 0;
+      }
+      .metrica {
+        padding: 20px 16px;
+        border-radius: var(--radio);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .metrica strong {
+        display: block;
+        font-size: 30px;
+        font-weight: 800;
+        color: var(--naranja-claro);
+        line-height: 1.1;
+      }
+      .metrica span {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.66);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Secciones ──────────────────────────────────────────────────── */
+      .seccion { padding: 76px 32px; max-width: 1180px; margin: 0 auto; }
+      .seccion.alterna { background: var(--carbon-suave); max-width: none; }
+      .seccion.alterna > .interior { max-width: 1180px; margin: 0 auto; }
+
+      .encabezado { margin-bottom: 38px; max-width: 720px; }
+      .numero {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        color: var(--naranja);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .encabezado h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
+      .encabezado p { margin-top: 12px; font-size: 16px; color: var(--gris-texto); }
+
+      /* ── Tarjetas de funcionalidad ──────────────────────────────────── */
+      .tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+        margin-bottom: 36px;
+      }
+      .tarjeta {
+        padding: 24px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .tarjeta:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--sombra);
+        border-color: rgba(245, 134, 52, 0.4);
+      }
+      .tarjeta .icono {
+        display: grid;
+        place-items: center;
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        background: var(--naranja-suave);
+        color: var(--naranja);
+        margin-bottom: 14px;
+      }
+      .tarjeta h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+      .tarjeta p { font-size: 14.5px; color: var(--gris-texto); }
+
+      /* ── Visor de capturas ──────────────────────────────────────────── */
+      .visor {
+        border-radius: var(--radio);
+        overflow: hidden;
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+        box-shadow: var(--sombra);
+      }
+      .pestanas {
+        display: flex;
+        gap: 4px;
+        padding: 10px 12px;
+        background: var(--carbon);
+        overflow-x: auto;
+      }
+      .pestanas button {
+        flex: 0 0 auto;
+        padding: 8px 15px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.68);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .pestanas button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      .pestanas button[aria-selected="true"] { background: var(--naranja); color: #fff; }
+
+      .lamina { display: none; }
+      .lamina.visible { display: block; }
+      .lamina figure { margin: 0; }
+      .lamina img {
+        display: block;
+        width: 100%;
+        height: auto;
+        cursor: zoom-in;
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .lamina figcaption {
+        padding: 16px 22px;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+        background: #fff;
+      }
+      .lamina figcaption strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Flujo de préstamos ─────────────────────────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+
+      /* ── Reglas destacadas ──────────────────────────────────────────── */
+      .reglas { display: grid; gap: 12px; margin-top: 28px; }
+      .regla {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 17px 20px;
+        border-radius: 14px;
+        background: var(--naranja-suave);
+        border-left: 4px solid var(--naranja);
+      }
+      .regla svg { flex: 0 0 auto; margin-top: 2px; color: var(--naranja); }
+      .regla p { font-size: 14.5px; }
+      .regla strong { font-weight: 700; }
+
+      /* ── Lightbox ───────────────────────────────────────────────────── */
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        background: rgba(55, 52, 53, 0.93);
+        cursor: zoom-out;
+      }
+      .lightbox.abierto { display: flex; }
+      .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+      }
+      .lightbox .cerrar {
+        position: absolute;
+        top: 20px; right: 26px;
+        width: 42px; height: 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+      }
+      .lightbox .cerrar:hover { background: var(--naranja); }
+
+      /* ── Cierre ─────────────────────────────────────────────────────── */
+      .cierre {
+        padding: 70px 32px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .cierre h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; }
+      .cierre p { margin-top: 14px; color: rgba(255, 255, 255, 0.7); }
+      .cierre img { height: 44px; width: auto; margin-bottom: 24px; filter: brightness(0) invert(1); }
+      .pie {
+        padding: 22px 32px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--gris-texto);
+        border-top: 1px solid var(--gris-linea);
+      }
+
+      .revelar {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+      .revelar.visible { opacity: 1; transform: none; }
+
+      @media (max-width: 720px) {
+        /* La barra se apila y cada grupo de enlaces se desliza por su cuenta:
+           con varias semanas ya no cabe todo en el ancho de un teléfono. */
+        .nav { padding: 12px 18px; flex-wrap: wrap; gap: 12px; }
+        .semanas,
+        .nav-links {
+          max-width: 100%;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .semanas::-webkit-scrollbar,
+        .nav-links::-webkit-scrollbar { display: none; }
+        .semanas a,
+        .nav-links a { white-space: nowrap; }
+        .nav-links { width: 100%; margin-left: 0; }
+        .seccion { padding: 52px 18px; }
+        .portada { padding: 60px 18px 56px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .revelar { opacity: 1; transform: none; transition: none; }
+      }
+    </style>
+    <style>
+      /* ── Comparativa antes / ahora ──────────────────────────────────── */
+      .comparativa {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        margin-top: 26px;
+      }
+      .caso {
+        padding: 26px 28px;
+        border-radius: var(--radio);
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+      }
+      .caso.antes { background: var(--carbon-suave); }
+      .caso.despues { border-color: rgba(245, 134, 52, 0.4); }
+      .caso .rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--gris-texto);
+      }
+      .caso.despues .rotulo { color: var(--naranja); }
+      .caso .detalle { margin-top: 16px; font-size: 14.5px; color: var(--gris-texto); }
+      .caso .detalle strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Bloque oscuro de notas ─────────────────────────────────────── */
+      .pendientes {
+        display: grid;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 22px 24px;
+        border-radius: var(--radio);
+        background: var(--carbon);
+        color: #fff;
+      }
+      .pendientes h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--naranja-claro);
+      }
+      .pendientes ul { margin: 0; padding-left: 20px; }
+      .pendientes li {
+        font-size: 14.5px;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 7px;
+      }
+      .pendientes li:last-child { margin-bottom: 0; }
+      .pendientes li strong { color: #fff; font-weight: 700; }
+
+      .nota-pie {
+        margin-top: 18px;
+        font-size: 13.5px;
+        color: var(--gris-texto);
+        font-style: italic;
+      }
+
+      .boton-semana {
+        display: inline-block;
+        margin-top: 26px;
+        padding: 12px 26px;
+        border-radius: 999px;
+        background: var(--naranja);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+      }
+      .boton-semana:hover { background: var(--naranja-claro); }
+
+      /* La barra superior es fija: sin este margen, el enlace del menú deja
+         el título de la sección escondido detrás de ella. */
+      .seccion { scroll-margin-top: 92px; }
+      .regla h4 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+      .regla { flex-direction: column; gap: 2px; }
+
+      /* ── Flujo de la conexión con la terminal ───────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+    </style>
+  </head>
+  <body>
+    <div class="progreso" id="progreso"></div>
+
+
+    <nav class="nav">
+      <div class="nav-marca">
+        <img src="img/logo-davinci.png" alt="DaVinci" />
+        <span>DaVinci<small>Avances Mercados Titos</small></span>
+      </div>
+      <div class="semanas">
+        <a class="indice" href="index.html" title="Todas las semanas" aria-label="Todas las semanas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </a>
+        <a href="semana-5.html">Semana 5</a>
+        <a href="semana-6.html">Semana 6</a>
+        <a href="semana-7.html">Semana 7</a>
+        <a href="semana-8.html">Semana 8</a>
+        <a href="semana-9.html">Semana 9</a>
+        <a href="semana-10.html">Semana 10</a>
+        <a href="semana-11.html">Semana 11</a>
+        <a href="semana-12.html">Semana 12</a>
+        <a class="actual" href="semana-13.html">Semana 13</a>
+      </div>
+      <div class="nav-links">
+        <a href="#resumen">Resumen</a>
+        <a href="#red">En la red</a>
+        <a href="#conexion">Conexión</a>
+        <a href="#caja">En la caja</a>
+        <a href="#pendientes">Pendientes</a>
+      </div>
+    </nav>
+
+    <header class="portada">
+      <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
+      <div><span class="etiqueta">Semana 13 · Entrega de avances</span></div>
+      <h1>La terminal Banorte ya está en la red y <em>sabemos qué falta</em></h1>
+      <p class="bajada">
+        Esta semana fue de preparación para cobrar con tarjeta desde el sistema. Se revisó la
+        documentación de Banorte, se localizó la terminal en la red y se le dejó una
+        dirección fija. También quedó definido cómo se va a conectar la caja y qué tiene que mandar
+        Banorte para terminar.
+      </p>
+
+      <div class="metricas">
+        <div class="metrica"><strong>6</strong><span>Documentos de Banorte revisados</span></div>
+        <div class="metrica"><strong>1</strong><span>Terminal localizada en la red</span></div>
+        <div class="metrica"><strong>10</strong><span>Operaciones que acepta Banorte</span></div>
+        <div class="metrica"><strong>4</strong><span>Cosas por recibir del banco</span></div>
+      </div>
+    </header>
+
+    <!-- ── Resumen ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="resumen">
+      <div class="encabezado revelar">
+        <span class="numero">01 · Resumen</span>
+        <h2>Lo que se avanzó con la terminal</h2>
+        <p>
+          Esta semana no hay cambios nuevos en las pantallas del sistema: el trabajo fue con la
+          terminal y la documentación del banco.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4"/></svg></span>
+          <h3>Manual y anexos revisados</h3>
+          <p>El manual de integración de Banorte y sus anexos IV a VIII: ejemplo de integración, parámetros, códigos de error, comprobantes y librerías.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+          <h3>Terminal localizada</h3>
+          <p>Se encontró la terminal PAX A920Pro conectada a la red Wi-Fi, en modo "Esperando comando · Vía red".</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+          <h3>Dirección que ya no cambia</h3>
+          <p>La terminal cambiaba de dirección en la red. Se encontró la causa y se corrigió para que la caja siempre la encuentre en el mismo lugar.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg></span>
+          <h3>La terminal responde</h3>
+          <p>Se comprobó desde una computadora en la misma red que la terminal contesta en el puerto por el que recibe los cobros.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></span>
+          <h3>Forma de conexión definida</h3>
+          <p>Un programa pequeño en la computadora de la caja hará de puente entre el sistema y la terminal, igual que con el escáner.</p>
+        </article>
+
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+          <h3>Lista para Banorte</h3>
+          <p>Quedó claro qué piezas faltan y a quién pedirlas. Se preparó el mensaje para solicitarlas.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── En la red ────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="red">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">02 · La terminal en la red</span>
+          <h2>La caja ya sabe dónde encontrar la terminal</h2>
+          <p>
+            Banorte pide que cada terminal tenga una dirección fija en la red. Es la condición para
+            que la caja le pueda mandar el importe a cobrar.
+          </p>
+        </div>
+
+        <div class="comparativa revelar">
+          <div class="caso antes">
+            <p class="rotulo">Lo que pasaba</p>
+            <p class="detalle">
+              La terminal aparecía <strong>cada vez con una dirección distinta</strong>. La causa era
+              que se conectaba al Wi-Fi con una identificación aleatoria, y el módem la trataba
+              como un equipo nuevo cada vez.
+            </p>
+          </div>
+
+          <div class="caso despues">
+            <p class="rotulo">Lo que pasa ahora</p>
+            <p class="detalle">
+              Se desactivó esa identificación aleatoria y la terminal usa la suya. Desde entonces
+              <strong>conserva su dirección</strong> y responde en el puerto de cobros.
+            </p>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Falta amarrarla en el módem</h4>
+            <p>Para que la dirección no cambie ni al reiniciar el módem, conviene reservarla en su configuración. Es un ajuste de cinco minutos.</p>
+          </div>
+          <div class="regla">
+            <h4>Conexión por red, no por cable</h4>
+            <p>La terminal tiene USB y Bluetooth, pero Banorte la configuró para recibir cobros por la red. No hace falta cablearla a la caja.</p>
+          </div>
+          <div class="regla">
+            <h4>Internet estable</h4>
+            <p>Banorte recomienda una conexión exclusiva para las terminales y una de respaldo. Si se cae el internet, se cobra con la terminal por separado, como hoy.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Conexión ─────────────────────────────────────────────────── -->
+    <section class="seccion" id="conexion">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Cómo se va a conectar</span>
+        <h2>Del botón "Cobrar" a la terminal, sin teclear el importe</h2>
+        <p>
+          El sistema vive en internet y no puede ver los equipos de la tienda. Por eso, igual que con
+          el escáner, un puente instalado en la computadora de la caja hace la conexión.
+        </p>
+      </div>
+
+      <div class="flujo revelar">
+        <div class="paso">
+          <span class="orden">1</span>
+          <h4>La caja manda el importe</h4>
+          <p>El cajero elige Tarjeta y el sistema envía el total al puente de esa caja.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">2</span>
+          <h4>El puente lo pasa a la terminal</h4>
+          <p>Con la librería de Banorte, el puente le indica a la terminal el cobro por ese importe.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">3</span>
+          <h4>El cliente paga</h4>
+          <p>La terminal pide la tarjeta y el NIP, y Banorte aprueba o rechaza.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">4</span>
+          <h4>La venta se registra sola</h4>
+          <p>La respuesta regresa a la caja con su autorización, y la venta se guarda sin capturar el folio a mano.</p>
+        </div>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>El importe no se teclea dos veces</h4>
+          <p>Hoy el cajero escribe el total en la terminal y luego registra la venta en el sistema. Con la conexión, el importe viaja solo y no hay diferencias por un dedo de más.</p>
+        </div>
+        <div class="regla">
+          <h4>Lo que acepta Banorte</h4>
+          <p>Venta, venta con promoción (meses), preautorización, reautorización, postautorización, devolución, cancelación, reversa, cashback y verificación. Para empezar bastan venta, devolución y cancelación.</p>
+        </div>
+        <div class="regla">
+          <h4>Los datos de la tarjeta no pasan por el sistema</h4>
+          <p>El número, el NIP y el CVV se capturan solo en la terminal. Al sistema llegan la autorización, el tipo de tarjeta y los últimos cuatro dígitos.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── En la caja ───────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="caja">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · En la caja</span>
+          <h2>Así se cobra con tarjeta hoy, y lo que va a cambiar</h2>
+          <p>
+            Mientras llega lo del banco, la caja sigue funcionando como hasta ahora: se cobra en la
+            terminal y la venta se registra en el sistema.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="cobro-tarjeta" aria-selected="true">Cobro con tarjeta</button>
+          </div>
+
+          <div class="lamina visible" data-panel="cobro-tarjeta">
+            <figure>
+              <img src="img/s13-cobro-tarjeta.png" alt="Ventana de cobro con tarjeta: tipo de tarjeta y autorización del comprobante capturada a mano" />
+              <figcaption>
+                <strong>Hoy: terminal independiente.</strong> El cajero cobra en la terminal, espera
+                APROBADO y aquí marca el tipo de tarjeta y, si quiere, el folio de autorización. Con
+                la conexión, este recuadro amarillo se cambia por "Esperando la terminal…" y el folio
+                se llena solo. Esta pantalla no cambió esta semana; no se cobró nada.
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>El comprobante en el ticket</h4>
+            <p>Banorte pide que el comprobante lleve, entre otros, afiliación, fecha y hora, tipo de operación, autorización, últimos 4 dígitos y la firma cuando aplique. Se agregará al ticket térmico.</p>
+          </div>
+          <div class="regla">
+            <h4>El corte se cuadra igual</h4>
+            <p>Las ventas con tarjeta se siguen separando por terminal y por tipo de tarjeta, como en el corte de hoy. Solo deja de haber captura a mano.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion" id="pendientes">
+      <div class="encabezado revelar">
+        <span class="numero">05 · Lo que falta</span>
+        <h2>Lo que tiene que llegar de Banorte</h2>
+        <p>
+          Sin estas piezas no se puede mandar un cobro a la terminal. Ya se preparó el mensaje para
+          pedirlas.
+        </p>
+      </div>
+
+      <div class="pendientes revelar">
+        <h4>Para que nadie lo dé por hecho</h4>
+        <ul>
+          <li><strong>Usuario y contraseña de Payworks.</strong> Banorte los manda al dar de alta el comercio desde notificaciones@banorte.com. Hay que buscar ese correo; con ellos se crea un usuario solo para cobrar, que es el que usará el sistema.</li>
+          <li><strong>El número de "Grupo".</strong> Es un dato que acompaña cada cobro y lo asigna Banorte al comercio.</li>
+          <li><strong>La librería de integración.</strong> El programa de Banorte con el que el puente le habla a la terminal. El manual la menciona pero no viene en los documentos que tenemos.</li>
+          <li><strong>Anexos II y III.</strong> La instalación de la terminal y la parte técnica que faltan en la documentación recibida. Si no aparecen, se piden a soporte de Payworks Interredes.</li>
+        </ul>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Certificación antes de cobrar de verdad</h4>
+          <p>Antes de usarla con clientes, Banorte hace una prueba con su laboratorio: se llena una solicitud y una lista de cobros de prueba, y al final entregan una carta. Si se cobra antes, Banorte no responde por fallas, contracargos ni depósitos.</p>
+        </div>
+        <div class="regla">
+          <h4>Las contraseñas no se escriben en el sistema</h4>
+          <p>Cuando lleguen, el usuario y la contraseña de Payworks se guardan en la configuración protegida del servidor, no en pantallas ni en el código.</p>
+        </div>
+        <div class="regla">
+          <h4>Reservar la dirección en el módem</h4>
+          <p>Lo único que se puede hacer en la tienda mientras tanto: dejar fija la dirección de la terminal en el módem.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cierre">
+      <img src="img/logo-davinci.png" alt="DaVinci" />
+      <h2>Lista para conectar</h2>
+      <p>
+        La terminal ya está ubicada y el camino está definido.<br />
+        En cuanto lleguen las credenciales y la librería de Banorte, se arma el puente y se certifica.
+      </p>
+      <p><a class="boton-semana" href="semana-12.html">← Repasar la semana 12</a></p>
+    </section>
+
+    <footer class="pie">
+      DaVinci · Presentación de avances para Mercados Titos · Semana 13
+      <span id="fecha"></span>
+    </footer>
+
+
+    <div class="lightbox" id="lightbox">
+      <button class="cerrar" id="cerrarLightbox" aria-label="Cerrar">×</button>
+      <img id="lightboxImg" alt="" />
+    </div>
+
+    <script>
+      // ── Pestañas de cada visor ────────────────────────────────────────
+      document.querySelectorAll("[data-visor]").forEach((visor) => {
+        const botones = visor.querySelectorAll("[data-tab]");
+        const paneles = visor.querySelectorAll("[data-panel]");
+
+        botones.forEach((boton) => {
+          boton.addEventListener("click", () => {
+            botones.forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
+            paneles.forEach((p) =>
+              p.classList.toggle("visible", p.dataset.panel === boton.dataset.tab)
+            );
+          });
+        });
+      });
+
+      // ── Lightbox para ver la captura en grande ────────────────────────
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightboxImg");
+
+      function abrirLightbox(src, alt) {
+        lightboxImg.src = src;
+        lightboxImg.alt = alt;
+        lightbox.classList.add("abierto");
+        document.body.style.overflow = "hidden";
+      }
+      function cerrarLightbox() {
+        lightbox.classList.remove("abierto");
+        document.body.style.overflow = "";
+      }
+
+      document.querySelectorAll(".lamina img").forEach((img) => {
+        img.addEventListener("click", () => abrirLightbox(img.src, img.alt));
+      });
+      lightbox.addEventListener("click", cerrarLightbox);
+      document.getElementById("cerrarLightbox").addEventListener("click", cerrarLightbox);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") cerrarLightbox();
+      });
+
+      // ── Barra de progreso ─────────────────────────────────────────────
+      const progreso = document.getElementById("progreso");
+      function actualizarProgreso() {
+        const alto = document.documentElement.scrollHeight - window.innerHeight;
+        const avance = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+        progreso.style.width = avance + "%";
+      }
+      window.addEventListener("scroll", actualizarProgreso, { passive: true });
+      actualizarProgreso();
+
+      // ── Resaltado del enlace de la sección visible ────────────────────
+      const enlaces = [...document.querySelectorAll(".nav-links a")];
+      const secciones = enlaces
+        .map((a) => document.querySelector(a.getAttribute("href")))
+        .filter(Boolean);
+
+      const observadorNav = new IntersectionObserver(
+        (entradas) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            enlaces.forEach((a) =>
+              a.classList.toggle("activo", a.getAttribute("href") === "#" + entrada.target.id)
+            );
+          });
+        },
+        { rootMargin: "-45% 0px -50% 0px" }
+      );
+      secciones.forEach((s) => observadorNav.observe(s));
+
+      // ── Aparición progresiva al hacer scroll ──────────────────────────
+      const observadorRevelar = new IntersectionObserver(
+        (entradas, obs) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            entrada.target.classList.add("visible");
+            obs.unobserve(entrada.target);
+          });
+        },
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll(".revelar").forEach((el, i) => {
+        el.style.transitionDelay = (i % 4) * 60 + "ms";
+        observadorRevelar.observe(el);
+      });
+
+      // ── Navegación con flechas entre secciones ────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if (lightbox.classList.contains("abierto")) return;
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+
+        const actual = secciones.findIndex((s) => s.getBoundingClientRect().top > -80);
+        const destino = e.key === "ArrowDown" ? actual : actual - 2;
+        if (secciones[destino]) {
+          e.preventDefault();
+          secciones[destino].scrollIntoView({ behavior: "smooth" });
+        }
+      });
+
+      document.getElementById("fecha").textContent =
+        " · " + new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    </script>
+  </body>
+</html>
