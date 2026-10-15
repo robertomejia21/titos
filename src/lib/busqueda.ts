@@ -21,7 +21,7 @@ export const OPCIONES_BUSQUEDA: ResultadoBusqueda[] = [
   { label: "Límites de pagos en dólares", href: "/matriz/configuracion#limites-dolares", grupo: "Configuración", palabras: "porcentaje monto denominacion billete" },
   { label: "Días laborales y hora de corte", href: "/matriz/configuracion#horarios", grupo: "Configuración", palabras: "horario pedidos" },
   { label: "IVA para facturas", href: "/matriz/configuracion#iva-facturas", grupo: "Configuración", palabras: "impuesto tasa" },
-  { label: "Conexión de WhatsApp", href: "/matriz/configuracion#whatsapp", grupo: "Configuración", palabras: "vincular telefono qr" },
+  { label: "Conexión de WhatsApp", href: "/matriz/whatsapp", grupo: "Configuración", palabras: "vincular telefono qr" },
   { label: "Alertas de pedidos atrasados", href: "/matriz/configuracion#alertas-pedidos", grupo: "Configuración", palabras: "surtido recepcion notificaciones" },
   { label: "Avisos de inventario agotado a compras", href: "/matriz/configuracion#alertas-inventario", grupo: "Configuración", palabras: "stock cero whatsapp" },
   { label: "NIP de operaciones", href: "/matriz/configuracion#nip-operaciones", grupo: "Configuración", palabras: "clave supervisor cancelacion retiro" },
