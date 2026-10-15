@@ -9,6 +9,8 @@ import { EPSILON, recalcularSaldoCliente } from "@/lib/credito";
 import { ajustarStockPuntoVenta, contextoPuntoVenta, ubicacionDeMovimiento } from "@/lib/puntoVenta";
 import { verificarNipSupervisor } from "@/lib/configuracion";
 import { registrarCancelacion } from "@/lib/cancelaciones";
+import TransaccionBanorte from "@/models/TransaccionBanorte";
+import { esNumeroControlValido } from "@/lib/banorte";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession(req);
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Cancelar una venta cobrada devuelve stock y dinero, por eso la autoriza un
   // supervisor con su NIP y queda en la bitácora de cancelaciones.
   const body = await req.json().catch(() => null);
-  const motivo = String(body?.motivo ?? "").trim();
+  let motivo = String(body?.motivo ?? "").trim();
   const nip = String(body?.nip ?? "").trim();
   if (!motivo) return badRequest("Captura el motivo de la cancelación");
 
@@ -47,6 +49,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         (factura as { folio: string }).folio
       }. Cancela primero la factura.`
     );
+  }
+
+  // Cobro con la terminal Banorte integrada: el dinero hay que regresarlo en el
+  // banco ANTES de cancelar aquí; si no, la venta desaparece de Titos y el
+  // cliente se queda con el cargo. El punto de venta manda la cancelación (o
+  // devolución) aprobada; solo con `sinBanco` se cancela aquí sin ella, y queda
+  // escrito en el motivo para que matriz lo regrese a mano.
+  const pagoConBanorte = (venta.pagos as { monto: number; banorte?: { transaccionId?: unknown; numeroControl?: string } | null }[]).find((p) => p.banorte?.transaccionId);
+  const pagoBanorte = pagoConBanorte?.banorte;
+  // `soloValidar`: el punto de venta revisa que la cancelación procede (NIP,
+  // factura, abonos) ANTES de regresar el dinero en el banco.
+  const soloValidar = body?.soloValidar === true;
+  if (pagoBanorte) {
+    const numeroControl = body?.banorteNumeroControl;
+    if (numeroControl) {
+      if (!esNumeroControlValido(numeroControl)) return badRequest("Número de control de la terminal inválido");
+      const anulacion = await TransaccionBanorte.findOne({ numeroControl, sucursalId: ctx.sucursalId }).lean<{
+        comando: string; estado: string; transaccionOriginalId?: unknown; referencia?: string;
+      }>();
+      if (
+        !anulacion ||
+        !["CANCELACION", "DEVOLUCION"].includes(anulacion.comando) ||
+        anulacion.estado !== "aprobada" ||
+        String(anulacion.transaccionOriginalId) !== String(pagoBanorte.transaccionId)
+      ) {
+        return badRequest("La cancelación en la terminal no corresponde a esta venta o no está aprobada");
+      }
+      motivo = `${motivo} · Cancelada en Banorte (${anulacion.comando.toLowerCase()} ref. ${anulacion.referencia || numeroControl})`;
+    } else if (body?.sinBanco === true) {
+      motivo = `${motivo} · SIN cancelar en Banorte: regresar el cobro ${pagoBanorte.numeroControl} a mano`;
+    } else if (!soloValidar) {
+      return conflict("Esta venta se cobró con la terminal Banorte: primero cancela el cobro en la terminal.");
+    }
+  }
+
+  if (soloValidar) {
+    const cuentaAbierta = await CuentaPorCobrar.findOne({ ventaId: venta._id, estado: { $ne: "cancelada" } }).lean<{ monto: number; saldo: number }>();
+    if (cuentaAbierta && cuentaAbierta.monto - cuentaAbierta.saldo > EPSILON) {
+      return conflict("No se puede cancelar: el cliente ya abonó a esta venta a crédito. Ajusta su estado de cuenta con un abono en su lugar.");
+    }
+    return NextResponse.json({
+      ok: true,
+      cobroBanorte: pagoConBanorte && pagoBanorte
+        ? { transaccionId: String(pagoBanorte.transaccionId), numeroControl: pagoBanorte.numeroControl, monto: pagoConBanorte.monto }
+        : null,
+    });
   }
 
   // Si la venta fue a crédito, su cuenta por cobrar se cancela junto con ella.

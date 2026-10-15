@@ -37,6 +37,9 @@ import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
 import { imprimirHTML, abrirVentanaTicket, cerrarVentanaTicket } from "@/lib/print";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
+import { cobroPrevioDeVenta, operarTerminal, type Avance, type TransaccionServidor } from "@/lib/cobroBanorte";
+import { estadoPuente, type EstadoPuente } from "@/lib/puenteCaja";
+import type { DatosBanortePago } from "@/lib/banorte";
 import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
@@ -105,7 +108,17 @@ const METODOS_RAPIDOS: { metodo: MetodoPago; etiqueta: string }[] = [
   { metodo: "credito", etiqueta: "Crédito" },
 ];
 
-type TerminalPos = { _id: string; alias: string; banco?: string; marca?: string };
+type TerminalPos = { _id: string; alias: string; banco?: string; marca?: string; cobroIntegrado?: boolean; afiliacion?: string };
+
+/** Lo que ve el cajero mientras la terminal integrada trabaja. */
+const TEXTO_AVANCE: Record<Avance, string> = {
+  reservando: "Preparando el cobro…",
+  esperando_tarjeta: "Pide al cliente que acerque, inserte o deslice su tarjeta en la terminal y siga las instrucciones.",
+  recuperando: "Se perdió la comunicación con el puente de caja. Recuperando la respuesta de la terminal…",
+  verificando: "La terminal no confirmó. Verificando con Banorte si el cobro pasó…",
+  reversando: "No se pudo confirmar el cobro. Reversándolo para que no se le cargue al cliente…",
+  registrando: "Cobro aprobado. Registrando la venta…",
+};
 
 type EmisorVale = { _id: string; nombre: string };
 
@@ -161,6 +174,7 @@ type PagoResp = {
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
+  banorte?: Partial<DatosBanortePago> | null;
 };
 type VentaResp = {
   folio: string;
@@ -350,6 +364,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [terminales, setTerminales] = useState<TerminalPos[]>([]);
   const [terminalId, setTerminalId] = useState("");
   const [autorizacion, setAutorizacion] = useState("");
+  // Cobro integrado con la terminal Banorte (src/lib/cobroBanorte.ts). Si la
+  // terminal o el puente fallan, el cajero puede cobrar "a mano" como antes.
+  const [cobroManual, setCobroManual] = useState(false);
+  const [avanceTerminal, setAvanceTerminal] = useState<Avance | null>(null);
+  const [puente, setPuente] = useState<EstadoPuente | "sin_conexion" | null>(null);
   const [exigirAutorizacion, setExigirAutorizacion] = useState<boolean | null>(null);
   // Crédito, débito o American Express: el banco liquida cada uno por separado,
   // así que el cajero lo marca al cobrar. No se deduce del plástico porque el
@@ -387,6 +406,16 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       .catch(() => { /* El servidor exige la regla vigente al guardar la venta. */ });
     return () => abort.abort();
   }, [modalCobro]);
+  // Estado del puente de caja: solo importa si la tienda tiene una terminal integrada.
+  const hayTerminalIntegrada = terminales.some((t) => t.cobroIntegrado);
+  useEffect(() => {
+    if (!modalCobro || !hayTerminalIntegrada) return;
+    let vigente = true;
+    estadoPuente()
+      .then((e) => { if (vigente) setPuente(e); })
+      .catch(() => { if (vigente) setPuente("sin_conexion"); });
+    return () => { vigente = false; };
+  }, [modalCobro, hayTerminalIntegrada]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // --- Caja: apertura, retiro de efectivo y corte ---
@@ -929,14 +958,21 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   // La terminal solo se exige cuando la tienda ya dio de alta las suyas; el
   // servidor aplica la misma regla.
   const faltaTerminal = nTarjeta > 0 && terminales.length > 0 && !terminalId;
+  // Con la terminal integrada el banco dice el tipo de tarjeta y la
+  // autorización: no se le piden al cajero.
+  const terminalElegida = terminales.find((t) => t._id === terminalId);
+  const cobroIntegrado = nTarjeta > 0 && !!terminalElegida?.cobroIntegrado && !cobroManual;
   // El tipo de tarjeta sí se exige siempre: sin él, el corte no se puede cuadrar
   // contra lo que deposita el banco de cada producto.
-  const faltaTipoTarjeta = nTarjeta > 0 && !tarjetaTipo;
+  const faltaTipoTarjeta = nTarjeta > 0 && !tarjetaTipo && !cobroIntegrado;
   // Los dólares entregados tienen que alcanzar para la parte que se les asignó.
   const dolaresInsuficientes = nDolaresMxn > 0 && valorDolaresMxn - nDolaresMxn < -0.01;
 
   const errorPago = useMemo(() => {
-    if (nTarjeta > 0) {
+    if (cobroIntegrado && !isOnline) return "Sin conexión no se puede cobrar con la terminal integrada. Marca «Cobrar manual» para usar la terminal por separado.";
+    if (cobroIntegrado && puente === "sin_conexion") return "El puente de caja no responde en esta PC. Ábrelo, o marca «Cobrar manual».";
+    if (cobroIntegrado && puente && puente !== "sin_conexion" && puente.pinpad === "dll" && !puente.dllCargada) return "El puente de caja no tiene cargada la librería de Banorte. Marca «Cobrar manual».";
+    if (nTarjeta > 0 && !cobroIntegrado) {
       try { autorizacionTarjeta(autorizacion); } catch (e) { return (e as Error).message; }
       if (exigirAutorizacion && !autorizacion.trim()) return "Captura la autorización del comprobante aprobado en la terminal.";
     }
@@ -970,6 +1006,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     nTarjeta,
     autorizacion,
     exigirAutorizacion,
+    cobroIntegrado,
+    isOnline,
+    puente,
     faltaTerminal,
     faltaTipoTarjeta,
     nEfectivo,
@@ -1309,6 +1348,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   function limpiarCarritoYPago() {
     operacionPromocion.current = null;
     cobroSinConfirmar.current = null;
+    setCobroManual(false);
     setCarrito([]);
     setMontoEfectivo("");
     setMontoTarjeta("");
@@ -1519,8 +1559,55 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     cobroEnCurso.current = true;
     setProcesando(true);
     cobroSinConfirmar.current = JSON.stringify(payload);
+
+    // --- Cobro con la terminal Banorte integrada ---
+    // Primero se cobra en la terminal y, ya aprobado, se registra la venta
+    // amarrada a ese cobro. Si la venta no se puede registrar, el cobro se
+    // cancela en el banco para que el cliente no se quede con el cargo.
+    let payloadEnvio = payload;
+    let cobroTerminal: TransaccionServidor | null = null;
+    if (cobroIntegrado) {
+      const pagoTarjeta = payload.pagos.find((p) => p.metodoPago === "tarjeta");
+      try {
+        if (!pagoTarjeta) throw new Error("Falta el pago con tarjeta");
+        cobroTerminal = await cobroPrevioDeVenta(payload.clienteOperacionId, pagoTarjeta.monto, { alAvanzar: setAvanceTerminal });
+        if (!cobroTerminal) {
+          const r = await operarTerminal(
+            { comando: "VENTA", terminalId, monto: pagoTarjeta.monto, clienteOperacionId: payload.clienteOperacionId },
+            { alAvanzar: setAvanceTerminal }
+          );
+          if (!r.aprobada) {
+            cerrarVentanaTicket(ventanaTicket);
+            setError(r.mensaje);
+            cobroSinConfirmar.current = null;
+            cobroEnCurso.current = false;
+            setProcesando(false);
+            setAvanceTerminal(null);
+            return;
+          }
+          cobroTerminal = r.transaccion;
+        }
+      } catch (err) {
+        // Puede que la terminal sí haya cobrado y lo que falló fue avisarle al
+        // servidor: se conserva el identificador de la venta para que el
+        // reintento lo encuentre y lo resuelva en vez de cobrar otra vez.
+        cerrarVentanaTicket(ventanaTicket);
+        setError(`No se pudo completar el cobro con la terminal: ${(err as Error).message}. Revisa la pantalla de la terminal; al reintentar no se volverá a cobrar si ya pasó.`);
+        cobroEnCurso.current = false;
+        setProcesando(false);
+        setAvanceTerminal(null);
+        return;
+      }
+      setAvanceTerminal("registrando");
+      const numeroControl = cobroTerminal.numeroControl;
+      payloadEnvio = {
+        ...payload,
+        pagos: payload.pagos.map((p) => (p.metodoPago === "tarjeta" ? { ...p, banorteNumeroControl: numeroControl } : p)),
+      };
+    }
+
     try {
-      const res = await enviarVenta(payload);
+      const res = await enviarVenta(payloadEnvio);
 
       if (!res.ok) {
         if (res.status >= 400 && res.status < 500) {
@@ -1529,7 +1616,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         }
         const data = await res.json().catch(() => ({}));
         cerrarVentanaTicket(ventanaTicket);
-        setError(data.error || "No se pudo registrar la venta");
+        const motivo = data.error || "No se pudo registrar la venta";
+        if (cobroTerminal && res.status >= 400 && res.status < 500) {
+          setError(`${motivo}. ${await anularCobroSinVenta(cobroTerminal)}`);
+        } else {
+          setError(motivo);
+        }
         return;
       }
 
@@ -1545,6 +1637,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // Se perdió la conexión y los reintentos tampoco pasaron: la venta no se
       // pierde, se encola. Si resultó que el servidor sí la había guardado, al
       // sincronizar el `clienteOperacionId` evita que se duplique.
+      if (cobroTerminal) {
+        // Un cobro de la terminal no se encola: sin servidor no se puede
+        // amarrar. El reintento con los mismos datos encuentra este cobro.
+        cerrarVentanaTicket(ventanaTicket);
+        setError("El cobro con tarjeta quedó APROBADO, pero la venta no se registró porque se perdió la conexión. Cuando vuelva, presiona Cobrar otra vez sin cambiar nada: no se le volverá a cobrar al cliente.");
+        return;
+      }
       if (nCredito > 0 || precioPromocion.descuento > 0) {
         cerrarVentanaTicket(ventanaTicket);
         setError("Se perdió la conexión. Revisa el historial antes de repetir el cobro; al reintentar se conserva el identificador de esta venta.");
@@ -1555,6 +1654,29 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     } finally {
       cobroEnCurso.current = false;
       setProcesando(false);
+      setAvanceTerminal(null);
+    }
+  }
+
+  /**
+   * La terminal cobró pero el servidor no aceptó la venta (cambió un precio, se
+   * cerró la caja…). Si el cobro no quedó amarrado a ninguna venta, se cancela
+   * en el banco. Devuelve el texto para el cajero.
+   */
+  async function anularCobroSinVenta(cobro: TransaccionServidor) {
+    try {
+      const actual = await fetch(`/api/banorte/transacciones/${cobro.numeroControl}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
+      if (actual?.aplicada) return "El cobro con tarjeta sí quedó en una venta; revisa el historial.";
+      setAvanceTerminal("reversando");
+      const r = await operarTerminal(
+        { comando: "CANCELACION", terminalId: terminalId || String(actual?.terminalId ?? ""), monto: cobro.monto, transaccionOriginalId: cobro._id },
+        { alAvanzar: setAvanceTerminal }
+      );
+      return r.aprobada
+        ? "El cobro con tarjeta se canceló en la terminal: no se le cobró al cliente."
+        : `OJO: el cobro con tarjeta (control ${cobro.numeroControl}) NO se pudo cancelar: ${r.mensaje} Cancélalo en la terminal o avisa a matriz.`;
+    } catch (err) {
+      return `OJO: el cobro con tarjeta (control ${cobro.numeroControl}) quedó aprobado y no se pudo cancelar (${(err as Error).message}). Avisa a matriz.`;
     }
   }
 
@@ -2333,7 +2455,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 </FormField>
               ) : null}
 
-              {metodoRapido === "tarjeta" ? (
+              {metodoRapido === "tarjeta" && !cobroIntegrado ? (
                 <SelectorTipoTarjeta valor={tarjetaTipo} onChange={setTarjetaTipo} />
               ) : null}
 
@@ -2399,7 +2521,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                     Completar
                   </button>
                 </div>
-                {nTarjeta > 0 ? <SelectorTipoTarjeta valor={tarjetaTipo} onChange={setTarjetaTipo} /> : null}
+                {nTarjeta > 0 && !cobroIntegrado ? <SelectorTipoTarjeta valor={tarjetaTipo} onChange={setTarjetaTipo} /> : null}
                 {nTarjeta > 0 && terminales.length > 0 ? (
                   <Select icon={CreditCard} value={terminalId} onChange={(e) => setTerminalId(e.target.value)}>
                     <option value="">Elige la terminal con la que se cobró</option>
@@ -2568,7 +2690,33 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             </p>
           ) : null}
 
-          {nTarjeta > 0 && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          {cobroIntegrado ? (
+            <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+              <p className="mb-1">
+                <strong>Cobro con terminal Banorte:</strong> al confirmar, la terminal {terminalElegida?.alias} pedirá la tarjeta por {formatMoney(nTarjeta)}. La autorización y el tipo de tarjeta llegan solos.
+              </p>
+              <p className="text-xs">
+                {puente === null
+                  ? "Revisando el puente de caja…"
+                  : puente === "sin_conexion"
+                    ? "⚠ El puente de caja no responde en esta PC."
+                    : `Puente de caja listo${puente.pinpad === "simulador" ? " · SIMULADOR (no cobra)" : ""}${puente.modo && puente.modo !== "PRD" ? ` · modo de prueba ${puente.modo}: no se le carga al cliente` : ""}${puente.ocupado ? " · ocupado con otra operación" : ""}.`}
+              </p>
+              <label className="mt-2 flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={cobroManual} onChange={(e) => setCobroManual(e.target.checked)} />
+                La terminal o el puente no responden: cobrar manual (la terminal por separado)
+              </label>
+            </div>
+          ) : null}
+
+          {nTarjeta > 0 && !cobroIntegrado && terminalElegida?.cobroIntegrado ? (
+            <label className="mb-2 flex items-center gap-2 text-xs text-black/70">
+              <input type="checkbox" checked={cobroManual} onChange={(e) => setCobroManual(e.target.checked)} />
+              Cobro manual activado. Quita la marca para cobrar con la terminal integrada.
+            </label>
+          ) : null}
+
+          {nTarjeta > 0 && !cobroIntegrado && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="mb-2 text-sm text-amber-950"><strong>Terminal independiente:</strong> cobra {formatMoney(nTarjeta)} en la terminal bancaria y espera APROBADO antes de registrar la venta. Este botón no envía dinero al banco. Si hay rechazo o duda, confirma el estado en la terminal antes de reintentar.</p>
             <FormField label={`Autorización del comprobante${exigirAutorizacion ? " (obligatoria)" : " (opcional)"}`}>
               <Input aria-label="Autorización del comprobante" value={autorizacion} maxLength={12} autoComplete="off" onChange={e => setAutorizacion(e.target.value)} placeholder="Ej. 123456" />
@@ -2608,14 +2756,20 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             </p>
           ) : null}
 
+          {procesando && avanceTerminal ? (
+            <p className="mb-3 rounded-lg bg-sky-100 p-3 text-sm font-semibold text-sky-900" role="status" aria-live="polite">
+              {TEXTO_AVANCE[avanceTerminal]}
+            </p>
+          ) : null}
+
           {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
 
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setModalCobro(false)}>
+            <Button variant="ghost" onClick={() => setModalCobro(false)} disabled={procesando && !!avanceTerminal}>
               Cancelar
             </Button>
             <Button onClick={cobrar} disabled={!puedeCobrar || procesando}>
-              {procesando ? "Procesando..." : total === 0 ? "Registrar sin cobro" : nTarjeta > 0 ? "Registrar venta" : "Cobrar"}
+              {procesando ? "Procesando..." : total === 0 ? "Registrar sin cobro" : cobroIntegrado ? "Cobrar con terminal" : nTarjeta > 0 ? "Registrar venta" : "Cobrar"}
             </Button>
           </div>
         </Modal>

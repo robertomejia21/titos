@@ -74,6 +74,8 @@ export type PagoPayload = {
   /** Emisor del vale y últimos 4 de la tarjeta; solo para "vales". */
   valeEmisorId?: string;
   valeUltimos4?: string;
+  /** Cobro aprobado por la terminal Banorte integrada; nunca viaja en la cola sin conexión. */
+  banorteNumeroControl?: string;
 };
 
 export type VentaPayload = {

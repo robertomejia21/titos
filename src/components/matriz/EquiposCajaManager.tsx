@@ -8,6 +8,7 @@ import { BAUDIOS, EQUIPO_VACIO, PRUEBAS_EQUIPO, pesoEnKg, type EquipoCajaConfig 
 import { leerPuertoDiagnostico, type SerialApi } from "@/lib/serialDiagnostico";
 import { imprimirTicketPrueba } from "@/lib/ticketVenta";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
+import { DiagnosticoTerminal } from "@/components/BanorteTerminal";
 
 type Datos = {
   sucursalId: string; sucursales: { _id: string; nombre: string }[];
@@ -152,14 +153,15 @@ export function EquiposCajaManager() {
           <li>Si usa un puerto serial, instala el controlador oficial del adaptador compatible, identifica su COM en Windows y registra los parámetros. Si usa OPOS, instala los componentes oficiales compatibles de Datalogic y prueba Open, Claim, Enable y Read Weight con DualTest.</li>
           <li>Compara cero, peso neto estable y varios pesos conocidos entre visor y diagnóstico del fabricante. Comprueba kg frente a libras, tara, retiro del producto y desconexión. La lectura automática en Titos sigue pendiente de adaptar el protocolo de este equipo.</li>
           <li>En Productos, configura el artículo con unidad kg y su precio por kilogramo. En Punto de venta, captura el peso neto del visor y compara el subtotal antes de cobrar. Una etiqueta de carnicería requiere conocer por separado su formato; esta pantalla no decodifica peso de etiquetas.</li>
-          <li>Registra la terminal Banorte en Catálogos → Terminales de pago, asignada a Junior. Comprueba su estado con Banorte; guardarla en Titos no la conecta al banco.</li>
+          <li>Registra la terminal Banorte en Catálogos → Terminales de pago, asignada a Junior. Para el cobro integrado márcala como «Cobro integrado con Banorte» con su afiliación, instala el puente de caja en esta PC (carpeta puente-caja del repositorio) y usa «Cargar llave» y «Prueba de cobro» en el recuadro de abajo.</li>
           <li>Para operar con terminal independiente: captura en Banorte el importe final que muestra Titos, espera APROBADO y conserva el comprobante. Después registra el pago con tarjeta, terminal y autorización en Titos. Si Banorte rechaza o no confirma, consulta el estado con el banco antes de reintentar; no registres el pago como aprobado.</li>
           <li>Al cerrar, compara el total de tarjeta de Titos por terminal con el lote de Banorte y revisa diferencias con los comprobantes. Una cancelación en Titos no cancela automáticamente el cargo bancario.</li>
-          <li>Para automatizar importes, solicita a Banorte integración con caja/Interredes, compatibilidad del modelo, documentación y ambiente de pruebas. Faltará implementar y certificar aprobación, rechazo, consulta de estado, cancelación y prevención de cobros duplicados.</li>
+          <li>Con el cobro integrado, el punto de venta manda el importe a la terminal y la autorización regresa sola; las cancelaciones y devoluciones se regresan en el banco. Antes de cobrar en modo PRD hay que terminar la certificación con el laboratorio Payworks (L.Soporte_Payworks_Interredes@banorte.com).</li>
         </ol>
         <details className="mt-5"><summary className="cursor-pointer py-3 font-medium">Texto para solicitar la integración a Banorte</summary><p className="rounded-lg bg-black/5 p-3 text-sm">Tenemos el punto de venta web de Mercados Titos en sucursal Junior, Mexicali. Queremos enviar el importe a su terminal y recibir la autorización automáticamente. ¿Nuestra afiliación y modelo admiten integración con caja o Interredes? Necesitamos requisitos, documentación o SDK, ambiente de pruebas, consulta de transacciones y cancelaciones, además del proceso para habilitarlo en producción.</p></details>
         <p className="mt-4 text-xs text-black/65">Referencias técnicas: <a className="underline" href="https://www.datalogic.com/upload/marketlit/manuals/opos/820025614.pdf" target="_blank" rel="noreferrer">Datalogic OPOS / DualTest</a> · <a className="underline" href="https://www.banorte.com/Empresas/Servicios/Soluciones-de-cobro-para-tu-negocio/Productos/Terminales-punto-de-venta--TPV-/" target="_blank" rel="noreferrer">Terminales Banorte</a> · <a className="underline" href="https://developer.chrome.com/docs/capabilities/serial" target="_blank" rel="noreferrer">Web Serial</a>. Verificadas el 22 de septiembre de 2026; confirmar compatibilidad del equipo antes de instalar.</p>
       </TarjetaEquipo>
+      <DiagnosticoTerminal />
     </>}
   </div>;
 }

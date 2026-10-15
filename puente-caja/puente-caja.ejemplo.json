@@ -1,0 +1,15 @@
+{
+  "puerto": 8091,
+  "origenesPermitidos": ["https://titos.da-vinci.ai", "http://localhost:3000"],
+  "banorte": {
+    "usarSimulador": true,
+    "rutaDll": "PINPAD.TPV",
+    "ipPinpad": "192.168.100.44",
+    "puertoPinpad": "1818",
+    "usuario": "",
+    "password": "",
+    "modo": "AUT",
+    "timeoutSegundos": 90,
+    "retardoSimuladorMs": 2000
+  }
+}

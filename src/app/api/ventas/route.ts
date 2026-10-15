@@ -11,6 +11,9 @@ import Cliente from "@/models/Cliente";
 import CuentaPorCobrar from "@/models/CuentaPorCobrar";
 import TerminalPago from "@/models/TerminalPago";
 import EquipoCaja from "@/models/EquipoCaja";
+import TransaccionBanorte from "@/models/TransaccionBanorte";
+import { datosParaVenta } from "@/lib/banorteServidor";
+import { esNumeroControlValido, tipoTarjetaDeRespuesta } from "@/lib/banorte";
 import { autorizacionTarjeta } from "@/lib/equiposCaja";
 import EmisorValeModel from "@/models/EmisorVale";
 import "@/models/Sucursal"; // necesario para que populate("sucursalId") funcione
@@ -73,6 +76,10 @@ type PagoVenta = {
   valeEmisorId?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
+  // Cobro hecho por la terminal Banorte integrada: el número de control de la
+  // transacción aprobada. Los datos del cobro los pone el servidor.
+  banorteNumeroControl?: string;
+  banorte?: ReturnType<typeof datosParaVenta>;
 };
 
 export async function POST(req: NextRequest) {
@@ -115,6 +122,10 @@ export async function POST(req: NextRequest) {
       try { pago.autorizacion = autorizacionTarjeta(p.autorizacion); }
       catch (e) { return badRequest((e as Error).message); }
       if (p.terminalId) pago.terminalId = String(p.terminalId);
+      if (p.banorteNumeroControl != null) {
+        if (!esNumeroControlValido(p.banorteNumeroControl)) return badRequest("Número de control de la terminal inválido");
+        pago.banorteNumeroControl = p.banorteNumeroControl;
+      }
       // Crédito, débito y American Express se liquidan por separado: sin el
       // tipo, el corte no puede cuadrarse contra lo que deposita el banco.
       // Solo se acepta vacío en las ventas que venían encoladas sin conexión
@@ -195,9 +206,35 @@ export async function POST(req: NextRequest) {
 
   // --- Terminal con la que se cobró la tarjeta ---
   const pagoTarjeta = pagos.find((p) => p.metodoPago === "tarjeta");
+  let cobroBanorteId: unknown = null;
+  if (pagoTarjeta?.banorteNumeroControl) {
+    // El cobro lo hizo la terminal: autorización, tipo de tarjeta y terminal
+    // salen de la transacción aprobada, no de lo que mande el navegador.
+    const cobro = await TransaccionBanorte.findOne({
+      numeroControl: pagoTarjeta.banorteNumeroControl,
+      sucursalId: ctx.sucursalId,
+      comando: "VENTA",
+    });
+    if (!cobro) return badRequest("No se encontró el cobro de la terminal");
+    if (cobro.estado !== "aprobada") return badRequest("El cobro de la terminal no está aprobado");
+    if (cobro.aplicada) return conflict("Ese cobro de la terminal ya está amarrado a otra venta");
+    // Ya certificados con Banorte, un cobro en modo de prueba (AUT/DEC/RND o
+    // el simulador) no llegó al banco: registrar la venta sería regalarla.
+    if (process.env.BANORTE_SOLO_PRODUCCION === "1" && (cobro.simulado || cobro.modo !== "PRD")) {
+      return badRequest("La terminal cobró en modo de prueba: no se le cargó al cliente. Cambia el puente de caja a PRD.");
+    }
+    if (Math.abs((cobro.monto ?? 0) - pagoTarjeta.monto) > 0.005) {
+      return badRequest(`La terminal cobró ${Number(cobro.monto).toFixed(2)} y la venta trae ${pagoTarjeta.monto.toFixed(2)} con tarjeta`);
+    }
+    pagoTarjeta.terminalId = cobro.terminalId ? String(cobro.terminalId) : pagoTarjeta.terminalId;
+    pagoTarjeta.autorizacion = String(cobro.autorizacion ?? "").slice(0, 12);
+    pagoTarjeta.tarjetaTipo = tipoTarjetaDeRespuesta(cobro.tipoTarjeta, cobro.marca) ?? pagoTarjeta.tarjetaTipo ?? null;
+    pagoTarjeta.banorte = datosParaVenta(cobro);
+    cobroBanorteId = cobro._id;
+  }
   if (pagoTarjeta) {
     const equipo = await EquipoCaja.findOne({ sucursalId: ctx.sucursalId }).select("configuracion.exigirAutorizacion").lean();
-    if (equipo?.configuracion?.exigirAutorizacion && !pagoTarjeta.autorizacion) return badRequest("Captura la autorización del comprobante aprobado en la terminal. Titos no realiza el cargo bancario.");
+    if (equipo?.configuracion?.exigirAutorizacion && !pagoTarjeta.autorizacion && !pagoTarjeta.banorte) return badRequest("Captura la autorización del comprobante aprobado en la terminal. Titos no realiza el cargo bancario.");
     const terminalesActivas = await TerminalPago.find({ sucursalId: ctx.sucursalId, activo: true })
       .select("alias")
       .lean();
@@ -343,6 +380,16 @@ export async function POST(req: NextRequest) {
     fecha: fechaVenta,
   });
 
+  // Se aparta el cobro de la terminal antes de crear la venta: dos ventas que
+  // llegan al mismo tiempo con el mismo cobro no pueden quedarse las dos con él.
+  if (cobroBanorteId) {
+    const apartado = await TransaccionBanorte.updateOne({ _id: cobroBanorteId, aplicada: false }, { $set: { aplicada: true } });
+    if (apartado.modifiedCount !== 1) return conflict("Ese cobro de la terminal ya está amarrado a otra venta");
+  }
+  const liberarCobro = async () => {
+    if (cobroBanorteId) await TransaccionBanorte.updateOne({ _id: cobroBanorteId }, { $set: { aplicada: false } });
+  };
+
   let venta;
   try {
     venta = await Venta.create({
@@ -362,7 +409,8 @@ export async function POST(req: NextRequest) {
       totalImpuestos: totalesFiscales.impuestos,
       subtotalSinDescuento: precio.bruto,
       descuento: precio.descuento,
-      pagos,
+      // El número de control ya quedó dentro de `banorte`; no es campo del pago.
+      pagos: pagos.map((p) => { const copia = { ...p }; delete copia.banorteNumeroControl; return copia; }),
       montoRecibido: pagoEfectivo ? montoRecibido : null,
       cambio: pagoEfectivo && montoRecibido != null ? Number((montoRecibido - pagoEfectivo.monto).toFixed(2)) : null,
       esVentas2: ventas2.esVentas2,
@@ -377,6 +425,7 @@ export async function POST(req: NextRequest) {
     // Dos reintentos de la misma venta que llegaron al mismo tiempo: el índice
     // único de `clienteOperacionId` deja pasar solo a uno. El otro devuelve esa
     // venta en lugar de un error, que para el cajero es lo mismo que ganar.
+    await liberarCobro();
     const codigo = (err as { code?: number }).code;
     if (codigo === 11000 && clienteOperacionId) {
       const ganadora = await Venta.findOne({ clienteOperacionId });
@@ -384,6 +433,7 @@ export async function POST(req: NextRequest) {
     }
     throw err;
   }
+  if (cobroBanorteId) await TransaccionBanorte.updateOne({ _id: cobroBanorteId }, { $set: { ventaId: venta._id } });
 
   if (pagoCredito && cliente && vencimientoCredito) {
     await CuentaPorCobrar.create({
