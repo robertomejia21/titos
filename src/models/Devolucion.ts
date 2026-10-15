@@ -37,6 +37,27 @@ const DevolucionSchema = new Schema(
     // y parte que se le reembolsa en efectivo.
     montoCredito: { type: Number, default: 0 },
     montoEfectivo: { type: Number, default: 0 },
+    // Parte que regresa a la tarjeta con una DEVOLUCION en Banorte (solo si la
+    // venta se cobró con la terminal integrada). No sale del cajón.
+    montoTarjeta: { type: Number, default: 0 },
+    tarjeta: {
+      type: new Schema(
+        {
+          // pendiente: la devolución se capturó y falta mandarla a la terminal.
+          // aprobada: Banorte la aplicó. A falta de aprobación, el monto pasa a
+          // efectivo y aquí queda "convertida_efectivo".
+          estado: { type: String, enum: ["pendiente", "aprobada", "convertida_efectivo"], default: "pendiente" },
+          transaccionOriginalId: { type: Schema.Types.ObjectId, ref: "TransaccionBanorte", default: null },
+          referenciaOriginal: { type: String, default: "" },
+          numeroControl: { type: String, default: "" },
+          referencia: { type: String, default: "" },
+          autorizacion: { type: String, default: "" },
+          ultimos4: { type: String, default: "" },
+        },
+        { _id: false }
+      ),
+      default: null,
+    },
     estado: { type: String, enum: ESTADOS_DEVOLUCION, default: "pendiente" },
     motivo: { type: String, default: "" },
     usuarioId: { type: Schema.Types.ObjectId, ref: "User", required: true },

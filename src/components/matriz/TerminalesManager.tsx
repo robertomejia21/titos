@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CreditCard, Store } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
+import { BitacoraBanorte, DiagnosticoTerminal } from "@/components/BanorteTerminal";
 
 type Sucursal = { _id: string; nombre: string };
 
@@ -14,6 +15,8 @@ type Terminal = {
   marca: string;
   numeroSerie: string;
   activo: boolean;
+  cobroIntegrado?: boolean;
+  afiliacion?: string;
   sucursalId: { _id: string; nombre: string } | string;
 };
 
@@ -43,6 +46,8 @@ function TerminalModal({
   const [marca, setMarca] = useState(terminal?.marca ?? "");
   const [numeroSerie, setNumeroSerie] = useState(terminal?.numeroSerie ?? "");
   const [activo, setActivo] = useState(terminal?.activo ?? true);
+  const [cobroIntegrado, setCobroIntegrado] = useState(terminal?.cobroIntegrado ?? false);
+  const [afiliacion, setAfiliacion] = useState(terminal?.afiliacion ?? "");
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -53,8 +58,8 @@ function TerminalModal({
     setGuardando(true);
 
     const cuerpo = esEdicion
-      ? { alias, banco, marca, numeroSerie, activo }
-      : { sucursalId, alias, banco, marca, numeroSerie };
+      ? { alias, banco, marca, numeroSerie, activo, cobroIntegrado, afiliacion }
+      : { sucursalId, alias, banco, marca, numeroSerie, cobroIntegrado, afiliacion };
 
     const res = await fetch(esEdicion ? `/api/terminales/${terminal!._id}` : "/api/terminales", {
       method: esEdicion ? "PATCH" : "POST",
@@ -162,6 +167,27 @@ function TerminalModal({
           />
         </FormField>
 
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-sky-950">
+            <input type="checkbox" checked={cobroIntegrado} onChange={(e) => setCobroIntegrado(e.target.checked)} />
+            Cobro integrado con Banorte (Payworks · Interredes)
+          </label>
+          <p className="mt-1 text-xs text-sky-900">
+            El punto de venta le manda el cobro a la terminal por medio del puente de caja y la autorización regresa sola.
+            La IP, el puerto y la contraseña de Payworks se configuran en el puente de la PC de caja, no aquí.
+          </p>
+          {cobroIntegrado ? (
+            <FormField label="Afiliación Banorte" className="mt-2">
+              <Input
+                value={afiliacion}
+                inputMode="numeric"
+                onChange={(e) => setAfiliacion(e.target.value.replace(/\D/g, ""))}
+                placeholder="Ej. 9862356 (sale en la pantalla de la terminal)"
+              />
+            </FormField>
+          ) : null}
+        </div>
+
         {esEdicion ? (
           <label className="flex items-center gap-2 text-sm text-black/70">
             <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
@@ -261,6 +287,7 @@ export function TerminalesManager() {
                   <tr key={t._id} className={`border-b border-black/5 ${!t.activo ? "opacity-50" : ""}`}>
                     <td className="whitespace-nowrap px-2 py-1.5 font-medium">
                       {t.alias}
+                      {t.cobroIntegrado ? <span className="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800">INTEGRADA</span> : null}
                       {!t.activo ? <span className="ml-1 text-xs text-black/40">(inactiva)</span> : null}
                     </td>
                     <td className="whitespace-nowrap px-2 py-1.5 text-xs text-black/40">{t.marca || "—"}</td>
@@ -286,6 +313,10 @@ export function TerminalesManager() {
           </>
         )}
       </Card>
+
+      <DiagnosticoTerminal />
+
+      <BitacoraBanorte sucursales={sucursales} />
 
       {creando || editando ? (
         <TerminalModal

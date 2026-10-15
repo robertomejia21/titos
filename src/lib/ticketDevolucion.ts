@@ -26,6 +26,9 @@ export type DevolucionTicket = {
   total: number;
   montoCredito?: number;
   montoEfectivo?: number;
+  /** Parte que regresó a la tarjeta con una devolución en Banorte. */
+  montoTarjeta?: number;
+  tarjeta?: { estado?: string; ultimos4?: string; referencia?: string; autorizacion?: string } | null;
   estado?: string;
   motivo?: string;
   clienteNombre?: string;
@@ -82,6 +85,15 @@ function copiaHTML(
 
   const desglose = [
     montoCredito > 0 ? fila("Abonado a su cuenta", pesos(montoCredito)) : "",
+    (devolucion.montoTarjeta ?? 0) > 0
+      ? fila(
+          `A su tarjeta${devolucion.tarjeta?.ultimos4 ? ` ****${escaparHTML(devolucion.tarjeta.ultimos4)}` : ""}`,
+          pesos(devolucion.montoTarjeta ?? 0)
+        ) +
+        (devolucion.tarjeta?.referencia
+          ? fila(`<span class="tenue">Banorte ref. ${escaparHTML(devolucion.tarjeta.referencia)} · aut. ${escaparHTML(devolucion.tarjeta.autorizacion ?? "")}</span>`, "")
+          : "")
+      : "",
     montoEfectivo > 0
       ? fila(
           devolucion.estado === "pendiente" ? "Efectivo POR PAGAR" : "Reembolso en efectivo",

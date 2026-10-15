@@ -21,7 +21,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (key in body) update[key] = String(body[key] ?? "").trim();
   }
   if ("activo" in body) update.activo = !!body.activo;
+  if ("afiliacion" in body) update.afiliacion = String(body.afiliacion ?? "").replace(/\D/g, "");
+  if ("cobroIntegrado" in body) update.cobroIntegrado = body.cobroIntegrado === true;
   if ("alias" in body && !update.alias) return badRequest("El nombre de la terminal no puede quedar vacío");
+
+  if (update.cobroIntegrado === true || ("afiliacion" in update && !update.afiliacion)) {
+    const actual = await TerminalPago.findById(id).select("afiliacion cobroIntegrado").lean<{ afiliacion?: string; cobroIntegrado?: boolean }>();
+    if (!actual) return notFound("Terminal no encontrada");
+    const integrado = "cobroIntegrado" in update ? update.cobroIntegrado === true : !!actual.cobroIntegrado;
+    const afiliacion = "afiliacion" in update ? String(update.afiliacion) : actual.afiliacion ?? "";
+    if (integrado && !afiliacion) return badRequest("Para el cobro integrado captura la afiliación Banorte de la terminal");
+  }
 
   try {
     const terminal = await TerminalPago.findByIdAndUpdate(id, update, { returnDocument: "after" });

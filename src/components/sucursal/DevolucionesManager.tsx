@@ -8,6 +8,9 @@ import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { imprimirTicketDevolucion } from "@/lib/ticketDevolucion";
+import { operarTerminal } from "@/lib/cobroBanorte";
+
+type PagoBusqueda = { metodoPago: string; monto: number; terminalId?: string | null; banorte?: { transaccionId?: string; ultimos4?: string } | null };
 
 type ItemDevolvible = {
   productoId: string;
@@ -21,7 +24,7 @@ type ItemDevolvible = {
 };
 
 type BusquedaVenta = {
-  venta: { _id: string; folio: string; fecha: string; total: number; estado: string; clienteNombre: string };
+  venta: { _id: string; folio: string; fecha: string; total: number; estado: string; clienteNombre: string; pagos?: PagoBusqueda[] };
   items: ItemDevolvible[];
   enVentana: boolean;
   cancelada: boolean;
@@ -39,6 +42,14 @@ type Devolucion = {
   total: number;
   montoCredito: number;
   montoEfectivo: number;
+  montoTarjeta?: number;
+  tarjeta?: {
+    estado: "pendiente" | "aprobada" | "convertida_efectivo";
+    transaccionOriginalId?: string;
+    ultimos4?: string;
+    referencia?: string;
+    autorizacion?: string;
+  } | null;
   estado: "pendiente" | "pagada" | "cancelada";
   clienteNombre: string;
   motivo: string;
@@ -63,6 +74,10 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
   const [motivo, setMotivo] = useState("");
   const [registrando, setRegistrando] = useState(false);
   const [errorRegistro, setErrorRegistro] = useState<string | null>(null);
+  // Venta cobrada con la terminal Banorte: el reembolso puede regresar a la
+  // tarjeta en lugar de salir del cajón.
+  const [aTarjeta, setATarjeta] = useState(true);
+  const [avisoTarjeta, setAvisoTarjeta] = useState<string | null>(null);
   const [ultima, setUltima] = useState<Devolucion | null>(null);
 
   const [devoluciones, setDevoluciones] = useState<Devolucion[]>([]);
@@ -124,21 +139,52 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
       .map((item) => ({ productoId: item.productoId, cantidad: Number(cantidades[item.productoId]) || 0 }))
       .filter((item) => item.cantidad > 0);
 
+    const pagoBanorte = (resultado.venta.pagos ?? []).find((p) => p.banorte?.transaccionId);
+    setAvisoTarjeta(null);
     const res = await fetch("/api/devoluciones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ventaId: resultado.venta._id, items, motivo }),
+      body: JSON.stringify({ ventaId: resultado.venta._id, items, motivo, aTarjeta: !!pagoBanorte && aTarjeta }),
     });
 
-    setRegistrando(false);
-
     if (!res.ok) {
+      setRegistrando(false);
       const data = await res.json().catch(() => ({}));
       setErrorRegistro(data.error || "No se pudo registrar la devolución");
       return;
     }
 
-    const devolucion: Devolucion = await res.json();
+    let devolucion: Devolucion = await res.json();
+
+    // La parte a tarjeta se manda a la terminal; si no se aplica, ese monto se
+    // le paga en efectivo para no dejar al cliente sin su reembolso.
+    if (devolucion.tarjeta?.estado === "pendiente" && (devolucion.montoTarjeta ?? 0) > 0 && pagoBanorte) {
+      let cuerpo: Record<string, unknown> = { convertirEfectivo: true };
+      try {
+        const r = await operarTerminal({
+          comando: "DEVOLUCION",
+          terminalId: String(pagoBanorte.terminalId ?? ""),
+          monto: devolucion.montoTarjeta ?? 0,
+          transaccionOriginalId: String(devolucion.tarjeta.transaccionOriginalId ?? ""),
+          devolucionId: devolucion._id,
+        });
+        if (r.aprobada) cuerpo = { numeroControl: r.transaccion.numeroControl };
+        else setAvisoTarjeta(`La terminal no aplicó la devolución a la tarjeta (${r.mensaje}). Se reembolsa en efectivo.`);
+      } catch (err) {
+        setAvisoTarjeta(`No se pudo usar la terminal (${(err as Error).message}). Se reembolsa en efectivo.`);
+      }
+      const cierre = await fetch(`/api/devoluciones/${devolucion._id}/tarjeta`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpo),
+      });
+      if (cierre.ok) devolucion = await cierre.json();
+      else {
+        const data = await cierre.json().catch(() => ({}));
+        setAvisoTarjeta(`La devolución quedó registrada pero falta cerrar el reembolso a tarjeta: ${data.error ?? "error"}. Avisa a matriz.`);
+      }
+    }
+    setRegistrando(false);
     setUltima(devolucion);
     // Se imprime sola: la copia del turno es el respaldo en papel de la salida
     // de efectivo, y si no sale en el momento nadie vuelve por ella.
@@ -161,6 +207,8 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
         total: devolucion.total,
         montoCredito: devolucion.montoCredito,
         montoEfectivo: devolucion.montoEfectivo,
+        montoTarjeta: devolucion.montoTarjeta,
+        tarjeta: devolucion.tarjeta,
         estado: devolucion.estado,
         motivo: devolucion.motivo,
         clienteNombre: devolucion.clienteNombre,
@@ -245,6 +293,13 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
               {ultima.montoCredito > 0 ? (
                 <li>{formatMoney(ultima.montoCredito)} se abonaron a la cuenta por cobrar del cliente.</li>
               ) : null}
+              {(ultima.montoTarjeta ?? 0) > 0 && ultima.tarjeta?.estado === "aprobada" ? (
+                <li>
+                  {formatMoney(ultima.montoTarjeta ?? 0)} regresaron a su tarjeta ****{ultima.tarjeta.ultimos4} (Banorte ref.{" "}
+                  {ultima.tarjeta.referencia}). Puede tardar unos días en reflejarse en su estado de cuenta.
+                </li>
+              ) : null}
+              {avisoTarjeta ? <li className="font-semibold text-amber-800">{avisoTarjeta}</li> : null}
               {ultima.montoEfectivo > 0 ? (
                 <li>
                   {formatMoney(ultima.montoEfectivo)} en efectivo —{" "}
@@ -354,6 +409,14 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
                 <FormField label="Motivo de la devolución">
                   <MotivoPosSelector tipo="devolucion" value={motivo} onChange={setMotivo} />
                 </FormField>
+
+                {(resultado.venta.pagos ?? []).some((p) => p.banorte?.transaccionId) ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={aTarjeta} onChange={(e) => setATarjeta(e.target.checked)} />
+                    Regresar a la tarjeta ****{(resultado.venta.pagos ?? []).find((p) => p.banorte)?.banorte?.ultimos4} con la
+                    terminal Banorte (no sale efectivo del cajón)
+                  </label>
+                ) : null}
 
                 {errorRegistro ? <p className="text-sm text-red-600">{errorRegistro}</p> : null}
 

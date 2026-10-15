@@ -10,6 +10,8 @@ import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { formatFecha } from "@/lib/creditoCliente";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { regresarCobro, type Avance } from "@/lib/cobroBanorte";
+import type { DatosBanortePago } from "@/lib/banorte";
 
 const ETIQUETAS_METODO: Record<string, string> = {
   efectivo: "Efectivo",
@@ -26,8 +28,10 @@ type PagoVenta = {
   monto: number;
   montoUsd?: number | null;
   tipoCambio?: number | null;
+  terminalId?: string | null;
   terminalAlias?: string;
   tarjetaTipo?: string | null;
+  banorte?: (Partial<DatosBanortePago> & { transaccionId?: string }) | null;
 };
 type Venta = {
   _id: string;
@@ -66,6 +70,10 @@ export function VentasHistorial({
   const [nip, setNip] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [nipConfigurado, setNipConfigurado] = useState(false);
+  // Venta cobrada con la terminal Banorte: primero se regresa el dinero en el
+  // banco y luego se cancela aquí.
+  const [avanceBanco, setAvanceBanco] = useState<Avance | null>(null);
+  const [falloBanco, setFalloBanco] = useState(false);
 
   useEffect(() => {
     fetch("/api/configuracion")
@@ -78,10 +86,11 @@ export function VentasHistorial({
     setMotivo("");
     setNip("");
     setError(null);
+    setFalloBanco(false);
     setPorCancelar(venta);
   }
 
-  async function confirmarCancelacion() {
+  async function confirmarCancelacion(sinBanco = false) {
     if (!porCancelar) return;
     setError(null);
 
@@ -95,12 +104,63 @@ export function VentasHistorial({
     }
 
     setCancelando(true);
-    const res = await fetch(`/api/ventas/${porCancelar._id}/cancelar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ motivo: motivo.trim(), nip }),
-    });
+    const url = `/api/ventas/${porCancelar._id}/cancelar`;
+    const enviar = (extra: Record<string, unknown>) =>
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: motivo.trim(), nip, ...extra }),
+      });
+
+    const pagoBanorte = (porCancelar.pagos ?? []).find((p) => p.banorte?.transaccionId);
+    let extra: Record<string, unknown> = {};
+    if (pagoBanorte && sinBanco) {
+      extra = { sinBanco: true };
+    } else if (pagoBanorte) {
+      // 1) Que la cancelación proceda en Titos (NIP, factura, abonos) antes de
+      //    tocar el dinero del cliente.
+      const validacion = await enviar({ soloValidar: true });
+      if (!validacion.ok) {
+        const data = await validacion.json().catch(() => ({}));
+        setCancelando(false);
+        setError(data.error || "No se pudo cancelar la venta");
+        return;
+      }
+      const { cobroBanorte } = await validacion.json();
+      if (cobroBanorte) {
+        // 2) Regresar el cobro en la terminal.
+        try {
+          const r = await regresarCobro(
+            {
+              terminalId: String(pagoBanorte.terminalId ?? ""),
+              monto: cobroBanorte.monto,
+              transaccionOriginalId: cobroBanorte.transaccionId,
+              ventaId: porCancelar._id,
+            },
+            { alAvanzar: setAvanceBanco }
+          );
+          if (!r.aprobada) {
+            setCancelando(false);
+            setAvanceBanco(null);
+            setFalloBanco(true);
+            setError(`La terminal no regresó el cobro: ${r.mensaje}`);
+            return;
+          }
+          extra = { banorteNumeroControl: r.transaccion.numeroControl };
+        } catch (err) {
+          setCancelando(false);
+          setAvanceBanco(null);
+          setFalloBanco(true);
+          setError(`No se pudo regresar el cobro en la terminal: ${(err as Error).message}`);
+          return;
+        }
+      }
+    }
+
+    // 3) Cancelar la venta en Titos.
+    const res = await enviar(extra);
     setCancelando(false);
+    setAvanceBanco(null);
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -157,6 +217,9 @@ export function VentasHistorial({
                           {esTipoTarjeta(p.tarjetaTipo) ? ` — ${ETIQUETA_TIPO_TARJETA[p.tarjetaTipo]}` : ""}
                           {p.montoUsd ? ` — ${p.montoUsd.toFixed(2)} USD` : ""}
                           {p.terminalAlias ? ` — ${p.terminalAlias}` : ""}
+                          {p.banorte?.numeroControl
+                            ? ` — Banorte ****${p.banorte.ultimos4 ?? ""} · aut. ${p.banorte.autorizacion ?? ""} · ref. ${p.banorte.referencia ?? ""}${p.banorte.simulado || (p.banorte.modo && p.banorte.modo !== "PRD") ? " (prueba)" : ""}`
+                            : ""}
                         </span>
                         <span className="font-medium">{formatMoney(p.monto)}</span>
                       </li>
@@ -219,7 +282,12 @@ export function VentasHistorial({
               <Button variant="ghost" onClick={() => setPorCancelar(null)} disabled={cancelando}>
                 Regresar
               </Button>
-              <Button variant="danger" onClick={confirmarCancelacion} disabled={cancelando}>
+              {falloBanco ? (
+                <Button variant="ghost" onClick={() => confirmarCancelacion(true)} disabled={cancelando}>
+                  Cancelar solo en Titos
+                </Button>
+              ) : null}
+              <Button variant="danger" onClick={() => confirmarCancelacion()} disabled={cancelando}>
                 {cancelando ? "Cancelando..." : "Autorizar y cancelar"}
               </Button>
             </>
@@ -255,6 +323,18 @@ export function VentasHistorial({
             </p>
           )}
 
+          {(porCancelar.pagos ?? []).some((p) => p.banorte?.transaccionId) ? (
+            <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900">
+              Se cobró con la terminal Banorte (tarjeta ****{(porCancelar.pagos ?? []).find((p) => p.banorte)?.banorte?.ultimos4}). Al autorizar, primero se
+              regresa el cobro en la terminal y después se cancela la venta.
+            </p>
+          ) : null}
+          {avanceBanco ? <p className="mt-3 text-sm font-semibold text-sky-900">{avanceBanco === "esperando_tarjeta" ? "Regresando el cobro en la terminal…" : "Comunicando con la terminal…"}</p> : null}
+          {falloBanco ? (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              «Cancelar solo en Titos» cancela la venta sin regresar el dinero: queda anotado para que matriz lo regrese desde la consola de Banorte.
+            </p>
+          ) : null}
           {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
         </Modal>
       ) : null}

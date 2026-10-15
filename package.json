@@ -16,6 +16,7 @@
     "migrar:usuario-gate": "tsx scripts/migrar-usuario-gate.ts",
     "check:password": "tsx scripts/check-password.ts",
     "check:ticket": "tsx scripts/check-ticket.ts",
+    "check:banorte": "tsx scripts/check-banorte.ts",
     "check:arqueo": "tsx scripts/check-arqueo.ts",
     "check:peticiones": "tsx scripts/check-peticiones.ts",
     "check:reglas": "tsx scripts/check-reglas.ts",

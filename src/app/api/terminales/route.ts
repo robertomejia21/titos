@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const ctx = await contextoPuntoVenta(session);
     if (!ctx) return forbidden();
     const terminales = await TerminalPago.find({ sucursalId: ctx.sucursalId, activo: true })
-      .select("alias banco marca")
+      .select("alias banco marca cobroIntegrado afiliacion numeroSerie")
       .sort({ alias: 1 })
       .lean();
     return NextResponse.json(terminales.map((t) => ({ ...t, _id: String(t._id) })));
@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
 
   if (!sucursalId) return badRequest("Elige la sucursal donde está la terminal");
   if (!alias) return badRequest("Ponle un nombre a la terminal (es el que verá el cajero al cobrar)");
+  if (body?.cobroIntegrado === true && !String(body?.afiliacion ?? "").replace(/\D/g, "")) {
+    return badRequest("Para el cobro integrado captura la afiliación Banorte de la terminal");
+  }
 
   await connectDB();
 
@@ -70,6 +73,8 @@ export async function POST(req: NextRequest) {
       banco: String(body?.banco ?? "").trim(),
       marca: String(body?.marca ?? "").trim(),
       numeroSerie: String(body?.numeroSerie ?? "").trim(),
+      cobroIntegrado: body?.cobroIntegrado === true,
+      afiliacion: String(body?.afiliacion ?? "").replace(/\D/g, ""),
     });
     return NextResponse.json(terminal, { status: 201 });
   } catch (err) {

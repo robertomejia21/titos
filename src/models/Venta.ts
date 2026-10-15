@@ -40,6 +40,31 @@ const VentaItemSchema = new Schema(
   { _id: false }
 );
 
+// Copia de la transacción aprobada (TransaccionBanorte) congelada en la venta:
+// el voucher se reimprime igual aunque la transacción cambie después.
+const BanortePagoSchema = new Schema(
+  {
+    transaccionId: { type: Schema.Types.ObjectId, ref: "TransaccionBanorte", required: true },
+    numeroControl: { type: String, required: true },
+    referencia: { type: String, default: "" },
+    autorizacion: { type: String, default: "" },
+    afiliacion: { type: String, default: "" },
+    ultimos4: { type: String, default: "" },
+    marca: { type: String, default: "" },
+    tipoTarjeta: { type: String, default: "" },
+    banco: { type: String, default: "" },
+    modoEntrada: { type: String, default: "" },
+    pinValidado: { type: Boolean, default: false },
+    aid: { type: String, default: "" },
+    tvr: { type: String, default: "" },
+    appNombre: { type: String, default: "" },
+    modo: { type: String, default: "" },
+    simulado: { type: Boolean, default: false },
+    fecha: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const PagoVentaSchema = new Schema(
   {
     metodoPago: { type: String, enum: METODOS_PAGO, required: true },
@@ -74,6 +99,10 @@ const PagoVentaSchema = new Schema(
     // desglosarlos. `null` en las ventas anteriores a esta versión: se muestran
     // como "sin tipo identificado" en vez de inventarles uno.
     tarjetaTipo: { type: String, enum: [...TIPOS_TARJETA, null], default: null },
+    // Cobro hecho por la terminal Banorte integrada (no capturado a mano). Es
+    // lo que se necesita para cancelar o devolver en el banco y para imprimir
+    // el voucher que pide el Anexo VII. `null` en cobros manuales.
+    banorte: { type: BanortePagoSchema, default: null },
   },
   { _id: false }
 );

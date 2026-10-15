@@ -1,0 +1,7 @@
+puente-caja.json
+bin/
+obj/
+logs/
+PINPAD.TPV
+*.tpv
+*.TPV

@@ -2,6 +2,7 @@ import { escaparHTML, imprimirTicket } from "@/lib/print";
 import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
 import { ETIQUETA_TIPO_TARJETA_CORTA, esTipoTarjeta } from "@/lib/tarjetas";
 import { LOGO_TICKET } from "@/lib/logoTicket";
+import type { DatosBanortePago } from "@/lib/banorte";
 
 // Ticket de venta para la impresora térmica del mostrador. Vive aparte del
 // punto de venta para que el historial de ventas pueda reimprimir exactamente
@@ -31,6 +32,8 @@ export type PagoTicket = {
   tarjetaTipo?: string | null;
   valeEmisorNombre?: string;
   valeUltimos4?: string;
+  /** Cobro hecho por la terminal Banorte integrada: imprime el voucher del Anexo VII. */
+  banorte?: Partial<DatosBanortePago> | null;
 };
 
 export type ItemTicket = {
@@ -128,6 +131,11 @@ function detallePago(pago: PagoTicket) {
     lineas.push(fila(`<span class="tenue">${escaparHTML(detalle)}</span>`, ""));
   }
 
+  if (pago.metodoPago === "tarjeta" && pago.banorte?.numeroControl) {
+    lineas.push(voucherBanorte(pago));
+    return lineas.join("");
+  }
+
   if (pago.metodoPago === "tarjeta" && pago.terminalAlias) {
     lineas.push(fila(`<span class="tenue">Terminal ${escaparHTML(pago.terminalAlias)}</span>`, ""));
   }
@@ -136,6 +144,38 @@ function detallePago(pago: PagoTicket) {
   }
 
   return lineas.join("");
+}
+
+/** Un cobro de prueba de Payworks (AUT/DEC/RND) o del simulador no tiene valor. */
+export function esCobroDePrueba(b?: Partial<DatosBanortePago> | null) {
+  return !!b && (b.simulado === true || (!!b.modo && b.modo !== "PRD"));
+}
+
+/**
+ * Datos del voucher que pide Banorte (Anexo VII) para un cobro con la terminal
+ * integrada. Nombre del comercio, fecha, hora e importe ya salen en el ticket.
+ */
+function voucherBanorte(pago: PagoTicket) {
+  const b = pago.banorte ?? {};
+  const t = (texto: string) => `<span class="tenue">${escaparHTML(texto)}</span>`;
+  const tarjeta = [b.marca, b.tipoTarjeta].filter(Boolean).join(" ");
+  const app = b.appNombre || "";
+  return [
+    `<div class="centro fuerte">BANORTE · VENTA</div>`,
+    esCobroDePrueba(b) ? `<div class="centro fuerte">*** PRUEBA · SIN VALOR ***</div>` : "",
+    fila(t("Afiliación"), escaparHTML(b.afiliacion || "")),
+    pago.terminalAlias ? fila(t("Terminal"), escaparHTML(pago.terminalAlias)) : "",
+    fila(t("No. control"), escaparHTML(b.numeroControl || "")),
+    fila(t("Tarjeta"), escaparHTML(b.ultimos4 ? `************${b.ultimos4}` : "")),
+    tarjeta ? fila(t("Tipo"), escaparHTML(tarjeta)) : "",
+    b.banco ? fila(t("Banco emisor"), escaparHTML(b.banco)) : "",
+    fila(t("APROBADA · Aut."), escaparHTML(b.autorizacion || pago.autorizacion || "")),
+    fila(t("Referencia"), escaparHTML(b.referencia || "")),
+    b.aid ? fila(t("AID"), escaparHTML(b.aid)) : "",
+    b.tvr ? fila(t("TVR"), escaparHTML(b.tvr)) : "",
+    app ? fila(t("App"), escaparHTML(app)) : "",
+    b.modoEntrada ? fila(t("Lectura"), escaparHTML(b.modoEntrada)) : "",
+  ].join("");
 }
 
 /** Cada copia se identifica en el papel; sin marca, las dos se ven iguales. */
@@ -186,8 +226,12 @@ function cuerpoTicket(
 
   // La copia del comercio lleva la firma del tarjetahabiente: es el pagaré con
   // el que el banco resuelve una aclaración o un contracargo.
+  // Si el tarjetahabiente se validó con su NIP en la terminal, no firma.
+  const conNip = venta.pagos.some((p) => p.metodoPago === "tarjeta" && p.banorte?.pinValidado);
   const firma =
-    copia === "COMERCIO"
+    copia === "COMERCIO" && conNip
+      ? `<div class="centro tenue">Autorizado mediante NIP</div>`
+      : copia === "COMERCIO"
       ? `
         <div class="firma">
           <div class="linea"></div>

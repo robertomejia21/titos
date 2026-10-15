@@ -55,6 +55,9 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
     return get ? tiene("ventas.historial", "facturas.administrar") : method === "POST" && parte.length === 2 && tiene("pos.vender");
   }
   if (recurso === "cancelaciones") return tiene("pos.cancelar");
+  // Cada ruta valida el permiso del comando (vender, cancelar, devolver); aquí
+  // solo se deja pasar a quien opera el punto de venta o administra terminales.
+  if (recurso === "banorte") return tiene("pos.vender", "pos.cancelar", "devoluciones.registrar", "catalogos.administrar", "configuracion.editar");
   if (recurso === "devoluciones") return tiene("devoluciones.registrar");
   if (recurso === "caja") return parte[2] === "retiros" ? tiene("caja.retirar") : tiene("pos.vender");
   if (recurso === "motivos-pos") return get ? tiene("pos.vender") : tiene("configuracion.editar");

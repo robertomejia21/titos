@@ -6,6 +6,7 @@ import CajaSesion from "@/models/CajaSesion";
 import MovimientoInventario from "@/models/MovimientoInventario";
 import "@/models/User"; // necesario para que populate("usuarioId"/"pagadaPorId") funcione
 import CuentaPorCobrar from "@/models/CuentaPorCobrar";
+import TransaccionBanorte from "@/models/TransaccionBanorte";
 import { requireSession, unauthorized, forbidden, badRequest, conflict, generateFolio, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { calcularDevolvible, dentroDeVentana, HORAS_LIMITE_DEVOLUCION } from "@/lib/devoluciones";
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
   const ventaId = String(body?.ventaId ?? "");
   const itemsBody: ItemDevolucion[] = body?.items ?? [];
   const motivo = String(body?.motivo ?? "").trim();
+  // Regresar a la tarjeta en vez de en efectivo (solo ventas cobradas con la
+  // terminal Banorte integrada).
+  const aTarjeta = body?.aTarjeta === true;
 
   if (!ventaId) return badRequest("Indica la venta que se está devolviendo");
   if (itemsBody.length === 0) return badRequest("Selecciona al menos un producto a devolver");
@@ -110,7 +114,32 @@ export async function POST(req: NextRequest) {
   // todavía debe por ella; solo el resto se le reembolsa en efectivo.
   const cuenta = await CuentaPorCobrar.findOne({ ventaId: venta._id, estado: "pendiente" });
   const montoCredito = cuenta ? redondear(Math.min(total, cuenta.saldo)) : 0;
-  const montoEfectivo = redondear(total - montoCredito);
+
+  // Lo que no abate crédito puede regresar a la tarjeta, hasta lo que todavía
+  // quede del cobro original (descontando devoluciones a tarjeta ya hechas o en
+  // curso). El resto se paga en efectivo.
+  let montoTarjeta = 0;
+  let tarjeta: Record<string, unknown> | null = null;
+  if (aTarjeta) {
+    const pagoBanorte = (venta.pagos as { banorte?: { transaccionId?: unknown; referencia?: string; ultimos4?: string } | null }[])
+      .find((p) => p.banorte?.transaccionId)?.banorte;
+    if (!pagoBanorte) return badRequest("Esta venta no se cobró con la terminal Banorte; la devolución va en efectivo");
+    const cobro = await TransaccionBanorte.findById(pagoBanorte.transaccionId).lean<{ monto: number; montoDevuelto?: number; estado: string }>();
+    if (!cobro || cobro.estado !== "aprobada") return conflict("El cobro con tarjeta de esta venta ya no está vigente en Banorte");
+    const enCurso = await Devolucion.find({ ventaId: venta._id, "tarjeta.estado": "pendiente" }).select("montoTarjeta").lean<{ montoTarjeta?: number }[]>();
+    const comprometido = enCurso.reduce((sum, d) => sum + (d.montoTarjeta ?? 0), 0);
+    const disponible = redondear((cobro.monto ?? 0) - (cobro.montoDevuelto ?? 0) - comprometido);
+    montoTarjeta = redondear(Math.max(0, Math.min(total - montoCredito, disponible)));
+    if (montoTarjeta > 0) {
+      tarjeta = {
+        estado: "pendiente",
+        transaccionOriginalId: pagoBanorte.transaccionId,
+        referenciaOriginal: pagoBanorte.referencia ?? "",
+        ultimos4: pagoBanorte.ultimos4 ?? "",
+      };
+    }
+  }
+  const montoEfectivo = redondear(total - montoCredito - montoTarjeta);
 
   if (cuenta && montoCredito > 0) {
     cuenta.saldo = redondear(cuenta.saldo - montoCredito);
@@ -140,6 +169,8 @@ export async function POST(req: NextRequest) {
     total,
     montoCredito,
     montoEfectivo,
+    montoTarjeta,
+    tarjeta,
     estado: sePagaAhora ? "pagada" : "pendiente",
     motivo,
     usuarioId: session.userId,
