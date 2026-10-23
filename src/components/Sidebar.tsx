@@ -43,6 +43,11 @@ import {
   Presentation,
   Search,
   MessageCircle,
+  Route,
+  Gauge,
+  Apple,
+  ListChecks,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { opcionesBusqueda, type ResultadoBusqueda } from "@/lib/busqueda";
@@ -130,6 +135,17 @@ const MATRIZ_NAV: NavCategory[] = [
     items: [
       { href: "/matriz/inventario", label: "Inventario", icon: Warehouse },
       { href: "/matriz/pedidos", label: "Pedidos", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Operación CEDIS",
+    icon: Route,
+    items: [
+      { href: "/matriz/rutas", label: "Rol de entregas", icon: Route },
+      { href: "/matriz/minimos", label: "Mínimos y productos clave", icon: Gauge },
+      { href: "/matriz/perecederos", label: "Rotación de perecederos", icon: Apple },
+      { href: "/matriz/faltantes", label: "Faltantes del día", icon: ListChecks },
+      { href: "/matriz/reglas-surtido", label: "Reglas de surtido", icon: SlidersHorizontal },
     ],
   },
   {

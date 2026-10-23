@@ -24,6 +24,19 @@ const ProductoSchema = new Schema(
     existenciaMatriz: { type: Number, required: true, default: 0 },
     stockMinimo: { type: Number, default: 0 },
     stockMaximo: { type: Number, default: 0 },
+    // Presentación de compra y surtido. 0 = el producto no se maneja por caja.
+    // Con esto el mínimo se captura en cajas ("20 cajas") y el prorrateo manda
+    // cajas cerradas en vez de piezas sueltas que hay que reempacar.
+    piezasPorCaja: { type: Number, default: 0, min: 0 },
+    cajasPorTarima: { type: Number, default: 0, min: 0 },
+    // Mínimo en temporada alta (diciembre). 0 = se usa el mínimo normal por el
+    // factor de temporada de la configuración de operación.
+    minimoTemporadaAlta: { type: Number, default: 0, min: 0 },
+    // Productos que el coordinador vigila a diario en la tabla de mínimos.
+    esClave: { type: Boolean, default: false },
+    // Días que aguanta en almacén antes de madurar de más (plátano dominico:
+    // 4 a 7). 0 = no es perecedero o no se controla su rotación.
+    vidaUtilDias: { type: Number, default: 0, min: 0 },
     proveedorPreferidoId: { type: Schema.Types.ObjectId, ref: "Proveedor", default: null },
     activo: { type: Boolean, default: true },
   },

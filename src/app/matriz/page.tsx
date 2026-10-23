@@ -12,6 +12,8 @@ import { Card, PageHeader, Button, EmptyState } from "@/components/ui";
 import { VentasChart } from "@/components/matriz/VentasChart";
 import { StockBajoCard } from "@/components/matriz/StockBajoCard";
 import { AgotadosEnPisoCard } from "@/components/matriz/AgotadosEnPisoCard";
+import { obtenerConfiguracionOperacion, hoyCedis } from "@/lib/operacion";
+import { maximoVigente, minimoVigente } from "@/lib/minimos";
 
 export const dynamic = "force-dynamic";
 
@@ -28,15 +30,18 @@ export default async function MatrizDashboard() {
       Producto.find({ activo: true }).lean(),
     ]);
 
+  // Con el mínimo vigente: en temporada alta (diciembre) los mínimos suben.
+  const [operacion, hoy] = await Promise.all([obtenerConfiguracionOperacion(), hoyCedis()]);
   const stockBajo = productos
-    .filter((p) => p.stockMinimo > 0 && p.existenciaMatriz <= p.stockMinimo)
-    .map((p) => ({
+    .map((p) => ({ p, minimo: minimoVigente(p, hoy, operacion.temporadaAlta), maximo: maximoVigente(p, hoy, operacion.temporadaAlta) }))
+    .filter(({ p, minimo }) => minimo > 0 && p.existenciaMatriz <= minimo)
+    .map(({ p, minimo, maximo }) => ({
       _id: String(p._id),
       nombre: p.nombre,
       existenciaMatriz: p.existenciaMatriz,
       unidad: p.unidad,
-      stockMinimo: p.stockMinimo,
-      diferencia: Math.max(0, p.stockMaximo - p.existenciaMatriz),
+      stockMinimo: minimo,
+      diferencia: Math.max(0, maximo - p.existenciaMatriz),
     }));
 
   return (

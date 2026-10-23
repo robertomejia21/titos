@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db";
 import Producto from "@/models/Producto";
 import MovimientoInventario from "@/models/MovimientoInventario";
 import { requireSession, unauthorized, forbidden, badRequest, notFound, puede, sinPermiso } from "@/lib/apiAuth";
+import { generarSegundaVuelta } from "@/lib/segundaVuelta";
+import { obtenerConfiguracionOperacion } from "@/lib/operacion";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
@@ -40,5 +42,14 @@ export async function POST(req: NextRequest) {
     usuarioId: session.userId,
   });
 
-  return NextResponse.json({ producto, movimiento }, { status: 201 });
+  // Llegó mercancía: si había pedidos que quedaron cortos, se arma su segunda
+  // vuelta igual que al recibir una orden de compra.
+  const segundaVuelta = (await obtenerConfiguracionOperacion()).segundaVuelta?.automatica !== false
+    ? await generarSegundaVuelta({ productoIds: [String(producto._id)] }).catch((error) => {
+        console.error("Error al armar la segunda vuelta", error);
+        return null;
+      })
+    : null;
+
+  return NextResponse.json({ producto, movimiento, segundaVuelta }, { status: 201 });
 }

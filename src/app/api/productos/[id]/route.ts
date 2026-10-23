@@ -27,6 +27,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     "existenciaMatriz",
     "stockMinimo",
     "stockMaximo",
+    "piezasPorCaja",
+    "cajasPorTarima",
+    "minimoTemporadaAlta",
+    "esClave",
+    "vidaUtilDias",
     "activo",
   ];
   const update: Record<string, unknown> = {};

@@ -27,7 +27,9 @@
     "diagnostico:fiscal": "tsx --env-file=.env.local scripts/diagnostico-fiscal.ts",
     "check:buscar": "tsx scripts/check-buscar-producto.ts",
     "check:impuestos": "tsx scripts/check-impuestos.ts",
-    "check:whatsapp": "tsx scripts/check-whatsapp-contactos.ts"
+    "check:whatsapp": "tsx scripts/check-whatsapp-contactos.ts",
+    "check:operacion": "tsx scripts/check-operacion-cedis.ts",
+    "seed:operacion": "tsx --env-file=.env.local scripts/seed-operacion-cedis.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

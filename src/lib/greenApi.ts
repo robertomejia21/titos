@@ -393,7 +393,7 @@ export async function sendFileByUrl(phone: string, urlFile: string, fileName: st
   return res.json() as Promise<{ idMessage: string }>;
 }
 
-export async function sendFileByUpload(phone: string, fileBase64: string, fileName: string, caption: string) {
+export async function sendFileByUpload(phone: string, fileBase64: string, fileName: string, caption: string, mime = "application/pdf") {
   requireEnv();
   const url = `${mediaUrl()}/waInstance${INSTANCE_ID}/sendFileByUpload/${API_TOKEN}`;
   // FormData pone el boundary y manda el PDF como binario: armarlo a mano y
@@ -404,7 +404,7 @@ export async function sendFileByUpload(phone: string, fileBase64: string, fileNa
   form.append("caption", caption);
   form.append(
     "file",
-    new Blob([new Uint8Array(Buffer.from(fileBase64, "base64"))], { type: "application/pdf" }),
+    new Blob([new Uint8Array(Buffer.from(fileBase64, "base64"))], { type: mime }),
     fileName
   );
   const res = await fetch(url, { method: "POST", body: form });

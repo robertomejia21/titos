@@ -13,12 +13,14 @@ import { escaparCorte } from "@/lib/corteDiario";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
 import { imprimirHTML } from "@/lib/print";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
+import { MOTIVOS_RECHAZO, MOTIVO_RECHAZO_LABEL, type MotivoRechazo } from "@/lib/motivosRechazo";
+import { EvidenciasRecepcion } from "@/components/matriz/EvidenciasRecepcion";
 type Necesidad = {
   _id: string;
   productoId: string;
   nombreProducto: string;
   cantidadRequerida: number;
-  motivo: "faltante_pedido" | "producto_nuevo" | "manual" | "agotado_venta";
+  motivo: "faltante_pedido" | "producto_nuevo" | "manual" | "agotado_venta" | "bajo_minimo";
 };
 
 type Proveedor = { _id: string; nombre: string; whatsapp?: string };
@@ -26,7 +28,7 @@ type Categoria = { _id: string; nombre: string };
 
 type Empleado = { _id: string; nombre: string; puesto: string; whatsapp: string };
 
-type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number; fiscal?: FiscalProducto };
+type ProductoOpcion = { _id: string; sku: string; nombre: string; unidad: "pieza" | "kg"; precioCompra: number; fiscal?: FiscalProducto; existenciaMatriz?: number; stockMaximo?: number };
 
 type CostoProveedor = { proveedorId: string; nombre: string; costoUnitario: number; esPrincipal: boolean };
 
@@ -58,6 +60,9 @@ type OrdenItem = {
   cantidadRecibida: number | null;
   notaRecepcion?: string;
   necesidadId?: string | null;
+  cantidadRechazada?: number;
+  motivoRechazo?: MotivoRechazo | "";
+  existenciaPrevia?: number | null;
 };
 
 type EstadoOrden = "borrador" | "solicitada" | "recibida" | "cancelada";
@@ -73,6 +78,14 @@ type Orden = {
   fechaSolicitud: string | null;
   fechaRecepcion: string | null;
   fechaCancelacion: string | null;
+  avisoRecepcion?: { estado: string; errores: string[] } | null;
+};
+
+const AVISO_LABEL: Record<string, string> = {
+  enviado: "Se avisó por WhatsApp a Compras y al proveedor.",
+  parcial: "El aviso llegó solo a algunos destinatarios.",
+  fallido: "No se pudo mandar el aviso por WhatsApp.",
+  sin_destinatarios: "No se mandó aviso: falta el WhatsApp de Compras (Configuración → Alertas) o del proveedor.",
 };
 
 type Solicitud = {
@@ -90,6 +103,7 @@ const MOTIVO_LABEL: Record<string, string> = {
   producto_nuevo: "Producto nuevo",
   agotado_venta: "Agotado en piso",
   manual: "Agregado manual",
+  bajo_minimo: "Bajo mínimo",
 };
 
 function nombreProveedor(orden: Orden) {
@@ -340,6 +354,11 @@ function OrdenModal({
     Object.fromEntries(orden.items.map((i) => [i.productoId, String(i.cantidadOrdenada)]))
   );
   const [notas, setNotas] = useState<Record<string, string>>({});
+  // Devolución en el andén: cuánto se le regresa al proveedor y por qué.
+  const [rechazos, setRechazos] = useState<Record<string, string>>({});
+  const [motivos, setMotivos] = useState<Record<string, MotivoRechazo | "">>({});
+  const [avisarProveedor, setAvisarProveedor] = useState(true);
+  const [resultadoRecepcion, setResultadoRecepcion] = useState<string | null>(null);
   const [moneda, setMoneda] = useState("MXN");
   const [tipoCambioProveedor, setTipoCambioProveedor] = useState("1");
   const [servicio, setServicio] = useState("0");
@@ -432,14 +451,21 @@ function OrdenModal({
     setError(null);
     try {
       if (items.some((i) => !recepcion[i.productoId]?.trim())) throw new Error("Captura la cantidad recibida de cada producto; usa cero si no llegó.");
+      const sinMotivo = items.find((i) => Number(rechazos[i.productoId] || 0) > 0 && !motivos[i.productoId]);
+      if (sinMotivo) throw new Error(`Indica por qué se rechaza ${sinMotivo.nombreProducto}.`);
       const res = await fetch(`/api/ordenes-compra/${orden._id}/recibir`, {
         method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({financiero:{moneda,tipoCambio:Number(tipoCambioProveedor),servicio:Number(servicio),descuento:Number(descuentoRecepcion),observaciones:observacionesRecepcion},items: items.map((i) => ({productoId: i.productoId,costoUnitario:i.precioUnitario,
-          cantidadRecibida: Number(recepcion[i.productoId]), notaRecepcion: notas[i.productoId] ?? ""}))}),
+        body: JSON.stringify({avisarProveedor,financiero:{moneda,tipoCambio:Number(tipoCambioProveedor),servicio:Number(servicio),descuento:Number(descuentoRecepcion),observaciones:observacionesRecepcion},items: items.map((i) => ({productoId: i.productoId,costoUnitario:i.precioUnitario,
+          cantidadRecibida: Number(recepcion[i.productoId]), notaRecepcion: notas[i.productoId] ?? "",
+          cantidadRechazada: Number(rechazos[i.productoId] || 0), motivoRechazo: motivos[i.productoId] || ""}))}),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "No se pudo registrar la recepción");
       setItems(data.items);
+      const avisos = [AVISO_LABEL[data.avisoRecepcion?.estado] ?? ""];
+      const complementos: { folio: string; sucursalNombre: string }[] = data.segundaVuelta?.complementos ?? [];
+      if (complementos.length) avisos.push(`Segunda vuelta lista para surtir: ${complementos.map((c) => `${c.folio} (${c.sucursalNombre})`).join(", ")}.`);
+      setResultadoRecepcion(avisos.filter(Boolean).join(" "));
       onUpdated({...data, proveedorId: orden.proveedorId});
     } catch (error) { setError((error as Error).message); }
     finally { setSaving(false); }
@@ -455,6 +481,7 @@ function OrdenModal({
       open
       onClose={onClose}
       title={`${nombreProveedor(orden)} · ${orden.folio}`}
+      size={orden.estado === "solicitada" || orden.estado === "recibida" ? "xl" : "md"}
       footer={
         <>
           <Button variant="ghost" onClick={() => imprimirHTML(`Orden ${orden.folio}`, (orden.recepcionCostos ? `<p>Recepción ${escaparCorte(orden.recepcionCostos.folio)} · ${escaparCorte(orden.recepcionCostos.sucursalNombre)}</p>` : "") + htmlImprimibleOrden(orden))}>
@@ -495,8 +522,10 @@ function OrdenModal({
         <span className="text-xs text-black/40">{fechaRelevante(orden)}</span>
       </div>
 
-      {orden.estado === "solicitada" ? <p className="mb-3 text-sm text-black/70">Captura lo que llegó y anota cualquier diferencia. Confirmar cierra esta recepción; la cantidad ordenada se conserva.</p> : null}
+      {orden.estado === "solicitada" ? <p className="mb-3 text-sm text-black/70">Captura lo que se recibe y, si algo se le regresa al proveedor, cuánto y por qué. Revisa la existencia actual antes de aceptar de más. Confirmar cierra esta recepción; la cantidad ordenada se conserva.</p> : null}
       {error ? <p role="alert" className="mb-2 text-sm text-red-600">{error}</p> : null}
+      {resultadoRecepcion ? <p role="status" className="mb-2 rounded-lg bg-titos-green-100 px-3 py-2 text-sm text-titos-green-900">{resultadoRecepcion}</p> : null}
+      {orden.estado === "recibida" && !resultadoRecepcion && orden.avisoRecepcion && AVISO_LABEL[orden.avisoRecepcion.estado] ? <p className="mb-2 text-xs text-black/50">{AVISO_LABEL[orden.avisoRecepcion.estado]}</p> : null}
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -506,8 +535,10 @@ function OrdenModal({
               <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Cantidad</th>
               <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Precio unit.</th>
               <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Subtotal</th>
+              {orden.estado === "solicitada" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Hay en CEDIS</th> : null}
               {orden.estado === "solicitada" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
               {orden.estado === "recibida" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
+              {orden.estado === "solicitada" || orden.estado === "recibida" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Se regresa</th> : null}
               {!editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Nota de recepción</th> : null}
               {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" /> : null}
             </tr>
@@ -550,6 +581,27 @@ function OrdenModal({
                     <span className="ml-1 text-xs text-amber-600">(ajustado)</span>
                   ) : null}
                 </td>
+                {orden.estado === "solicitada" ? (() => {
+                  // Control de existencia antes de recibir (el caso de las fresas:
+                  // había 10 y llegan 30). Si con lo recibido se pasa del máximo,
+                  // se sugiere cuánto aceptar y regresar el resto.
+                  const producto = productos.find((p) => p._id === item.productoId);
+                  const existencia = producto?.existenciaMatriz ?? 0;
+                  const maximo = producto?.stockMaximo ?? 0;
+                  const quedaria = existencia + Number(recepcion[item.productoId] || 0);
+                  const excede = maximo > 0 && quedaria > maximo;
+                  return (
+                    <td className="whitespace-nowrap px-2 py-1.5 text-xs">
+                      <span className="font-semibold">{existencia}</span>
+                      {maximo > 0 ? <span className="text-black/40"> / máx {maximo}</span> : null}
+                      {excede ? (
+                        <p className="mt-1 max-w-48 whitespace-normal font-medium text-amber-800">
+                          Sobreinventario: quedarían {quedaria}. Sugerido recibir {Math.max(0, maximo - existencia)}.
+                        </p>
+                      ) : null}
+                    </td>
+                  );
+                })() : null}
                 {orden.estado === "solicitada" ? (
                   <td className="px-2 py-1.5">
                     <Input
@@ -568,6 +620,48 @@ function OrdenModal({
                   <td className="px-2 py-1.5">
                     {item.cantidadRecibida}
                     <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={item.cantidadRecibida} referencia="lo ordenado" />
+                    {item.existenciaPrevia != null ? <p className="mt-0.5 text-xs text-black/40">Había {item.existenciaPrevia} antes de recibir</p> : null}
+                  </td>
+                ) : null}
+                {orden.estado === "solicitada" ? (
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      aria-label={`Cantidad que se regresa de ${item.nombreProducto}`}
+                      value={rechazos[item.productoId] ?? ""}
+                      placeholder="0"
+                      onChange={(e) => setRechazos((prev) => ({ ...prev, [item.productoId]: e.target.value }))}
+                      className="w-20"
+                    />
+                    {Number(rechazos[item.productoId] || 0) > 0 ? (
+                      <Select
+                        value={motivos[item.productoId] ?? ""}
+                        onChange={(e) => setMotivos((prev) => ({ ...prev, [item.productoId]: e.target.value as MotivoRechazo }))}
+                        className="mt-1 w-44 text-xs"
+                        aria-label={`Motivo del rechazo de ${item.nombreProducto}`}
+                      >
+                        <option value="">— Motivo —</option>
+                        {MOTIVOS_RECHAZO.map((m) => (
+                          <option key={m} value={m}>
+                            {MOTIVO_RECHAZO_LABEL[m]}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : null}
+                  </td>
+                ) : null}
+                {orden.estado === "recibida" ? (
+                  <td className="px-2 py-1.5 text-xs">
+                    {item.cantidadRechazada ? (
+                      <>
+                        <span className="font-semibold text-red-700">{item.cantidadRechazada}</span>
+                        <p className="text-black/50">{item.motivoRechazo ? MOTIVO_RECHAZO_LABEL[item.motivoRechazo] : ""}</p>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 ) : null}
                 {!editable ? <td className="px-2 py-1.5">
@@ -606,6 +700,15 @@ function OrdenModal({
         <strong>Total: {formatMoney(orden.recepcionCostos.total)} {orden.recepcionCostos.moneda}</strong>
         <p className="whitespace-pre-wrap">{orden.recepcionCostos.observaciones}</p>
       </section>}
+      {orden.estado === "solicitada" || orden.estado === "recibida" ? (
+        <EvidenciasRecepcion ordenId={orden._id} editable={orden.estado === "solicitada"} productos={items.map((i) => ({ productoId: i.productoId, nombreProducto: i.nombreProducto }))} />
+      ) : null}
+      {orden.estado === "solicitada" ? (
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={avisarProveedor} onChange={(e) => setAvisarProveedor(e.target.checked)} />
+          Si hay rechazos o faltantes, avisar también al proveedor por WhatsApp (a Compras se le avisa siempre)
+        </label>
+      ) : null}
       {orden.estado === "solicitada" && <section className="mt-4 space-y-3 rounded border border-black/20 p-3">
         <h3 className="font-semibold">Costos de recepción</h3>
         {resumenRecepcion && <p aria-live="polite">Subtotal: {formatMoney(resumenRecepcion.subtotal)} · IVA: {formatMoney(resumenRecepcion.iva)} · IEPS: {formatMoney(resumenRecepcion.ieps)} · Total: {formatMoney(resumenRecepcion.total)} {moneda}</p>}

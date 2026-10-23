@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { requireSession, unauthorized } from "@/lib/apiAuth";
 import { revisarPedidosAtrasados } from "@/lib/alertasPedidos";
+import { revisarFaltantesProgramados } from "@/lib/faltantesDiarios";
 
 // Barrido de pedidos atrasados. Lo llama el cron de Vercel (ver vercel.json), que
 // manda `Authorization: Bearer $CRON_SECRET`. La frecuencia depende del plan:
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
   const resultado = await revisarPedidosAtrasados();
+  // El mismo barrido manda, una vez al día, la lista de faltantes a
+  // proveedores, Compras y almacén (ver Reglas de surtido).
+  const faltantes = await revisarFaltantesProgramados().catch((error) => ({ enviado: false, motivo: (error as Error).message }));
 
-  return NextResponse.json(resultado);
+  return NextResponse.json({ ...resultado, faltantes });
 }

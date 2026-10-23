@@ -31,6 +31,12 @@ export const OPCIONES_BUSQUEDA: ResultadoBusqueda[] = [
   { label: "Solicitudes de producto nuevo", href: "/matriz/ordenes-compra?tab=solicitudes", grupo: "Compras" },
   { label: "Pedidos pendientes por nivelar", href: "/matriz/pedidos?tab=pendiente", grupo: "Inventario" },
   { label: "Pedidos listos para surtir", href: "/matriz/pedidos?tab=nivelado", grupo: "Inventario" },
+  { label: "Rol de entregas y choferes", href: "/matriz/rutas", grupo: "Operación CEDIS", palabras: "rutas camionetas estaquitas forte home chef vuelta pantalla tv folios" },
+  { label: "Segundas vueltas", href: "/matriz/pedidos?tab=segunda-vuelta", grupo: "Operación CEDIS", palabras: "complemento faltante surtido parcial" },
+  { label: "Mínimos y productos clave", href: "/matriz/minimos", grupo: "Operación CEDIS", palabras: "cajas tarima temporada diciembre stock minimo" },
+  { label: "Rotación de perecederos", href: "/matriz/perecederos", grupo: "Operación CEDIS", palabras: "maduro merma platano vida util caducidad" },
+  { label: "Faltantes del día", href: "/matriz/faltantes", grupo: "Operación CEDIS", palabras: "proveedor whatsapp diferencias devoluciones" },
+  { label: "Reglas de surtido", href: "/matriz/reglas-surtido", grupo: "Operación CEDIS", palabras: "prorrateo prioridad tiendas temporada alta pantalla" },
   { label: "Kardex Global", href: "/matriz/reportes/productos", grupo: "Reportes", palabras: "comparacion ventas producto rotacion variante presentacion mas menos vendido" },
 ];
 

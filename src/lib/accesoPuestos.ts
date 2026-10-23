@@ -63,6 +63,16 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (recurso === "motivos-pos") return get ? tiene("pos.vender") : tiene("configuracion.editar");
   if (recurso === "ventas2") return tiene("notasventa.administrar");
   if (recurso === "alertas-inventario") return tiene("inventario.administrar");
+  if (recurso === "operacion") {
+    // Rutas, unidades, rol del día y segunda vuelta son de quien surte; mínimos
+    // y perecederos, del inventario (Compras los consulta); faltantes, de Compras.
+    const seccion = parte[2];
+    if (["catalogo", "vehiculos", "rutas", "rol", "segunda-vuelta"].includes(seccion)) return tiene("pedidos.surtir");
+    if (["minimos", "perecederos"].includes(seccion)) return tiene("inventario.administrar") || (get && tiene("compras.administrar"));
+    if (seccion === "faltantes") return tiene("compras.administrar");
+    if (seccion === "config") return tiene("configuracion.editar") || (get && tiene("pedidos.surtir", "inventario.administrar"));
+    return false;
+  }
   return false;
 }
 
