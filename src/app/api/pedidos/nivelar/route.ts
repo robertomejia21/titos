@@ -3,7 +3,8 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import Producto from "@/models/Producto";
 import NecesidadCompra from "@/models/NecesidadCompra";
-import { nivelar } from "@/lib/nivelador";
+import { prorratear, type CriterioProrrateo } from "@/lib/prorrateo";
+import { mapaPrioridades, obtenerConfiguracionOperacion } from "@/lib/operacion";
 import { requireSession, unauthorized, forbidden, puede, sinPermiso } from "@/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
   if (corte) filter.corte = corte;
 
   const pedidos = await Pedido.find(filter).sort({ fecha: 1 });
+  // La escasez se reparte con el criterio y la prioridad de tiendas que el
+  // CEDIS tenga configurados en Reglas de surtido.
+  const operacion = await obtenerConfiguracionOperacion();
+  const criterio = (operacion.criterioProrrateo ?? "caja_completa") as CriterioProrrateo;
+  const prioridades = mapaPrioridades(operacion);
 
   if (pedidos.length === 0) {
     return NextResponse.json({
@@ -60,9 +66,10 @@ export async function POST(req: NextRequest) {
     const demandas = Array.from(demandaPorSucursal.entries()).map(([sucursalId, cantidad]) => ({
       sucursalId,
       cantidad,
+      prioridad: prioridades.get(sucursalId),
     }));
 
-    const asignaciones = nivelar(producto.existenciaMatriz, demandas);
+    const asignaciones = prorratear(producto.existenciaMatriz, demandas, { criterio, piezasPorCaja: producto.piezasPorCaja ?? 0 });
     const restantePorSucursal = new Map(asignaciones.map((a) => [a.sucursalId, a.cantidadAsignada]));
 
     // Repartir la asignación total de cada sucursal entre sus renglones de ese
@@ -108,6 +115,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     mensaje: "Nivelador ejecutado",
     procesados: pedidos.length,
+    criterio,
     necesidadesCompra: necesidadesGeneradas,
   });
 }

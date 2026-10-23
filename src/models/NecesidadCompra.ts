@@ -7,7 +7,9 @@ const NecesidadCompraSchema = new Schema(
     cantidadRequerida: { type: Number, required: true },
     // "agotado_venta": una venta dejó el producto en cero en alguna tienda y la
     // alerta al área de compras lo empujó a esta lista (ver AlertaInventarioCero).
-    motivo: { type: String, enum: ["faltante_pedido", "producto_nuevo", "manual", "agotado_venta"], required: true },
+    // "bajo_minimo": la existencia del CEDIS quedó por debajo del mínimo vigente
+    // (con temporada alta incluida) y se generó desde la tabla de mínimos.
+    motivo: { type: String, enum: ["faltante_pedido", "producto_nuevo", "manual", "agotado_venta", "bajo_minimo"], required: true },
     pedidosOrigen: [{ type: Schema.Types.ObjectId, ref: "Pedido" }],
     estado: { type: String, enum: ["pendiente", "asignada"], default: "pendiente" },
     ordenCompraId: { type: Schema.Types.ObjectId, ref: "OrdenCompra", default: null },

@@ -11,6 +11,7 @@ import { fechaEnZona, formatFechaHora, sumarDias, ZONA_HORARIA_DEFAULT } from "@
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { categoriaLabel } from "@/lib/categorias";
 import { montoLineaPedido } from "@/lib/montoPedido";
+import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
 
 // Frutas y verduras y carnicería se surten directo, sin empacar en cajas selladas.
 const CATEGORIAS_SIN_CAJAS = ["frutas_verduras", "carniceria"];
@@ -31,6 +32,7 @@ type Item = {
   cantidadRecibida: number | null;
   notaRecepcion?: string;
   pesoRecibidoKg: number | null;
+  cantidadComplementada?: number;
 };
 
 type CajaItem = { productoId: string; nombreProducto: string; cantidad: number };
@@ -40,6 +42,8 @@ type Pedido = {
   _id: string;
   folio: string;
   estado: "pendiente" | "nivelado" | "surtido" | "recibido";
+  vuelta?: number;
+  pedidoOrigenId?: string | null;
   corte: string;
   fecha: string;
   sucursalId: { _id: string; nombre: string; whatsapp?: string } | string;
@@ -64,8 +68,131 @@ function nombreUsuario(valor: Pedido["surtidoPorId"]) {
 const TABS = [
   { value: "pendiente", label: "Pendientes" },
   { value: "nivelado", label: "Nivelados (listos para surtir)" },
+  { value: "segunda-vuelta", label: "Segundas vueltas" },
   { value: "historial", label: "Historial" },
 ] as const;
+
+function VueltaBadge({ pedido }: { pedido: Pedido }) {
+  return pedido.vuelta === 2 ? (
+    <span className="ml-1 rounded bg-titos-orange-100 px-1 text-[11px] font-semibold text-titos-orange-700" title="Complemento de segunda vuelta">
+      V2
+    </span>
+  ) : null;
+}
+
+type PedidoConFaltante = {
+  _id: string;
+  folio: string;
+  sucursalNombre: string;
+  estado: string;
+  items: { productoId: string; nombreProducto: string; unidad: string; cantidadPedida: number; mandado: number; complementado: number; faltante: number; existenciaMatriz: number }[];
+};
+
+/**
+ * Pedidos que quedaron cortos y lo que hay hoy para completarlos. Normalmente
+ * la segunda vuelta se arma sola al recibir mercancía; esto es para verla y
+ * para armarla a mano si hace falta.
+ */
+function SegundaVueltaPanel({ onArmada }: { onArmada: () => void }) {
+  const [pedidos, setPedidos] = useState<PedidoConFaltante[] | null>(null);
+  const [armando, setArmando] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<string | null>(null);
+
+  async function cargar() {
+    const res = await fetch("/api/operacion/segunda-vuelta");
+    setPedidos(res.ok ? await res.json() : []);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de faltantes
+    cargar();
+  }, []);
+
+  async function armar(pedidoIds?: string[]) {
+    setArmando(pedidoIds?.[0] ?? "todos");
+    setResultado(null);
+    const res = await fetch("/api/operacion/segunda-vuelta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pedidoIds ? { pedidoIds } : {}),
+    });
+    setArmando(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return setResultado(data.error || "No se pudo armar la segunda vuelta");
+    const complementos: { folio: string; sucursalNombre: string }[] = data.complementos ?? [];
+    const sinExistencia = data.sinExistencia?.length ? ` Siguen sin existencia: ${data.sinExistencia.join(", ")}.` : "";
+    setResultado(
+      complementos.length
+        ? `Listo: ${complementos.map((c) => `${c.folio} (${c.sucursalNombre})`).join(", ")}. Ya aparecen en Nivelados para surtir.${sinExistencia}`
+        : `No hay existencia para completar nada todavía.${sinExistencia}`
+    );
+    cargar();
+    onArmada();
+  }
+
+  if (!pedidos) return <p className="text-sm text-black/50">Cargando...</p>;
+
+  const conExistencia = pedidos.some((p) => p.items.some((i) => i.existenciaMatriz > 0));
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-3xl text-sm text-black/60">
+            Cuando llega mercancía (orden de compra o entrada de inventario) el sistema arma solo el complemento de estos pedidos con el mismo criterio de
+            prorrateo. El pedido original no cambia: el complemento sale con folio <strong>-V2</strong> en la segunda vuelta.
+          </p>
+          <Button onClick={() => armar()} disabled={!!armando || !conExistencia} title={conExistencia ? undefined : "No hay existencia de ningún faltante"}>
+            {armando === "todos" ? "Armando..." : "Armar segunda vuelta con lo que hay"}
+          </Button>
+        </div>
+        {resultado ? <p className="mt-2 text-sm text-titos-green-700">{resultado}</p> : null}
+      </Card>
+      {pedidos.length === 0 ? (
+        <EmptyState message="No hay pedidos con faltante en los últimos días." />
+      ) : (
+        pedidos.map((p) => (
+          <Card key={p._id} className="p-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold">
+                {p.sucursalNombre} <span className="text-sm font-normal text-black/40">{p.folio}</span>
+              </p>
+              <Button size="sm" variant="ghost" onClick={() => armar([p._id])} disabled={!!armando || !p.items.some((i) => i.existenciaMatriz > 0)}>
+                {armando === p._id ? "Armando..." : "Completar este pedido"}
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-xs text-black/50">
+                    <th className="px-2 py-1 font-medium">Producto</th>
+                    <th className="px-2 py-1 text-right font-medium">Pidió</th>
+                    <th className="px-2 py-1 text-right font-medium">1ª vuelta</th>
+                    <th className="px-2 py-1 text-right font-medium">Complementado</th>
+                    <th className="px-2 py-1 text-right font-medium">Falta</th>
+                    <th className="px-2 py-1 text-right font-medium">Hay en CEDIS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.items.map((i) => (
+                    <tr key={i.productoId} className="border-b border-black/5">
+                      <td className="px-2 py-1">{i.nombreProducto}</td>
+                      <td className="px-2 py-1 text-right">{i.cantidadPedida}</td>
+                      <td className="px-2 py-1 text-right">{i.mandado}</td>
+                      <td className="px-2 py-1 text-right">{i.complementado || "—"}</td>
+                      <td className="px-2 py-1 text-right font-semibold text-red-600">{i.faltante}</td>
+                      <td className={`px-2 py-1 text-right ${i.existenciaMatriz > 0 ? "font-semibold text-titos-green-700" : "text-black/40"}`}>{i.existenciaMatriz}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
 
 function categoriaDe(item: Item) {
   return item.categoria || "otros";
@@ -403,7 +530,7 @@ function PedidoModal({
         onRefrescar();
         onClose();
       }}
-      title={`${nombreSucursal(pedido)} · ${pedido.folio}`}
+      title={`${nombreSucursal(pedido)} · ${pedido.folio}${pedido.vuelta === 2 ? " · Segunda vuelta" : ""}`}
       footer={
         <Button variant="ghost" onClick={() => imprimirHTML(`Pedido ${pedido.folio}`, htmlImprimiblePedido(pedido))}>
           Imprimir
@@ -827,6 +954,7 @@ export function PedidosManager() {
   }, []);
 
   const visibles = useMemo(() => {
+    if (tab === "segunda-vuelta") return [];
     if (tab === "historial") return pedidos.filter((p) => p.estado === "surtido" || p.estado === "recibido");
     return pedidos.filter((p) => p.estado === tab);
   }, [pedidos, tab]);
@@ -852,10 +980,11 @@ export function PedidosManager() {
     }
 
     const necesidades = data.necesidadesCompra?.length ?? 0;
+    const criterio = data.criterio ? ` Criterio: ${CRITERIO_LABEL[data.criterio as CriterioProrrateo]}.` : "";
     setResultadoNivelador(
-      `Nivelador ejecutado sobre ${data.procesados} pedido(s).${
+      `Nivelador ejecutado sobre ${data.procesados} pedido(s).${criterio}${
         necesidades > 0
-          ? ` Se generaron ${necesidades} necesidad(es) de compra por faltante — revísalas en Órdenes de compra.`
+          ? ` Se generaron ${necesidades} necesidad(es) de compra por faltante — revísalas en Órdenes de compra. Lo que falte se completa en la segunda vuelta en cuanto llegue.`
           : " Toda la demanda quedó cubierta."
       }`
     );
@@ -916,7 +1045,9 @@ export function PedidosManager() {
         ))}
       </div>
 
-      {loading ? (
+      {tab === "segunda-vuelta" ? (
+        <SegundaVueltaPanel onArmada={cargar} />
+      ) : loading ? (
         <p className="text-sm text-black/50">Cargando...</p>
       ) : visibles.length === 0 ? (
         <EmptyState message="No hay pedidos en esta vista." />
@@ -940,7 +1071,10 @@ export function PedidosManager() {
                 {paginaPedidos.map((p) => (
                   <tr key={p._id} className="border-b border-black/5">
                     <td className="max-w-[16rem] truncate px-2 py-1.5 font-medium" title={nombreSucursal(p)}>{nombreSucursal(p)}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{p.folio}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/40">
+                      {p.folio}
+                      <VueltaBadge pedido={p} />
+                    </td>
                     <td className="whitespace-nowrap px-2 py-1.5">
                       <EstadoBadge estado={p.estado} />
                     </td>

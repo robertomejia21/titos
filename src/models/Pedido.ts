@@ -33,6 +33,9 @@ const PedidoItemSchema = new Schema(
     notaRecepcion: { type: String, default: "", maxlength: 1000 },
     cantidadRecibida: { type: Number, default: null },
     pesoRecibidoKg: { type: Number, default: null },
+    // Lo que ya se mandó en segundas vueltas para completar este renglón. El
+    // faltante pendiente es lo pedido menos lo surtido menos esto.
+    cantidadComplementada: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -66,6 +69,11 @@ const PedidoSchema = new Schema(
     corte: { type: String, required: true }, // YYYY-MM-DD del corte de las 4pm al que pertenece
     estado: { type: String, enum: ESTADOS_PEDIDO, default: "pendiente" },
     repartidorId: { type: Schema.Types.ObjectId, ref: "Empleado", default: null },
+    // 1 = el pedido que levantó la tienda. 2 = el complemento que sale en la
+    // segunda vuelta con lo que faltó; apunta al original, que se conserva
+    // intacto como referencia de lo que se pidió.
+    vuelta: { type: Number, enum: [1, 2], default: 1 },
+    pedidoOrigenId: { type: Schema.Types.ObjectId, ref: "Pedido", default: null },
     items: { type: [PedidoItemSchema], default: [] },
     cajas: { type: [CajaSchema], default: [] },
 
@@ -86,6 +94,7 @@ const PedidoSchema = new Schema(
 // El barrido de alertas busca pedidos atorados por estado y antigüedad.
 PedidoSchema.index({ estado: 1, fecha: 1 });
 PedidoSchema.index({ estado: 1, surtidoEn: 1 });
+PedidoSchema.index({ pedidoOrigenId: 1 });
 
 export type Pedido = InferSchemaType<typeof PedidoSchema> & { _id: string };
 

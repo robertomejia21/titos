@@ -11,6 +11,9 @@ import { validarReglasOperacion } from "@/lib/reglasOperacion";
 import { costoRecepcion, type DetalleCostoRecepcion } from "@/lib/costosRecepcion";
 import FolioSecuencia from "@/models/FolioSecuencia";
 import { obtenerMostradorMatriz } from "@/lib/puntoVenta";
+import { avisarRecepcion } from "@/lib/avisoRecepcion";
+import { generarSegundaVuelta, type ResultadoSegundaVuelta } from "@/lib/segundaVuelta";
+import { obtenerConfiguracionOperacion } from "@/lib/operacion";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await requireSession(req);
@@ -40,8 +43,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const entrada = entradas.find((e) => e.productoId === String(item.productoId))!;
         item.cantidadRecibida = entrada.cantidadRecibida;
         item.notaRecepcion = entrada.notaRecepcion;
+        item.cantidadRechazada = entrada.cantidadRechazada;
+        item.motivoRechazo = entrada.motivoRechazo;
+        // findByIdAndUpdate devuelve el documento de ANTES del $inc: es la
+        // existencia previa que justifica un rechazo por sobreinventario.
         const producto = await Producto.findByIdAndUpdate(item.productoId, {$inc: {existenciaMatriz: entrada.cantidadRecibida}}, {session});
         if (!producto) throw new ErrorRecepcion(`El producto ${item.nombreProducto} ya no existe`);
+        item.existenciaPrevia = producto.existenciaMatriz;
         if (financiero) {
           const costo = body.items.find((i: {productoId: string})=>i.productoId===String(item.productoId))?.costoUnitario;
           if (typeof costo !== "number") throw new ErrorRecepcion("Captura el costo de todos los productos.");
@@ -68,7 +76,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await orden.save({session});
       return orden;
     });
-    return NextResponse.json(orden);
+
+    // Ya con la entrada guardada: aviso de rechazos/faltantes y complemento de
+    // los pedidos que quedaron cortos. Ninguno de los dos deshace la recepción
+    // si falla; el resultado viaja en la respuesta para que se vea en pantalla.
+    const aviso = await avisarRecepcion(orden._id, { avisarProveedor: body?.avisarProveedor !== false }).catch((error) => {
+      console.error("Error al avisar la recepción", error);
+      return null;
+    });
+    let segundaVuelta: ResultadoSegundaVuelta | null = null;
+    const recibidos = orden.items.filter((i: {cantidadRecibida?: number | null}) => (i.cantidadRecibida ?? 0) > 0).map((i: {productoId: unknown}) => String(i.productoId));
+    if (recibidos.length && (await obtenerConfiguracionOperacion()).segundaVuelta?.automatica !== false) {
+      segundaVuelta = await generarSegundaVuelta({ productoIds: recibidos }).catch((error) => {
+        console.error("Error al armar la segunda vuelta", error);
+        return null;
+      });
+    }
+    return NextResponse.json({ ...orden.toObject(), avisoRecepcion: aviso ?? orden.avisoRecepcion, segundaVuelta });
   } catch (error) {
     if (error instanceof ErrorRecepcion) return NextResponse.json({error: error.message}, {status: error.status});
     console.error("Error al recibir orden", error);
