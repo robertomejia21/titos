@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DaVinci · Octubre · Avances Mercados Titos</title>
+    <link rel="icon" href="img/logo-davinci.png" />
+    <style>
+      /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
+      :root {
+        --naranja: #f58634;
+        --naranja-claro: #ffa365;
+        --naranja-suave: #fff1e6;
+        --carbon: #373435;
+        --carbon-medio: #575253;
+        --carbon-suave: #f4f2f2;
+        --blanco: #ffffff;
+        --gris-linea: rgba(55, 52, 53, 0.12);
+        --gris-texto: rgba(55, 52, 53, 0.62);
+        --verde: #2f9e5f;
+        --sombra: 0 18px 50px rgba(55, 52, 53, 0.16);
+        --radio: 18px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: var(--carbon);
+        background: var(--blanco);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+      p { margin: 0; }
+
+      /* ── Barra de progreso de lectura ───────────────────────────────── */
+      .progreso {
+        position: fixed;
+        inset: 0 auto auto 0;
+        height: 4px;
+        width: 0;
+        background: linear-gradient(90deg, var(--naranja), var(--naranja-claro));
+        z-index: 100;
+        transition: width 0.1s linear;
+      }
+
+      /* ── Navegación superior ────────────────────────────────────────── */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 32px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .nav img { height: 34px; width: auto; display: block; }
+      .nav-marca { display: flex; align-items: center; gap: 12px; }
+      .nav-marca span {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .nav-marca small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--gris-texto);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      /* ── Selector de semana ─────────────────────────────────────────── */
+      .semanas {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--carbon-suave);
+        border: 1px solid var(--gris-linea);
+      }
+      .semanas a {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .semanas a.actual { background: var(--carbon); color: #fff; }
+      .semanas .indice {
+        display: grid;
+        place-items: center;
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas .indice:hover { background: var(--naranja); color: #fff; }
+
+      .nav-links { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+      .nav-links a {
+        padding: 7px 13px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+        white-space: nowrap;
+      }
+      .nav-links a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .nav-links a.activo { background: var(--naranja); color: #fff; }
+
+      /* ── Portada ────────────────────────────────────────────────────── */
+      .portada {
+        position: relative;
+        overflow: hidden;
+        padding: 90px 32px 80px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .portada::before,
+      .portada::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .portada::before {
+        width: 460px; height: 460px;
+        top: -220px; right: -140px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.42), transparent 68%);
+      }
+      .portada::after {
+        width: 380px; height: 380px;
+        bottom: -200px; left: -120px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.26), transparent 68%);
+      }
+      .portada > * { position: relative; z-index: 1; }
+      .portada .escudo {
+        display: inline-grid;
+        place-items: center;
+        width: 96px; height: 96px;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: var(--sombra);
+        margin-bottom: 26px;
+      }
+      .portada .escudo img { width: 60px; height: auto; display: block; }
+      .portada h1 { font-size: clamp(32px, 5.2vw, 54px); font-weight: 800; }
+      .portada h1 em { font-style: normal; color: var(--naranja-claro); }
+      .portada .bajada {
+        max-width: 640px;
+        margin: 18px auto 0;
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.76);
+      }
+      .etiqueta {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 999px;
+        background: rgba(245, 134, 52, 0.18);
+        border: 1px solid rgba(245, 134, 52, 0.42);
+        color: var(--naranja-claro);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 22px;
+      }
+
+      .metricas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        max-width: 880px;
+        margin: 44px auto 0;
+      }
+      .metrica {
+        padding: 20px 16px;
+        border-radius: var(--radio);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .metrica strong {
+        display: block;
+        font-size: 30px;
+        font-weight: 800;
+        color: var(--naranja-claro);
+        line-height: 1.1;
+      }
+      .metrica span {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.66);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Secciones ──────────────────────────────────────────────────── */
+      .seccion { padding: 76px 32px; max-width: 1180px; margin: 0 auto; }
+      .seccion.alterna { background: var(--carbon-suave); max-width: none; }
+      .seccion.alterna > .interior { max-width: 1180px; margin: 0 auto; }
+
+      .encabezado { margin-bottom: 38px; max-width: 720px; }
+      .numero {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        color: var(--naranja);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .encabezado h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
+      .encabezado p { margin-top: 12px; font-size: 16px; color: var(--gris-texto); }
+
+      /* ── Tarjetas de funcionalidad ──────────────────────────────────── */
+      .tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+        margin-bottom: 36px;
+      }
+      .tarjeta {
+        padding: 24px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .tarjeta:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--sombra);
+        border-color: rgba(245, 134, 52, 0.4);
+      }
+      .tarjeta .icono {
+        display: grid;
+        place-items: center;
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        background: var(--naranja-suave);
+        color: var(--naranja);
+        margin-bottom: 14px;
+      }
+      .tarjeta h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+      .tarjeta p { font-size: 14.5px; color: var(--gris-texto); }
+
+      /* ── Visor de capturas ──────────────────────────────────────────── */
+      .visor {
+        border-radius: var(--radio);
+        overflow: hidden;
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+        box-shadow: var(--sombra);
+      }
+      .pestanas {
+        display: flex;
+        gap: 4px;
+        padding: 10px 12px;
+        background: var(--carbon);
+        overflow-x: auto;
+      }
+      .pestanas button {
+        flex: 0 0 auto;
+        padding: 8px 15px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.68);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .pestanas button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      .pestanas button[aria-selected="true"] { background: var(--naranja); color: #fff; }
+
+      .lamina { display: none; }
+      .lamina.visible { display: block; }
+      .lamina figure { margin: 0; }
+      .lamina img {
+        display: block;
+        width: 100%;
+        height: auto;
+        cursor: zoom-in;
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .lamina figcaption {
+        padding: 16px 22px;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+        background: #fff;
+      }
+      .lamina figcaption strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Flujo de préstamos ─────────────────────────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+
+      /* ── Reglas destacadas ──────────────────────────────────────────── */
+      .reglas { display: grid; gap: 12px; margin-top: 28px; }
+      .regla {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 17px 20px;
+        border-radius: 14px;
+        background: var(--naranja-suave);
+        border-left: 4px solid var(--naranja);
+      }
+      .regla svg { flex: 0 0 auto; margin-top: 2px; color: var(--naranja); }
+      .regla p { font-size: 14.5px; }
+      .regla strong { font-weight: 700; }
+
+      /* ── Lightbox ───────────────────────────────────────────────────── */
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        background: rgba(55, 52, 53, 0.93);
+        cursor: zoom-out;
+      }
+      .lightbox.abierto { display: flex; }
+      .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+      }
+      .lightbox .cerrar {
+        position: absolute;
+        top: 20px; right: 26px;
+        width: 42px; height: 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+      }
+      .lightbox .cerrar:hover { background: var(--naranja); }
+
+      /* ── Cierre ─────────────────────────────────────────────────────── */
+      .cierre {
+        padding: 70px 32px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .cierre h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; }
+      .cierre p { margin-top: 14px; color: rgba(255, 255, 255, 0.7); }
+      .cierre img { height: 44px; width: auto; margin-bottom: 24px; filter: brightness(0) invert(1); }
+      .pie {
+        padding: 22px 32px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--gris-texto);
+        border-top: 1px solid var(--gris-linea);
+      }
+
+      .revelar {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+      .revelar.visible { opacity: 1; transform: none; }
+
+      @media (max-width: 720px) {
+        /* La barra se apila y cada grupo de enlaces se desliza por su cuenta:
+           con varias semanas ya no cabe todo en el ancho de un teléfono. */
+        .nav { padding: 12px 18px; flex-wrap: wrap; gap: 12px; }
+        .semanas,
+        .nav-links {
+          max-width: 100%;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .semanas::-webkit-scrollbar,
+        .nav-links::-webkit-scrollbar { display: none; }
+        .semanas a,
+        .nav-links a { white-space: nowrap; }
+        .nav-links { width: 100%; margin-left: 0; }
+        .seccion { padding: 52px 18px; }
+        .portada { padding: 60px 18px 56px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .revelar { opacity: 1; transform: none; transition: none; }
+      }
+    </style>
+    <style>
+      /* ── Comparativa antes / ahora ──────────────────────────────────── */
+      .comparativa {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        margin-top: 26px;
+      }
+      .caso {
+        padding: 26px 28px;
+        border-radius: var(--radio);
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+      }
+      .caso.antes { background: var(--carbon-suave); }
+      .caso.despues { border-color: rgba(245, 134, 52, 0.4); }
+      .caso .rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--gris-texto);
+      }
+      .caso.despues .rotulo { color: var(--naranja); }
+      .caso .detalle { margin-top: 16px; font-size: 14.5px; color: var(--gris-texto); }
+      .caso .detalle strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Bloque oscuro de notas ─────────────────────────────────────── */
+      .pendientes {
+        display: grid;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 22px 24px;
+        border-radius: var(--radio);
+        background: var(--carbon);
+        color: #fff;
+      }
+      .pendientes h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--naranja-claro);
+      }
+      .pendientes ul { margin: 0; padding-left: 20px; }
+      .pendientes li {
+        font-size: 14.5px;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 7px;
+      }
+      .pendientes li:last-child { margin-bottom: 0; }
+      .pendientes li strong { color: #fff; font-weight: 700; }
+
+      .nota-pie {
+        margin-top: 18px;
+        font-size: 13.5px;
+        color: var(--gris-texto);
+        font-style: italic;
+      }
+
+      .boton-semana {
+        display: inline-block;
+        margin-top: 26px;
+        padding: 12px 26px;
+        border-radius: 999px;
+        background: var(--naranja);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+      }
+      .boton-semana:hover { background: var(--naranja-claro); }
+
+      /* La barra superior es fija: sin este margen, el enlace del menú deja
+         el título de la sección escondido detrás de ella. */
+      .seccion { scroll-margin-top: 92px; }
+      .regla h4 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+      .regla { flex-direction: column; gap: 2px; }
+
+      /* ── Flujo de la conexión con la terminal ───────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+    </style>
+  </head>
+  <body>
+    <div class="progreso" id="progreso"></div>
+
+    <nav class="nav">
+      <div class="nav-marca">
+        <img src="img/logo-davinci.png" alt="DaVinci" />
+        <span>DaVinci<small>Avances Mercados Titos</small></span>
+      </div>
+      <div class="semanas">
+        <a class="indice" href="index.html" title="Todas las entregas" aria-label="Todas las entregas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </a>
+        <a href="semana-5.html">Semana 5</a>
+        <a href="semana-6.html">Semana 6</a>
+        <a href="semana-7.html">Semana 7</a>
+        <a href="semana-8.html">Semana 8</a>
+        <a href="semana-9.html">Semana 9</a>
+        <a href="semana-10.html">Semana 10</a>
+        <a href="semana-11.html">Semana 11</a>
+        <a href="semana-12.html">Semana 12</a>
+        <a href="semana-13.html">Semana 13</a>
+        <a class="actual" href="octubre.html">Octubre</a>
+      </div>
+      <div class="nav-links">
+        <a href="#resumen">Resumen</a>
+        <a href="#rutas">Rutas</a>
+        <a href="#surtido">Surtido</a>
+        <a href="#recepcion">Recepción</a>
+        <a href="#inventario">Inventario</a>
+        <a href="#banorte">Banorte</a>
+        <a href="#mes">Inicio de mes</a>
+        <a href="#pendientes">Pendientes</a>
+      </div>
+    </nav>
+
+    <header class="portada">
+      <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
+      <div><span class="etiqueta">Octubre · Resumen del mes</span></div>
+      <h1>El CEDIS ya se organiza en el sistema y la caja <em>cobra con la terminal Banorte</em></h1>
+      <p class="bajada">
+        Todo lo que se hizo en octubre en una sola entrega. Quedaron aplicados los nueve puntos de
+        la reunión del 21 de octubre: rutas y choferes, segundas vueltas, devoluciones a
+        proveedores, mínimos y perecederos. La caja ya le manda el cobro a la terminal Banorte, y
+        la Configuración se ordenó por temas.
+      </p>
+
+      <div class="metricas">
+        <div class="metrica"><strong>9 de 9</strong><span>Puntos de la reunión del 21 de octubre</span></div>
+        <div class="metrica"><strong>6</strong><span>Pantallas nuevas en Operación CEDIS</span></div>
+        <div class="metrica"><strong>7</strong><span>Rutas y 4 unidades ya dadas de alta</span></div>
+        <div class="metrica"><strong>22</strong><span>Productos clave con mínimos en cajas</span></div>
+      </div>
+    </header>
+
+    <!-- ── Resumen ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="resumen">
+      <div class="encabezado revelar">
+        <span class="numero">01 · Resumen</span>
+        <h2>Lo que se construyó este mes</h2>
+        <p>
+          Casi todo vive en el menú nuevo <strong>Operación CEDIS</strong>. El cobro con Banorte
+          está en el punto de venta y en Terminales de pago.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a2 2 0 1 0 0-.01M17 19a2 2 0 1 0 0-.01"/></svg></span>
+          <h3>Rol de entregas sugerido</h3>
+          <p>Cada mañana el sistema propone qué unidad, qué chofer y qué folios lleva cada ruta. El coordinador lo ajusta y lo guarda.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+          <h3>Pantalla en el área operativa</h3>
+          <p>Una vista para la televisión, con letra grande: horarios, rutas, choferes y folios. Se actualiza sola cada minuto.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg></span>
+          <h3>Segunda vuelta automática</h3>
+          <p>Cuando llega mercancía, el sistema arma solo el complemento de los pedidos que quedaron cortos, con folio -V2.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V14M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
+          <h3>Reglas para repartir lo que no alcanza</h3>
+          <p>Cajas completas, proporcional o por prioridad de tienda. Se puede cambiar cuando quieran, sin pedir cambios al sistema.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4"/></svg></span>
+          <h3>Devoluciones al proveedor</h3>
+          <p>Al recibir se captura cuánto se regresa y por qué, con fotos. Compras y el proveedor reciben el aviso por WhatsApp.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg></span>
+          <h3>Lista diaria de faltantes</h3>
+          <p>Lo que llegó contra lo que se pidió a cada proveedor, más lo que quedó bajo mínimo. Sale por WhatsApp a la hora que se elija.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg></span>
+          <h3>Mínimos en cajas y tarimas</h3>
+          <p>Los mínimos se capturan como se compra ("20 cajas") y suben solos en diciembre. Lo que falta se manda a Compras.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+          <h3>Rotación de perecederos</h3>
+          <p>Qué tiene que salir primero, qué está por pasarse y dónde llegó más de lo que se vende.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
+          <h3>Cobro con la terminal Banorte</h3>
+          <p>La caja le manda el importe a la terminal y la autorización regresa sola. El comprobante sale en el ticket.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <h3>Configuración por temas</h3>
+          <p>La página de Configuración se ordenó en pestañas: horario y caja, dólares, punto de venta, compras, facturación, alertas y NIP.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Rutas ────────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="rutas">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">02 · Rutas y choferes</span>
+          <h2>El rol del día se arma solo y se ve en la tele</h2>
+          <p>
+            Hasta ahora el rol se armaba a mano cada mañana. El sistema ya conoce las unidades, las
+            rutas y a sus responsables, y propone el día completo. El coordinador solo ajusta lo que
+            cambió.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="rol" aria-selected="true">Rol del día</button>
+            <button role="tab" data-tab="rol-segundas" aria-selected="false">Segundas vueltas</button>
+            <button role="tab" data-tab="tv" aria-selected="false">Pantalla de la tele</button>
+            <button role="tab" data-tab="tv-2" aria-selected="false">Salida siguiente</button>
+            <button role="tab" data-tab="rutas" aria-selected="false">Rutas</button>
+            <button role="tab" data-tab="ruta-editar" aria-selected="false">Editar una ruta</button>
+            <button role="tab" data-tab="unidades" aria-selected="false">Unidades</button>
+          </div>
+
+          <div class="lamina visible" data-panel="rol">
+            <figure>
+              <img src="img/oct-rol-del-dia.png" alt="Rol de entregas del día con unidad, chofer, recorrido y folios de cada ruta" />
+              <figcaption><strong>Rol del día.</strong> Cada salida trae su unidad, su chofer, el recorrido y los folios que lleva. El sistema explica por qué propuso a cada quien, y si alguien lo cambia queda marcado como "ajustado a mano".</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="rol-segundas">
+            <figure>
+              <img src="img/oct-rol-segundas.png" alt="Salidas de segunda vuelta con folios -V2 y paradas extra" />
+              <figcaption><strong>Segundas vueltas.</strong> Los complementos (-V2) caen solos en la vuelta que pasa por su tienda. Una recolección imprevista, como la carne de Bona Prime, se agrega como parada extra.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="tv">
+            <figure>
+              <img src="img/oct-pantalla-tv.png" alt="Pantalla de la televisión con las rutas del día en letra grande" />
+              <figcaption><strong>Pantalla del área operativa.</strong> Fondo oscuro y letra grande para leerla de lejos y con poca luz. Muestra qué salió, qué va en ruta y qué falta. No necesita usuario: se abre con un enlace propio que se puede cambiar.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="tv-2">
+            <figure>
+              <img src="img/oct-pantalla-tv-2.png" alt="Pantalla con la siguiente salida resaltada en amarillo" />
+              <figcaption><strong>La siguiente salida se resalta.</strong> El almacén ve de inmediato qué tiene que tener listo, con las notas para el chofer.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="rutas">
+            <figure>
+              <img src="img/oct-rutas.png" alt="Catálogo de rutas con horario, recorrido, unidad, responsable y sustituto" />
+              <figcaption><strong>Rutas.</strong> Home Chef, Troque Grande, las segundas vueltas de 10:40, 11:30 y 12:00 y el reciclaje de los jueves, cada una con su responsable y su sustituto.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="ruta-editar">
+            <figure>
+              <img src="img/oct-ruta-editar.png" alt="Edición de una ruta con días, unidad preferida, responsable y paradas en orden" />
+              <figcaption><strong>Editar una ruta.</strong> Horario, días, si lleva perecedero (solo unidad refrigerada), responsable, sustituto y paradas en orden, incluida la basura de Glorieta a Junior.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="unidades">
+            <figure>
+              <img src="img/oct-unidades.png" alt="Unidades: tres estaquitas, dos refrigeradas, y el camión Forte" />
+              <figcaption><strong>Unidades.</strong> Las tres estaquitas (dos refrigeradas) y el Forte. Si una entra a taller se marca como no disponible y el sistema deja de proponerla.</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Sugerido, no impuesto</h4>
+            <p>Primero se propone al responsable de la ruta; si no está libre, a su sustituto; si tampoco, al chofer con menos salidas en las últimas dos semanas. Siempre se puede cambiar a mano.</p>
+          </div>
+          <div class="regla">
+            <h4>Sin choferes ni unidades encimados</h4>
+            <p>Si al ajustar se deja a un chofer o una unidad en dos salidas a la misma hora, la pantalla lo avisa. Lo perecedero solo se propone en unidad refrigerada.</p>
+          </div>
+          <div class="regla">
+            <h4>Los choferes son de ejemplo</h4>
+            <p>Mientras se capturan los reales aparecen como "Chofer A–D (ejemplo)". Se dan de alta en Personal con el puesto Chofer.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Surtido ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="surtido">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Surtido parcial</span>
+        <h2>Lo que no alcanza se reparte con reglas y se completa en la segunda vuelta</h2>
+        <p>
+          Es el método que ya se usaba con el aguacate, llevado a todo el catálogo (mayonesa,
+          aceite, mostaza…), y ahora el sistema lo hace solo.
+        </p>
+      </div>
+
+      <div class="flujo revelar">
+        <div class="paso">
+          <span class="orden">1</span>
+          <h4>Se reparte lo que hay</h4>
+          <p>El Nivelador manda cajas completas en proporción a lo que pidió cada tienda. Las piezas sueltas van a la de más prioridad.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">2</span>
+          <h4>El faltante va a Compras</h4>
+          <p>Lo que no alcanzó se convierte en necesidad de compra, como ya pasaba.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">3</span>
+          <h4>Llega el proveedor</h4>
+          <p>Al recibir la orden de compra, el sistema arma el complemento (-V2) de cada pedido corto.</p>
+        </div>
+        <div class="paso">
+          <span class="orden">4</span>
+          <h4>Sale en la segunda vuelta</h4>
+          <p>El complemento queda listo para surtir y entra al rol en la ruta que pasa por la tienda.</p>
+        </div>
+      </div>
+
+      <div class="visor revelar" style="margin-top: 30px" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="reglas" aria-selected="true">Reglas de surtido</button>
+          <button role="tab" data-tab="segunda" aria-selected="false">Segundas vueltas</button>
+          <button role="tab" data-tab="v2" aria-selected="false">Complementos -V2</button>
+        </div>
+        <div class="lamina visible" data-panel="reglas">
+          <figure>
+            <img src="img/oct-reglas-surtido.png" alt="Reglas de surtido: criterio de reparto, prioridad de tiendas, segunda vuelta y temporada alta" />
+            <figcaption><strong>Reglas de surtido.</strong> Se elige cómo repartir lo que no alcanza y el orden de prioridad de las tiendas (se acomoda con las flechas). Aquí también se configuran la segunda vuelta, la temporada alta y la lista diaria de faltantes.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="segunda">
+          <figure>
+            <img src="img/oct-segunda-vuelta.png" alt="Pedidos con faltante, lo que se mandó en la primera vuelta y lo que hay hoy en el CEDIS" />
+            <figcaption><strong>Segundas vueltas.</strong> Por cada pedido: lo que pidió la tienda, lo que salió en la primera vuelta, lo que falta y cuánto hay hoy en el CEDIS. Se puede completar todo o pedido por pedido.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="v2">
+          <figure>
+            <img src="img/oct-nivelados-v2.png" alt="Pedidos nivelados con los complementos marcados V2" />
+            <figcaption><strong>Complementos -V2.</strong> Aparecen en Nivelados para surtirse como cualquier pedido. El pedido original no cambia y sigue siendo la referencia de lo que pidió la tienda.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Recepción ────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="recepcion">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · Recepción y proveedores</span>
+          <h2>Se recibe viendo lo que ya hay, y lo que se regresa queda documentado</h2>
+          <p>
+            Es el caso de las fresas: había 10, llegan 30 y conviene recibir solo una parte. Y del
+            melón quemado por frío: se regresa, con foto, y el proveedor se entera en ese momento.
+          </p>
+        </div>
+
+        <div class="comparativa revelar">
+          <div class="caso antes">
+            <p class="rotulo">Antes</p>
+            <p class="detalle">
+              Se recibía todo lo que llegaba, la existencia previa se anotaba en el Drive y las
+              fotos del producto dañado se mandaban a mano a Compras. <strong>El proveedor se
+              enteraba después.</strong>
+            </p>
+          </div>
+          <div class="caso despues">
+            <p class="rotulo">Ahora</p>
+            <p class="detalle">
+              La recepción muestra cuánto hay y el máximo, avisa del sobreinventario y sugiere
+              cuánto recibir. Lo que se regresa lleva motivo y fotos, y <strong>al confirmar se
+              avisa por WhatsApp</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="visor revelar" style="margin-top: 30px" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="rechazo" aria-selected="true">Recibir con devolución</button>
+            <button role="tab" data-tab="evidencias" aria-selected="false">Fotos de evidencia</button>
+            <button role="tab" data-tab="recibida" aria-selected="false">Orden recibida</button>
+            <button role="tab" data-tab="faltantes" aria-selected="false">Faltantes del día</button>
+          </div>
+          <div class="lamina visible" data-panel="rechazo">
+            <figure>
+              <img src="img/oct-recepcion-rechazo.png" alt="Recepción con existencia, aviso de sobreinventario y cantidad que se regresa con su motivo" />
+              <figcaption><strong>Recibir con devolución.</strong> Junto a cada producto se ve cuánto hay en el CEDIS. Si con lo que llega se pasa del máximo, avisa y sugiere cuánto recibir. Lo que se regresa se captura con su motivo: quemado por frío, madurez, tamaño, sobreinventario…</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="evidencias">
+            <figure>
+              <img src="img/oct-recepcion-evidencias.png" alt="Sección para tomar o subir fotos de evidencia y aviso al proveedor" />
+              <figcaption><strong>Fotos de evidencia.</strong> Desde el celular o la tablet del andén se toma la foto del producto. Al confirmar, se manda con el aviso a Compras y, si se marca la casilla, al proveedor.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="recibida">
+            <figure>
+              <img src="img/oct-recepcion-recibida.png" alt="Orden recibida con lo que se regresó, el motivo y la existencia que había antes" />
+              <figcaption><strong>Queda la constancia.</strong> La orden recibida guarda lo que se regresó y por qué, y cuánto había antes de recibir. Lo regresado no cuenta como faltante. Al recibir, también se arma sola la segunda vuelta.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="faltantes">
+            <figure>
+              <img src="img/oct-faltantes.png" alt="Faltantes del día por proveedor y resumen para Compras y almacén" />
+              <figcaption><strong>Faltantes del día.</strong> Por proveedor: pedido, recibido y regresado ("10 recibidas vs 20 pedidas"). El resumen para Compras y almacén suma lo que quedó bajo mínimo y los perecederos que urgen. Sale sola a la hora configurada o con "Enviar ahora".</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Inventario ───────────────────────────────────────────────── -->
+    <section class="seccion" id="inventario">
+      <div class="encabezado revelar">
+        <span class="numero">05 · Mínimos y perecederos</span>
+        <h2>Los mínimos se piensan en cajas y lo maduro sale primero</h2>
+        <p>
+          Dos pantallas para que Compras y el almacén decidan con datos y no con la memoria de
+          cada quien.
+        </p>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="minimos" aria-selected="true">Mínimos y productos clave</button>
+          <button role="tab" data-tab="perecederos" aria-selected="false">Rotación de perecederos</button>
+        </div>
+        <div class="lamina visible" data-panel="minimos">
+          <figure>
+            <img src="img/oct-minimos.png" alt="Tabla de productos clave con unidades por caja, mínimo, máximo, mínimo de temporada y vida útil" />
+            <figcaption><strong>Mínimos y productos clave.</strong> Se editan en la misma tabla: unidades por caja, cajas por tarima, mínimo, máximo, mínimo de temporada y vida útil. Lo que está bajo mínimo se manda a Compras con un botón, ya redondeado a cajas completas.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="perecederos">
+          <figure>
+            <img src="img/oct-perecederos.png" alt="Rotación de perecederos con estado, días en almacén, salida diaria y qué hacer" />
+            <figcaption><strong>Rotación de perecederos.</strong> Cuántos días lleva lo que hay contra su vida útil (el plátano dominico, de 4 días a una semana), cuánto sale al día y qué hacer: priorizar salida, sacar hoy o revisar merma. Marca el sobrestock cuando llegó más de lo que se vende.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="reglas revelar">
+        <div class="regla">
+          <h4>Diciembre ya está contemplado</h4>
+          <p>En los meses de temporada alta los mínimos suben solos: se usa el mínimo de temporada del producto o, si no tiene, el normal por 1.5. Los meses y el factor se ajustan en Reglas de surtido.</p>
+        </div>
+        <div class="regla">
+          <h4>Valores de arranque</h4>
+          <p>Se cargaron 22 productos clave (mayonesa, aceite, mostaza, huevo, aguacate, plátano, tomate, fresa, melón, cebolla…) y la vida útil de frutas, verduras y mariscos. Son un punto de partida para que Compras y el almacén los afinen.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Banorte ──────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="banorte">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">06 · Cobro con Banorte</span>
+          <h2>El importe ya no se teclea dos veces</h2>
+          <p>
+            En la semana 13 quedó definido el camino. En octubre se construyó: la caja le habla a la
+            terminal por medio del puente instalado en la computadora, y la venta se registra con la
+            autorización que regresa Banorte.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="cobro" aria-selected="true">Cobrar con terminal</button>
+            <button role="tab" data-tab="esperando" aria-selected="false">Esperando la tarjeta</button>
+            <button role="tab" data-tab="aprobado" aria-selected="false">Venta registrada</button>
+            <button role="tab" data-tab="ticket" aria-selected="false">Ticket con comprobante</button>
+            <button role="tab" data-tab="terminales" aria-selected="false">Terminal integrada</button>
+            <button role="tab" data-tab="bitacora" aria-selected="false">Bitácora</button>
+          </div>
+          <div class="lamina visible" data-panel="cobro">
+            <figure>
+              <img src="img/oct-banorte-cobro.png" alt="Cobro con tarjeta que se enviará a la terminal Banorte, con el puente de caja listo" />
+              <figcaption><strong>Cobrar con terminal.</strong> Se elige Tarjeta y el sistema indica que la terminal pedirá la tarjeta por el total. Si la terminal o el puente no responden, una casilla permite cobrar como antes, con la terminal por separado.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="esperando">
+            <figure>
+              <img src="img/oct-banorte-esperando.png" alt="La caja espera a que el cliente pase su tarjeta en la terminal" />
+              <figcaption><strong>Esperando la tarjeta.</strong> La caja le indica al cajero que el cliente acerque, inserte o deslice su tarjeta. Nadie captura el importe en la terminal.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="aprobado">
+            <figure>
+              <img src="img/oct-banorte-aprobado.png" alt="Venta registrada con el tipo de tarjeta y la autorización llenados solos" />
+              <figcaption><strong>Venta registrada.</strong> El tipo de tarjeta, la autorización y la terminal se llenan solos. Un cobro solo sirve para una venta; si la venta no se pudiera guardar, el cobro se cancela en el banco.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="ticket">
+            <figure>
+              <img src="img/oct-banorte-ticket.png" alt="Ticket térmico con el comprobante de Banorte: afiliación, tarjeta enmascarada, autorización y lectura" style="max-width: 460px; margin: 0 auto" />
+              <figcaption><strong>Ticket con comprobante.</strong> El ticket lleva lo que pide Banorte: afiliación, número de control, tarjeta enmascarada, autorización, referencia y forma de lectura. La copia del comercio trae línea de firma. Esta prueba dice "PRUEBA · SIN VALOR" porque no le cobró a nadie.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="terminales">
+            <figure>
+              <img src="img/oct-banorte-terminales.png" alt="Terminal Banorte marcada como integrada, con revisión del puente, carga de llave y prueba de cobro" />
+              <figcaption><strong>Terminal integrada.</strong> En Terminales de pago se marca la terminal como "integrada". Desde la PC de la caja se revisa el puente, se hace la carga de llave y una prueba de $1.00 que se cancela sola.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="bitacora">
+            <figure>
+              <img src="img/oct-banorte-bitacora.png" alt="Bitácora de operaciones con la terminal Banorte" />
+              <figcaption><strong>Bitácora.</strong> Cada operación con la terminal queda registrada. "Por revisar" junta las que se quedaron sin respuesta o los cobros aprobados que no quedaron en ninguna venta, para verificarlos con Banorte.</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Sin cobros dobles</h4>
+            <p>Si la terminal no contesta o se pierde la conexión, el sistema le pregunta a Banorte cómo quedó el cobro y, si hace falta, lo reversa antes de reintentar.</p>
+          </div>
+          <div class="regla">
+            <h4>Cancelaciones y devoluciones a la tarjeta</h4>
+            <p>Cancelar una venta cobrada con la terminal regresa primero el dinero. Las devoluciones pueden ir a la tarjeta del cliente.</p>
+          </div>
+          <div class="regla">
+            <h4>Probado con un simulador</h4>
+            <p>Las pantallas son reales, pero el puente todavía usa un simulador: falta la librería de Banorte y la certificación con su laboratorio antes de cobrar a clientes.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Inicio de mes ────────────────────────────────────────────── -->
+    <section class="seccion" id="mes">
+      <div class="encabezado revelar">
+        <span class="numero">07 · También en octubre</span>
+        <h2>Configuración ordenada y lo que se entregó al inicio del mes</h2>
+        <p>
+          La Configuración se reorganizó por temas. Las demás pantallas se presentaron el 5 de
+          octubre (semana 12) y siguen funcionando igual; aquí van como repaso.
+        </p>
+      </div>
+
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="configuracion" aria-selected="true">Configuración por pestañas</button>
+          <button role="tab" data-tab="escaner" aria-selected="false">Escáner a la cuenta</button>
+          <button role="tab" data-tab="acceso" aria-selected="false">Acceso por WhatsApp</button>
+          <button role="tab" data-tab="tablas" aria-selected="false">Tablas de 20</button>
+          <button role="tab" data-tab="sucursal" aria-selected="false">Alta de sucursal</button>
+          <button role="tab" data-tab="login" aria-selected="false">Inicio de sesión</button>
+        </div>
+        <div class="lamina visible" data-panel="configuracion">
+          <figure>
+            <img src="img/oct-configuracion.png" alt="Configuración organizada en pestañas por tema" />
+            <figcaption><strong>Configuración por pestañas.</strong> Antes eran diez recuadros en una sola página larga. Ahora cada tema tiene su pestaña: horario y caja, dólares, punto de venta, compras y cortes, facturación, alertas y NIP.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="escaner">
+          <figure>
+            <img src="img/s12-pos-escaner.png" alt="El escáner agrega el producto directo a la lista de cobro" />
+            <figcaption><strong>Escáner a la cuenta.</strong> El producto escaneado entra directo a la lista de cobro, aunque el lector agregue una letra de más.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="acceso">
+          <figure>
+            <img src="img/s12-reenviar-nip.png" alt="Reenvío de acceso por WhatsApp con NIP" />
+            <figcaption><strong>Acceso por WhatsApp.</strong> El mensaje de acceso confirma que llegó y lleva el NIP de gerente y el de crear supervisores. El teléfono se captura a 10 dígitos y el sistema resuelve si el número es 52 o 521.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="tablas">
+          <figure>
+            <img src="img/s12-tabla-productos.png" alt="Tabla de productos a 20 renglones por página" />
+            <figcaption><strong>Tablas de 20 renglones.</strong> Todas las tablas del sistema quedaron a 20 renglones por página, más compactas.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="sucursal">
+          <figure>
+            <img src="img/s12-sucursal-alta.png" alt="Alta de sucursal con responsable opcional" />
+            <figcaption><strong>Alta de sucursal.</strong> El responsable es opcional y el alta ya no se traba si el navegador rellena solo el correo o la contraseña.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="login">
+          <figure>
+            <img src="img/s12-login.png" alt="Pantalla de inicio de sesión" />
+            <figcaption><strong>Inicio de sesión.</strong> Se entra con el usuario sin importar mayúsculas, o con el nombre.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="pendientes">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">08 · Lo que sigue</span>
+          <h2>Lo que necesitamos de ustedes para dejarlo al 100%</h2>
+          <p>
+            El sistema ya tiene todo. Lo que falta son datos que solo el equipo del CEDIS conoce y
+            algunas piezas del banco.
+          </p>
+        </div>
+
+        <div class="pendientes revelar">
+          <h4>Operación CEDIS</h4>
+          <ul>
+            <li><strong>Choferes reales.</strong> Darlos de alta en Personal con el puesto Chofer y asignar responsable y sustituto en cada ruta. Hoy son de ejemplo.</li>
+            <li><strong>Revisar mínimos y prioridad de tiendas.</strong> Los 22 productos clave, sus cajas y la vida útil son un arranque razonable; Compras y almacén los afinan en Mínimos y productos clave.</li>
+            <li><strong>WhatsApp del almacén y aviso a proveedores.</strong> Capturar los números del almacén. El mensaje diario a proveedores está apagado hasta confirmar que su WhatsApp es el de la persona responsable (por ejemplo, el señor Alonso).</li>
+            <li><strong>La televisión.</strong> Instalarla en el área operativa con internet y abrir el enlace de la pantalla desde Rol de entregas → "Abrir pantalla".</li>
+          </ul>
+        </div>
+
+        <div class="pendientes revelar">
+          <h4>Terminal Banorte</h4>
+          <ul>
+            <li><strong>Librería de integración y número de grupo.</strong> Siguen pendientes de Banorte; con ellas el puente deja el simulador y habla con la terminal real.</li>
+            <li><strong>Certificación.</strong> Antes de cobrar a clientes se hace la prueba con el laboratorio de Banorte y se recibe su carta.</li>
+            <li><strong>Reservar la dirección de la terminal en el módem.</strong> Para que no cambie al reiniciarlo.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="cierre">
+      <img src="img/logo-davinci.png" alt="DaVinci" />
+      <h2>Nueve de nueve, y la caja lista para Banorte</h2>
+      <p>
+        Los puntos de la reunión del 21 de octubre ya están en el sistema.<br />
+        Con los datos del CEDIS y las piezas del banco, queda todo en operación.
+      </p>
+      <p><a class="boton-semana" href="semana-13.html">← Repasar la semana 13</a></p>
+    </section>
+
+    <footer class="pie">
+      DaVinci · Presentación de avances para Mercados Titos · Octubre 2026
+      <span id="fecha"></span>
+    </footer>
+
+
+    <div class="lightbox" id="lightbox">
+      <button class="cerrar" id="cerrarLightbox" aria-label="Cerrar">×</button>
+      <img id="lightboxImg" alt="" />
+    </div>
+
+    <script>
+      // ── Pestañas de cada visor ────────────────────────────────────────
+      document.querySelectorAll("[data-visor]").forEach((visor) => {
+        const botones = visor.querySelectorAll("[data-tab]");
+        const paneles = visor.querySelectorAll("[data-panel]");
+
+        botones.forEach((boton) => {
+          boton.addEventListener("click", () => {
+            botones.forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
+            paneles.forEach((p) =>
+              p.classList.toggle("visible", p.dataset.panel === boton.dataset.tab)
+            );
+          });
+        });
+      });
+
+      // ── Lightbox para ver la captura en grande ────────────────────────
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightboxImg");
+
+      function abrirLightbox(src, alt) {
+        lightboxImg.src = src;
+        lightboxImg.alt = alt;
+        lightbox.classList.add("abierto");
+        document.body.style.overflow = "hidden";
+      }
+      function cerrarLightbox() {
+        lightbox.classList.remove("abierto");
+        document.body.style.overflow = "";
+      }
+
+      document.querySelectorAll(".lamina img").forEach((img) => {
+        img.addEventListener("click", () => abrirLightbox(img.src, img.alt));
+      });
+      lightbox.addEventListener("click", cerrarLightbox);
+      document.getElementById("cerrarLightbox").addEventListener("click", cerrarLightbox);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") cerrarLightbox();
+      });
+
+      // ── Barra de progreso ─────────────────────────────────────────────
+      const progreso = document.getElementById("progreso");
+      function actualizarProgreso() {
+        const alto = document.documentElement.scrollHeight - window.innerHeight;
+        const avance = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+        progreso.style.width = avance + "%";
+      }
+      window.addEventListener("scroll", actualizarProgreso, { passive: true });
+      actualizarProgreso();
+
+      // ── Resaltado del enlace de la sección visible ────────────────────
+      const enlaces = [...document.querySelectorAll(".nav-links a")];
+      const secciones = enlaces
+        .map((a) => document.querySelector(a.getAttribute("href")))
+        .filter(Boolean);
+
+      const observadorNav = new IntersectionObserver(
+        (entradas) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            enlaces.forEach((a) =>
+              a.classList.toggle("activo", a.getAttribute("href") === "#" + entrada.target.id)
+            );
+          });
+        },
+        { rootMargin: "-45% 0px -50% 0px" }
+      );
+      secciones.forEach((s) => observadorNav.observe(s));
+
+      // ── Aparición progresiva al hacer scroll ──────────────────────────
+      const observadorRevelar = new IntersectionObserver(
+        (entradas, obs) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            entrada.target.classList.add("visible");
+            obs.unobserve(entrada.target);
+          });
+        },
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll(".revelar").forEach((el, i) => {
+        el.style.transitionDelay = (i % 4) * 60 + "ms";
+        observadorRevelar.observe(el);
+      });
+
+      // ── Navegación con flechas entre secciones ────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if (lightbox.classList.contains("abierto")) return;
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+
+        const actual = secciones.findIndex((s) => s.getBoundingClientRect().top > -80);
+        const destino = e.key === "ArrowDown" ? actual : actual - 2;
+        if (secciones[destino]) {
+          e.preventDefault();
+          secciones[destino].scrollIntoView({ behavior: "smooth" });
+        }
+      });
+
+      document.getElementById("fecha").textContent =
+        " · " + new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    </script>
+  </body>
+</html>
