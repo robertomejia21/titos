@@ -613,13 +613,14 @@ function OrdenModal({
                       onChange={(e) => setRecepcion((prev) => ({ ...prev, [item.productoId]: e.target.value }))}
                       className="w-20"
                     />
-                    <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={recepcion[item.productoId]} referencia="lo ordenado" />
+                    {/* Lo que se le regresa al proveedor sí llegó: no cuenta como faltante. */}
+                    <DiferenciaRecepcion esperado={item.cantidadOrdenada - Number(rechazos[item.productoId] || 0)} recibido={recepcion[item.productoId]} referencia="lo ordenado" />
                   </td>
                 ) : null}
                 {orden.estado === "recibida" ? (
                   <td className="px-2 py-1.5">
                     {item.cantidadRecibida}
-                    <DiferenciaRecepcion esperado={item.cantidadOrdenada} recibido={item.cantidadRecibida} referencia="lo ordenado" />
+                    <DiferenciaRecepcion esperado={item.cantidadOrdenada - (item.cantidadRechazada ?? 0)} recibido={item.cantidadRecibida} referencia="lo ordenado" />
                     {item.existenciaPrevia != null ? <p className="mt-0.5 text-xs text-black/40">Había {item.existenciaPrevia} antes de recibir</p> : null}
                   </td>
                 ) : null}
