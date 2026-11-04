@@ -14,6 +14,7 @@ import { obtenerMostradorMatriz } from "@/lib/puntoVenta";
 import { avisarRecepcion } from "@/lib/avisoRecepcion";
 import { generarSegundaVuelta, type ResultadoSegundaVuelta } from "@/lib/segundaVuelta";
 import { obtenerConfiguracionOperacion } from "@/lib/operacion";
+import { itemsRemanentes } from "@/lib/ordenesCompra";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await requireSession(req);
@@ -66,6 +67,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       orden.estado = "recibida";
       orden.fechaRecepcion = new Date();
       orden.recibidoPorId = usuario.userId;
+      // Quien recibe decide si lo que faltó sigue abierto (default) o se cierra.
+      if (body?.dejarAbiertoFaltante !== false) {
+        const remanente = itemsRemanentes(orden.items);
+        if (remanente.length) {
+          const previos = await OrdenCompra.countDocuments({ ordenOrigenId: orden._id }).session(session);
+          const [nueva] = await OrdenCompra.create([{
+            folio: `${orden.folio}-R${previos ? previos + 1 : ""}`,
+            proveedorId: orden.proveedorId,
+            estado: "solicitada",
+            fechaSolicitud: new Date(),
+            ordenOrigenId: orden._id,
+            items: remanente,
+          }], {session});
+          orden.remanenteId = nueva._id;
+        }
+      }
       if (financiero) {
         const suma = (key: "subtotal"|"iva"|"ieps"|"total")=>detalle.reduce((s,i)=>s+Math.round(i[key]*100),0)/100;
         const total = Math.round((suma("total")+financiero.servicio-financiero.descuento)*100)/100;
@@ -92,7 +109,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return null;
       });
     }
-    return NextResponse.json({ ...orden.toObject(), avisoRecepcion: aviso ?? orden.avisoRecepcion, segundaVuelta });
+    const remanente = orden.remanenteId ? await OrdenCompra.findById(orden.remanenteId).select("folio").lean() : null;
+    return NextResponse.json({ ...orden.toObject(), avisoRecepcion: aviso ?? orden.avisoRecepcion, segundaVuelta, remanenteFolio: remanente?.folio ?? null });
   } catch (error) {
     if (error instanceof ErrorRecepcion) return NextResponse.json({error: error.message}, {status: error.status});
     console.error("Error al recibir orden", error);

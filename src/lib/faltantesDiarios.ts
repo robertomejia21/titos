@@ -11,6 +11,7 @@ import { fechaEnZona, finDelDiaEnZona, horaEnZona, inicioDelDiaEnZona } from "@/
 import { minimoVigente, enPresentacion } from "@/lib/minimos";
 import { rotacionPerecederos } from "@/lib/rotacion";
 import { ESTADO_ROTACION_LABEL } from "@/lib/perecederos";
+import { enTemporada } from "@/lib/temporadas";
 
 // Lista diaria de faltantes. Reemplaza el mensaje que Fausto armaba a mano:
 //  - a cada proveedor, lo que llegó contra lo que se le pidió ese día
@@ -140,11 +141,11 @@ export async function armarFaltantesDelDia(fecha?: string): Promise<FaltantesDel
 
   // Bajo mínimo del CEDIS con el mínimo vigente (incluye temporada alta).
   const productos = await Producto.find({ activo: true, $or: [{ stockMinimo: { $gt: 0 } }, { minimoTemporadaAlta: { $gt: 0 } }] })
-    .select("nombre categoria unidad existenciaMatriz stockMinimo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave")
+    .select("nombre categoria unidad existenciaMatriz stockMinimo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave temporada")
     .lean();
   const bajoMinimo = productos
     .map((p) => ({ p, minimo: minimoVigente(p, dia, operacion.temporadaAlta) }))
-    .filter(({ p, minimo }) => minimo > 0 && p.existenciaMatriz <= minimo)
+    .filter(({ p, minimo }) => minimo > 0 && p.existenciaMatriz <= minimo && enTemporada(p.temporada ?? {}, dia))
     .sort((a, b) => Number(!!b.p.esClave) - Number(!!a.p.esClave) || a.p.existenciaMatriz / a.minimo - b.p.existenciaMatriz / b.minimo)
     .map(({ p, minimo }) => ({ nombre: p.nombre, categoria: String(p.categoria ?? ""), existencia: enPresentacion(p.existenciaMatriz, p), minimo: enPresentacion(minimo, p) }));
 

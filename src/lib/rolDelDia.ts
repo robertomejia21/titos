@@ -289,6 +289,7 @@ export async function sugerirRolDelDia(fecha: string, usuario: { userId: string;
       choferes: choferes.map((c) => ({ _id: String(c._id), nombre: c.nombre, activo: c.activo })),
       fecha,
       duracionDefaultMin: config.duracionRutaMin ?? 150,
+      tiemposRuta: { minutosPorParada: config.tiemposRuta?.minutosPorParada ?? 0, holguraMin: config.tiemposRuta?.holguraMin ?? 0 },
       salidasRecientes,
     }).map((s) => ({ ...s, pedidoIds: [] as string[], estado: "programada", ajustadaManualmente: false, notas: "" }));
   }

@@ -275,6 +275,109 @@ async function integracion() {
     assert.equal(rolConAvance.salidas[0].pedidos[0].bultosEnCarga, 1, "la pantalla ve las cajas escaneadas en carga");
 
     console.log("OK   fase 3 (QR → carga → sucursal equivocada → incidencia → resolución → bitácora de rutas)");
+
+    // ================= Fase 4: temporadas, OC parcial, solicitudes de ruta, consumo =================
+    const { enTemporada, estadoTemporada } = await import("../src/lib/temporadas");
+    const { avisarInicioDeTemporadas } = await import("../src/lib/temporadasServidor");
+    const { tablaMinimos } = await import("../src/lib/minimosServidor");
+    const { zonaCedis } = await import("../src/lib/operacion");
+    const { fechaEnZona } = await import("../src/lib/zonasHorarias");
+    const { cantidadSugerida, consumoPorTienda } = await import("../src/lib/consumo");
+    const { duracionEstimada } = await import("../src/lib/rolEntregas");
+    const temporadasApi = await import("../src/app/api/operacion/temporadas/route");
+    const recibirOC = await import("../src/app/api/ordenes-compra/[id]/recibir/route");
+    const solicitudesApi = await import("../src/app/api/solicitudes-ruta/route");
+    const solicitudApi = await import("../src/app/api/solicitudes-ruta/[id]/route");
+    const OrdenCompra = (await import("../src/models/OrdenCompra")).default;
+    const Proveedor = (await import("../src/models/Proveedor")).default;
+    const Venta = (await import("../src/models/Venta")).default;
+
+    // ---- Temporadas ----
+    const navidad = { activa: true, inicio: "11-15", fin: "01-06" };
+    assert.ok(enTemporada(navidad, "2026-12-24") && enTemporada(navidad, "2027-01-03"), "cruza el año");
+    assert.ok(!enTemporada(navidad, "2026-07-01"));
+    assert.equal(estadoTemporada(navidad, "2026-07-01", 5), "fuera_con_existencia", "fuera de temporada se vende lo que queda");
+    assert.equal(estadoTemporada(navidad, "2026-07-01", 0), "bloqueado");
+    assert.equal(estadoTemporada({ activa: false }, "2026-07-01", 0), "sin_temporada");
+
+    const dia = fechaEnZona(new Date(), await zonaCedis());
+    const mmdd = dia.slice(5);
+    const otroMes = `${String(((Number(mmdd.slice(0, 2)) + 5) % 12) + 1).padStart(2, "0")}-01`;
+    const rosca = await Producto.create({ sku: "ROS", nombre: "Rosca de reyes", categoria: "Panadería", unidad: "pieza", existenciaMatriz: 0, stockMinimo: 10 });
+    const ponche = await Producto.create({ sku: "PON", nombre: "Ponche", categoria: "Abarrotes", unidad: "pieza", existenciaMatriz: 8 });
+    const finOtro = `${otroMes.slice(0, 2)}-20`;
+    assert.equal((await llamar(temporadasApi, "PATCH", "/api/operacion/temporadas", { productoId: String(rosca._id), inicio: "13-01", fin: "01-06" })).status, 400, "fechas MM-DD válidas");
+    assert.equal((await llamar(temporadasApi, "PATCH", "/api/operacion/temporadas", { productoId: String(rosca._id), inicio: otroMes, fin: finOtro })).status, 200);
+    const finHoy = `${mmdd.slice(0, 2)}-28`;
+    await llamar(temporadasApi, "PATCH", "/api/operacion/temporadas", { productoId: String(ponche._id), inicio: mmdd, fin: finHoy === mmdd ? `${mmdd.slice(0, 2)}-29` : finHoy });
+    const listaTemp = await (await llamar(temporadasApi, "GET", "/api/operacion/temporadas")).json();
+    assert.equal(listaTemp.productos.find((p: { nombre: string }) => p.nombre === "Rosca de reyes").estado, "bloqueado");
+    assert.equal(listaTemp.productos.find((p: { nombre: string }) => p.nombre === "Ponche").estado, "en_temporada");
+    const pideRosca = await comoTienda(pedidosApi, "POST", "/api/pedidos", { items: [{ productoId: String(rosca._id), cantidad: 2 }] });
+    assert.equal(pideRosca.status, 400, "la tienda no pide lo bloqueado por temporada");
+    assert.ok((await pideRosca.json()).error.includes("Rosca de reyes"));
+    const minimosHoy = await tablaMinimos({ soloBajo: true });
+    assert.ok(!minimosHoy.items.some((i) => i.nombre === "Rosca de reyes"), "fuera de temporada no genera compra por mínimo");
+    const aviso = await avisarInicioDeTemporadas();
+    assert.equal(aviso.avisados, 1, "el ponche arranca hoy");
+    assert.equal((await Producto.findById(ponche._id).lean())!.temporada.avisadoAnio, Number(dia.slice(0, 4)));
+    assert.equal((await avisarInicioDeTemporadas()).avisados, 0, "un aviso por año");
+
+    // ---- OC parcial: lo que faltó queda abierto en una remanente ----
+    const prov = await Proveedor.create({ nombre: "Distribuidora", whatsapp: "" });
+    const nuevaOC = (folio: string) => OrdenCompra.create({ folio, proveedorId: prov._id, estado: "solicitada", items: [{ productoId: fabuloso._id, nombreProducto: "Fabuloso 1L", cantidadOrdenada: 10, precioUnitario: 20 }] });
+    const oc1 = await nuevaOC("OC-PARCIAL");
+    const rec1 = await (await llamar(recibirOC, "POST", `/api/ordenes-compra/${oc1._id}/recibir`, { avisarProveedor: false, items: [{ productoId: String(fabuloso._id), cantidadRecibida: 6 }] }, { id: String(oc1._id) })).json();
+    assert.equal(rec1.remanenteFolio, "OC-PARCIAL-R");
+    const remanente = (await OrdenCompra.findOne({ folio: "OC-PARCIAL-R" }).lean())!;
+    assert.equal(remanente.estado, "solicitada");
+    assert.equal(remanente.items[0].cantidadOrdenada, 4);
+    assert.equal(String(remanente.ordenOrigenId), String(oc1._id));
+    const oc2 = await nuevaOC("OC-CERRADA");
+    const rec2 = await (await llamar(recibirOC, "POST", `/api/ordenes-compra/${oc2._id}/recibir`, { avisarProveedor: false, dejarAbiertoFaltante: false, items: [{ productoId: String(fabuloso._id), cantidadRecibida: 6 }] }, { id: String(oc2._id) })).json();
+    assert.equal(rec2.remanenteFolio, null, "si se elige cerrar, no queda remanente");
+
+    // ---- Solicitudes de ruta de Progreso ----
+    const fechaSol = "2026-11-09";
+    const ruta2 = await Ruta.create({ nombre: "Ruta Progreso", tipo: "especial", horaSalida: "10:00", vehiculoPreferidoId: forte._id, choferResponsableId: chofer._id, paradas: [{ tipo: "sucursal", sucursalId: progreso._id }] });
+    void ruta2;
+    await llamar(sugerir, "POST", "/api/operacion/rol/sugerir", { fecha: fechaSol });
+    const comoProgresoPide = (body: unknown) => comoProgreso(solicitudesApi, "POST", "/api/solicitudes-ruta", body);
+    assert.equal((await comoProgresoPide({ direccion: "Calle 1", fecha: fechaSol, horaDesde: "12:00", horaHasta: "11:00" })).status, 400, "horario al revés");
+    assert.equal((await comoProgresoPide({ direccion: "Calle 1", fecha: fechaSol, horaDesde: "09:00", horaHasta: "13:00", folioPedido: nuevo.folio })).status, 400, "no liga pedidos de otra tienda");
+    const fria = await (await comoProgresoPide({ direccion: "Av. Reforma 10", zona: "Centro", fecha: fechaSol, horaDesde: "09:00", horaHasta: "13:00", frio: "congelado" })).json();
+    const normal = await (await comoProgresoPide({ direccion: "Calle Pino 4", zona: "Norte", fecha: fechaSol, horaDesde: "09:30", horaHasta: "12:00" })).json();
+    assert.equal(normal.estado, "pendiente");
+    const vistaCedis = await (await llamar(solicitudesApi, "GET", "/api/solicitudes-ruta")).json();
+    const vFria = vistaCedis.find((s: { _id: string }) => s._id === fria._id);
+    const vNormal = vistaCedis.find((s: { _id: string }) => s._id === normal._id);
+    assert.equal(vFria.sugeridaId, null, "congelado no cabe en una unidad sin frío");
+    assert.ok(vFria.opciones.every((o: { apta: boolean }) => !o.apta));
+    assert.ok(vNormal.sugeridaId, "a la normal se le sugiere salida");
+    const sid = (s: { _id: string }) => ({ id: s._id });
+    assert.equal((await llamar(solicitudApi, "PATCH", `/api/solicitudes-ruta/${fria._id}`, { accion: "confirmar", salidaId: vNormal.sugeridaId }, sid(fria))).status, 400, "no confirma frío en unidad sin frío");
+    assert.equal((await comoProgreso(solicitudApi, "PATCH", `/api/solicitudes-ruta/${normal._id}`, { accion: "confirmar", salidaId: vNormal.sugeridaId }, sid(normal))).status, 403, "la tienda no confirma");
+    const confirmada = await (await llamar(solicitudApi, "PATCH", `/api/solicitudes-ruta/${normal._id}`, { accion: "confirmar", salidaId: vNormal.sugeridaId }, sid(normal))).json();
+    assert.equal(confirmada.estado, "confirmada");
+    const rolSol = (await RolEntrega.findOne({ fecha: fechaSol }).lean())!;
+    assert.ok(rolSol.salidas.some((s: { paradas: { descripcion?: string }[] }) => s.paradas.some((x) => x.descripcion?.includes(normal.folio))), "la entrega viaja como parada de la salida");
+    const repro = await (await llamar(solicitudApi, "PATCH", `/api/solicitudes-ruta/${fria._id}`, { accion: "reprogramar", fecha: "2026-11-10", horaDesde: "08:00", horaHasta: "10:00", comentario: "Sale la estaquita refrigerada" }, sid(fria))).json();
+    assert.equal(repro.estado, "reprogramada");
+    const aceptada = await (await comoProgreso(solicitudApi, "PATCH", `/api/solicitudes-ruta/${fria._id}`, { accion: "aceptar" }, sid(fria))).json();
+    assert.equal(aceptada.estado, "pendiente");
+    assert.equal(aceptada.fecha, "2026-11-10", "al aceptar toma el horario propuesto");
+    assert.equal((await (await comoTienda(solicitudesApi, "GET", "/api/solicitudes-ruta")).json()).length, 0, "Alcalá no ve las de Progreso");
+
+    // ---- Consumo y tiempos de ruta ----
+    assert.equal(cantidadSugerida(3, 4, 2), 2, "3 al día × 2 días − 4 en tienda");
+    assert.equal(cantidadSugerida(1, 10, 2), 0);
+    await Venta.collection.insertOne({ estado: "completada", corte: "2026-11-02", sucursalId: progreso._id, items: [{ productoId: fabuloso._id, cantidad: 30 }] });
+    const consumo = await consumoPorTienda([String(fabuloso._id)], "2026-11-04", { ventanaDias: 30, diasCobertura: 2 });
+    assert.deepEqual(consumo.get(String(progreso._id))?.get(String(fabuloso._id)), { stock: 0, consumoDiario: 1, sugerido: 2 });
+    assert.equal(duracionEstimada(3, { minutosPorParada: 25, holguraMin: 20 }, 150), 95);
+    assert.equal(duracionEstimada(3, { minutosPorParada: 0, holguraMin: 20 }, 150), 150, "sin minutos por parada se usa la típica");
+
+    console.log("OK   fase 4 (temporadas → OC remanente → solicitudes de ruta → consumo y tiempos)");
   } finally {
     await mongoose.disconnect();
     await mongo.stop();

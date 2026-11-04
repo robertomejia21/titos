@@ -112,6 +112,32 @@ const ConfiguracionOperacionSchema = new Schema(
       default: () => ({}),
     },
 
+    nivelador: {
+      type: new Schema(
+        {
+          /** Ventana del patrón de consumo: 30 = mensual, 60 = bimestral. */
+          ventanaDias: { type: Number, enum: [30, 60], default: 30 },
+          /** Días que debe cubrir lo que se le manda a cada tienda. */
+          diasCobertura: { type: Number, default: 2, min: 1, max: 14 },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
+
+    /** Tiempos de ruta: minutos por parada y holgura, para estimar duración cuando la ruta no trae la suya. */
+    tiemposRuta: {
+      type: new Schema(
+        {
+          // 0 = no se estima: se usa la duración típica (así no cambia nada hasta capturarlo).
+          minutosPorParada: { type: Number, default: 0, min: 0, max: 180 },
+          holguraMin: { type: Number, default: 20, min: 0, max: 240 },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
+
     /** Minutos que se da por ocupada una camioneta y su chofer al salir a ruta. */
     duracionRutaMin: { type: Number, default: 150, min: 30, max: 720 },
 

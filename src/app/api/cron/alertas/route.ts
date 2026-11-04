@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { requireSession, unauthorized } from "@/lib/apiAuth";
 import { revisarPedidosAtrasados } from "@/lib/alertasPedidos";
 import { revisarFaltantesProgramados } from "@/lib/faltantesDiarios";
+import { avisarInicioDeTemporadas } from "@/lib/temporadasServidor";
 
 // Barrido de pedidos atrasados. Lo llama el cron de Vercel (ver vercel.json), que
 // manda `Authorization: Bearer $CRON_SECRET`. La frecuencia depende del plan:
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
   // El mismo barrido manda, una vez al día, la lista de faltantes a
   // proveedores, Compras y almacén (ver Reglas de surtido).
   const faltantes = await revisarFaltantesProgramados().catch((error) => ({ enviado: false, motivo: (error as Error).message }));
+  // Y avisa de los productos de temporada que se reactivan hoy.
+  const temporadas = await avisarInicioDeTemporadas().catch((error) => ({ avisados: 0, mensajes: 0, errores: [(error as Error).message] }));
 
-  return NextResponse.json({ ...resultado, faltantes });
+  return NextResponse.json({ ...resultado, faltantes, temporadas });
 }

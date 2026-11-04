@@ -928,7 +928,7 @@ function PedidoModal({
   );
 }
 
-type SucursalCantidades = { pedido: number; asignado: number };
+type SucursalCantidades = { pedido: number; asignado: number; stock?: number; consumoDiario?: number; sugerido?: number };
 
 type FilaMatriz = {
   productoId: string;
@@ -944,6 +944,7 @@ type MatrizData = {
   cortesDisponibles: string[];
   sucursales: { _id: string; nombre: string }[];
   productos: FilaMatriz[];
+  consumo?: { ventanaDias: number; diasCobertura: number };
 };
 
 function fechaISO(desplazamientoDias = 0) {
@@ -1083,6 +1084,15 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
                           ) : (
                             <span className="text-black/20">—</span>
                           )}
+                          {/* Patrón de consumo: lo que tiene la tienda y lo que le alcanzaría para los días de cobertura. */}
+                          {cantidades?.consumoDiario ? (
+                            <span
+                              className={`block text-[11px] tabular-nums ${pedido === 0 && (cantidades.sugerido ?? 0) > 0 ? "font-semibold text-amber-700" : "text-black/40"}`}
+                              title={`Vende ${cantidades.consumoDiario}/día · tiene ${cantidades.stock ?? 0}`}
+                            >
+                              tiene {cantidades.stock ?? 0} · sugiere {cantidades.sugerido ?? 0}
+                            </span>
+                          ) : null}
                         </td>
                       );
                     })}
@@ -1106,7 +1116,9 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
           <p className="mt-3 text-xs text-black/40">
             Cada celda de sucursal muestra <span className="font-medium text-black/60">pedido / surtido</span> tras
             ejecutar el Nivelador. En <span className="font-semibold text-red-600">rojo</span>, lo que no alcanzó a
-            cubrirse con la existencia disponible.
+            cubrirse con la existencia disponible. Abajo, lo que tiene la tienda y lo que se le sugiere según lo que vendió
+            {data.consumo ? ` en los últimos ${data.consumo.ventanaDias} días, para ${data.consumo.diasCobertura} días de cobertura` : ""}; en{" "}
+            <span className="font-semibold text-amber-700">ámbar</span>, tiendas que no lo pidieron pero lo venden.
           </p>
         </>
       )}

@@ -4,6 +4,8 @@ import Pedido from "@/models/Pedido";
 import Producto from "@/models/Producto";
 import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, todayCorte } from "@/lib/apiAuth";
+import { consumoPorTienda } from "@/lib/consumo";
+import { obtenerConfiguracionOperacion } from "@/lib/operacion";
 
 // Vista consolidada por producto de los pedidos ya pasados por el Nivelador:
 // cuánto había en almacén, cuánto pidió cada sucursal y cuánto falta comprar.
@@ -26,7 +28,7 @@ export async function GET(req: NextRequest) {
     Pedido.find({ corte, estado: { $ne: "pendiente" } }).lean(),
   ]);
 
-  type SucursalCantidades = { pedido: number; asignado: number };
+  type SucursalCantidades = { pedido: number; asignado: number; stock?: number; consumoDiario?: number; sugerido?: number };
 
   type Fila = {
     productoId: string;
@@ -66,6 +68,20 @@ export async function GET(req: NextRequest) {
   const productos = await Producto.find({ _id: { $in: productoIds } }).lean();
   const existenciaPorProducto = new Map(productos.map((p) => [String(p._id), p.existenciaMatriz]));
 
+  // Patrón de consumo de cada tienda (antes del corte): sugiere cuánto mandar,
+  // también a la tienda que no lo pidió pero lo vende.
+  const operacion = await obtenerConfiguracionOperacion();
+  const ventanaDias = operacion.nivelador?.ventanaDias ?? 30;
+  const diasCobertura = operacion.nivelador?.diasCobertura ?? 2;
+  const consumo = await consumoPorTienda(productoIds, corte, { ventanaDias, diasCobertura });
+  for (const fila of porProducto.values()) {
+    for (const [sucursalId, productosTienda] of consumo) {
+      const c = productosTienda.get(fila.productoId);
+      if (!c) continue;
+      fila.porSucursal[sucursalId] = { ...(fila.porSucursal[sucursalId] ?? { pedido: 0, asignado: 0 }), ...c };
+    }
+  }
+
   const filas = Array.from(porProducto.values())
     .map((fila) => ({
       productoId: fila.productoId,
@@ -84,5 +100,6 @@ export async function GET(req: NextRequest) {
     cortesDisponibles,
     sucursales: sucursales.map((s) => ({ _id: String(s._id), nombre: s.nombre })),
     productos: filas,
+    consumo: { ventanaDias, diasCobertura },
   });
 }

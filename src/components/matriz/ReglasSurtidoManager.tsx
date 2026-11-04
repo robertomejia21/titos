@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2, Tv } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Tv } from "lucide-react";
 import { Button, Card, FormField, Input } from "@/components/ui";
 import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
 
@@ -19,6 +19,8 @@ type Config = {
     generalSoloResto?: boolean;
   };
   traspasos?: { mostrarMontos: boolean };
+  nivelador?: { ventanaDias: 30 | 60; diasCobertura: number };
+  tiemposRuta?: { minutosPorParada: number; holguraMin: number };
   duracionRutaMin: number;
   pantallaToken?: string;
   sucursales: { _id: string; nombre: string }[];
@@ -54,6 +56,8 @@ export function ReglasSurtidoManager() {
   const [orden, setOrden] = useState<string[]>([]);
   const [almacen, setAlmacen] = useState("");
   const [grupos, setGrupos] = useState<GrupoEditable[]>([]);
+  // Tienda que se está arrastrando en la lista de prioridad.
+  const [arrastrando, setArrastrando] = useState<number | null>(null);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
@@ -91,6 +95,16 @@ export function ReglasSurtidoManager() {
     setOrden(copia);
   }
 
+  /** Arrastrar y soltar: saca la tienda de su lugar y la pone donde se soltó. */
+  function soltarEn(destino: number) {
+    if (arrastrando === null || arrastrando === destino) return setArrastrando(null);
+    const copia = [...orden];
+    const [tienda] = copia.splice(arrastrando, 1);
+    copia.splice(destino, 0, tienda);
+    setOrden(copia);
+    setArrastrando(null);
+  }
+
   async function guardar() {
     if (!config) return;
     setGuardando(true);
@@ -109,6 +123,8 @@ export function ReglasSurtidoManager() {
           segmentos: grupos.map((g) => ({ nombre: g.nombre, categorias: g.categorias, destinatarios: separarNumeros(g.destinatarios) })),
         },
         traspasos: { mostrarMontos: config.traspasos?.mostrarMontos === true },
+        nivelador: { ventanaDias: config.nivelador?.ventanaDias ?? 30, diasCobertura: config.nivelador?.diasCobertura ?? 2 },
+        tiemposRuta: { minutosPorParada: config.tiemposRuta?.minutosPorParada ?? 0, holguraMin: config.tiemposRuta?.holguraMin ?? 20 },
         duracionRutaMin: config.duracionRutaMin,
       }),
     });
@@ -142,10 +158,19 @@ export function ReglasSurtidoManager() {
         </div>
       </Seccion>
 
-      <Seccion titulo="Prioridad entre tiendas" descripcion="La primera se atiende primero cuando hay que decidir quién se lleva la última caja o pieza.">
+      <Seccion titulo="Prioridad entre tiendas" descripcion="La primera se atiende primero cuando hay que decidir quién se lleva la última caja o pieza. Arrastra para reordenar.">
         <ol className="space-y-1.5">
           {orden.map((id, i) => (
-            <li key={id} className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-1.5">
+            <li
+              key={id}
+              draggable
+              onDragStart={() => setArrastrando(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => soltarEn(i)}
+              onDragEnd={() => setArrastrando(null)}
+              className={`flex cursor-grab items-center gap-2 rounded-lg border px-3 py-1.5 ${arrastrando === i ? "border-titos-green-500 bg-titos-green-100/50 opacity-60" : "border-black/10"}`}
+            >
+              <GripVertical className="h-4 w-4 text-black/30" aria-hidden="true" />
               <span className="w-6 font-bold text-titos-green-700">{i + 1}</span>
               <span className="flex-1 text-sm font-medium">{nombre(id)}</span>
               <button onClick={() => mover(i, -1)} disabled={i === 0} className="text-black/40 disabled:opacity-30" aria-label={`Subir ${nombre(id)}`}>
@@ -157,6 +182,30 @@ export function ReglasSurtidoManager() {
             </li>
           ))}
         </ol>
+      </Seccion>
+
+      <Seccion titulo="Patrón de consumo" descripcion="El Nivelador sugiere cuánto mandar a cada tienda según lo que vendió. Se ve en la vista por producto.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <FormField label="Ventana de ventas">
+            <select
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
+              value={config.nivelador?.ventanaDias ?? 30}
+              onChange={(e) => set({ nivelador: { ventanaDias: Number(e.target.value) as 30 | 60, diasCobertura: config.nivelador?.diasCobertura ?? 2 } })}
+            >
+              <option value={30}>Mensual (últimos 30 días)</option>
+              <option value={60}>Bimestral (últimos 60 días)</option>
+            </select>
+          </FormField>
+          <FormField label="Días que debe cubrir lo que se manda">
+            <Input
+              type="number"
+              min="1"
+              max="14"
+              value={config.nivelador?.diasCobertura ?? 2}
+              onChange={(e) => set({ nivelador: { ventanaDias: config.nivelador?.ventanaDias ?? 30, diasCobertura: Number(e.target.value) || 1 } })}
+            />
+          </FormField>
+        </div>
       </Seccion>
 
       <Seccion titulo="Segunda vuelta" descripcion="Completa los pedidos que quedaron cortos en cuanto llega mercancía.">
@@ -306,9 +355,30 @@ export function ReglasSurtidoManager() {
       </Seccion>
 
       <Seccion titulo="Rutas y pantalla del área operativa" descripcion="La pantalla no inicia sesión: entra con esta llave. Si se filtra, genera otra y la TV anterior deja de ver el rol.">
-        <FormField label="Duración típica de una ruta (minutos)" className="max-w-xs">
-          <Input type="number" min="30" max="720" value={config.duracionRutaMin} onChange={(e) => set({ duracionRutaMin: Number(e.target.value) || 150 })} />
-        </FormField>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <FormField label="Duración típica de una ruta (min)">
+            <Input type="number" min="30" max="720" value={config.duracionRutaMin} onChange={(e) => set({ duracionRutaMin: Number(e.target.value) || 150 })} />
+          </FormField>
+          <FormField label="Minutos por parada (0 = no estimar)">
+            <Input
+              type="number"
+              min="0"
+              max="180"
+              value={config.tiemposRuta?.minutosPorParada ?? 0}
+              onChange={(e) => set({ tiemposRuta: { minutosPorParada: Number(e.target.value) || 0, holguraMin: config.tiemposRuta?.holguraMin ?? 20 } })}
+            />
+          </FormField>
+          <FormField label="Holgura por ruta (min)">
+            <Input
+              type="number"
+              min="0"
+              max="240"
+              value={config.tiemposRuta?.holguraMin ?? 20}
+              onChange={(e) => set({ tiemposRuta: { minutosPorParada: config.tiemposRuta?.minutosPorParada ?? 0, holguraMin: Number(e.target.value) || 0 } })}
+            />
+          </FormField>
+        </div>
+        <p className="mt-1 text-xs text-black/50">Si una ruta no tiene duración propia, se estima con paradas × minutos más la holgura; sin minutos por parada se usa la duración típica.</p>
         {config.pantallaToken ? (
           <div className="mt-3 space-y-2">
             <Input readOnly value={urlPantalla} onFocus={(e) => e.target.select()} aria-label="Dirección de la pantalla" />
