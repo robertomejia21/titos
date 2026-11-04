@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Banknote } from "lucide-react";
 import { Button, Card, EmptyState, FormField, Input, Pagination, Select, formatMoney } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { fechaEnZona, formatFechaHora, formatHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Retiro = {
   _id: string;
@@ -239,7 +240,7 @@ export function CortesManager() {
         {errorCarga && <p role="alert" className="mb-3 text-sm text-red-800">{errorCarga}</p>}
         {cortes.length >= 300 && <p role="status" className="mb-3 text-sm text-amber-900">La consulta y el Excel incluyen los 300 cierres más recientes. Reduce el periodo para consultar el resto.</p>}
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : cortes.length === 0 ? (
           <EmptyState message="No hay cortes cerrados en el periodo seleccionado." />
         ) : (

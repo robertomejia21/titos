@@ -22,6 +22,7 @@ import { DIAS_SEMANA, DIA_LABEL } from "@/lib/dias";
 import { fechaEnZona, sumarDias } from "@/lib/zonasHorarias";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { ETAPA_CARGA_LABEL, type EtapaCarga } from "@/lib/logistica";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -540,7 +541,7 @@ function RolDelDia({ catalogo, tokenPantalla }: { catalogo: Catalogo; tokenPanta
       ) : null}
 
       {cargando ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : salidas.length === 0 ? (
         <EmptyState
           message={
@@ -1005,7 +1006,7 @@ export function RolEntregasManager() {
         ))}
       </div>
       {!catalogo ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : tab === "rol" ? (
         <RolDelDia catalogo={catalogo} tokenPantalla={token} />
       ) : tab === "rutas" ? (

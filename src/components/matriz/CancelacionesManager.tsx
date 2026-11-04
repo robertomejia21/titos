@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, FormField, Pagination, Select, formatMoney } 
 import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/components/matriz/FiltrosSucursalFecha";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type ItemCancelado = {
   sku: string;
@@ -150,7 +151,7 @@ export function CancelacionesManager() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : cancelaciones.length === 0 ? (
           <EmptyState message="No hay cancelaciones registradas en el periodo seleccionado." />
         ) : (

@@ -9,6 +9,7 @@ import { leerPuertoDiagnostico, type SerialApi } from "@/lib/serialDiagnostico";
 import { imprimirTicketPrueba } from "@/lib/ticketVenta";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { DiagnosticoTerminal } from "@/components/BanorteTerminal";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Datos = {
   sucursalId: string; sucursales: { _id: string; nombre: string }[];
@@ -91,7 +92,7 @@ export function EquiposCajaManager() {
   return <div className="space-y-5">
     <TarjetaEquipo titulo="Preparación de la caja" abierta>
       <p className="mt-2 text-sm text-black/70">Hoy puedes capturar el peso del visor y registrar un pago aprobado en la terminal. La lectura automática de la báscula y el envío del importe a Banorte requieren identificar y probar los equipos en la tienda.</p>
-      {cargando ? <p className="mt-3" role="status">Cargando sucursal…</p> : datos && <div className="mt-4 max-w-lg">
+      {cargando ? <div className="mt-3 max-w-lg"><SkeletonTabla filas={3} columnas={2} etiqueta="Cargando sucursal…" /></div> : datos && <div className="mt-4 max-w-lg">
         <FormField label="Sucursal"><Select aria-label="Sucursal de los equipos" disabled={guardando || leyendo || datos.sucursales.length < 2} value={datos.sucursalId} onChange={e => {
           if (dirty && !window.confirm("Hay cambios sin guardar. ¿Cambiar de sucursal y descartarlos?")) return;
           setCargando(true); setSucursal(e.target.value);

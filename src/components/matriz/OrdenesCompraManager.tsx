@@ -15,6 +15,7 @@ import { imprimirHTML } from "@/lib/print";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
 import { MOTIVOS_RECHAZO, MOTIVO_RECHAZO_LABEL, type MotivoRechazo } from "@/lib/motivosRechazo";
 import { EvidenciasRecepcion } from "@/components/matriz/EvidenciasRecepcion";
+import { SkeletonTabla } from "@/components/Skeleton";
 type Necesidad = {
   _id: string;
   productoId: string;
@@ -986,7 +987,7 @@ export function OrdenesCompraManager() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : tab === "por-ordenar" ? (
         <div className="space-y-6">
           {error ? <p className="text-sm text-red-600">{error}</p> : null}

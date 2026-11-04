@@ -8,6 +8,7 @@ import { formatFechaHora } from "@/lib/zonasHorarias";
 import { estadoPuente, PUENTE_CAJA_URL, type EstadoPuente } from "@/lib/puenteCaja";
 import { operarTerminal, regresarCobro, resolverDudosa, type Avance } from "@/lib/cobroBanorte";
 import { ETIQUETA_COMANDO, type ComandoBanorte } from "@/lib/banorte";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 // Herramientas de la terminal Banorte integrada: el diagnóstico corre en la PC
 // donde está abierta la página (porque es la que tiene el puente de caja), y la
@@ -293,7 +294,7 @@ export function BitacoraBanorte({ sucursales = [] }: { sucursales?: { _id: strin
       {mensaje ? <p className="mb-2 text-sm text-titos-green-800">{mensaje}</p> : null}
 
       {cargando ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : lista.length === 0 ? (
         <EmptyState message="No hay operaciones en este filtro." />
       ) : (

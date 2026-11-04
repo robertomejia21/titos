@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, FormField, Input, Select } from "@/components
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { fechaEnZona, formatFechaHora, sumarDias } from "@/lib/zonasHorarias";
 import type { SolicitudVista } from "@/lib/solicitudesRuta";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 const ESTADO: Record<string, { texto: string; clase: string }> = {
   pendiente: { texto: "Por confirmar", clase: "bg-amber-100 text-amber-800" },
@@ -95,7 +96,7 @@ export function SolicitudesRutaManager({ esMatriz }: { esMatriz: boolean }) {
       ) : null}
 
       {lista === null ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : lista.length === 0 ? (
         <EmptyState message={esMatriz ? "No hay solicitudes de ruta." : "Todavía no has pedido entregas."} />
       ) : (

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { Button, Card, EmptyState, Input, Pagination } from "@/components/ui";
 import { enPresentacion } from "@/lib/minimos";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Fila = {
   _id: string;
@@ -209,7 +210,7 @@ export function MinimosManager() {
       </Card>
 
       {!datos ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : datos.items.length === 0 ? (
         <EmptyState message={filtros.clave ? "No hay productos clave con estos filtros. Quita el filtro o marca con ★ los que se vigilan a diario." : "No hay productos con estos filtros."} />
       ) : (

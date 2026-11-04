@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Ticket, CreditCard } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, FormField, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Emisor = { _id: string; nombre: string; prefijosBin: string[]; activo: boolean };
 type Bin = {
@@ -152,7 +153,7 @@ export function ValesManager() {
         {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
 
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : emisores.length === 0 ? (
           <EmptyState message="Todavía no hay emisores registrados." />
         ) : (

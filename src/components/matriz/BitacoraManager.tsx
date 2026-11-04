@@ -6,6 +6,7 @@ import { Card, Input, Select, EmptyState, FormField, Pagination, formatMoney } f
 import { usePaginacion } from "@/components/usePaginacion";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaLarga, formatHora } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 const TIPOS = [
   { valor: "cancelacion", etiqueta: "Cancelaciones" },
@@ -186,7 +187,7 @@ export function BitacoraManager() {
         </h2>
 
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : eventos.length === 0 ? (
           <EmptyState message="No hay movimientos registrados con esos filtros." />
         ) : (

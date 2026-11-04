@@ -44,6 +44,7 @@ import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
 import { fechaEnZona, formatFechaHora, formatHora, formatFechaLarga } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 import {
   leerProductosCache,
   guardarProductosCache,
@@ -1940,7 +1941,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   ) : null;
 
   if (sesion === undefined) {
-    return <p className="text-sm text-black/50">Cargando punto de venta...</p>;
+    return <SkeletonTabla filas={6} columnas={3} etiqueta="Cargando punto de venta…" />;
   }
 
   if (sesion === null) {

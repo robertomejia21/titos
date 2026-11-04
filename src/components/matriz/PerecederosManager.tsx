@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, EmptyState, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { ESTADO_ROTACION_LABEL, type EstadoRotacion } from "@/lib/perecederos";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Fila = {
   productoId: string;
@@ -58,7 +59,7 @@ export function PerecederosManager() {
   );
   const { pagina, paginacion } = usePaginacion(visibles, filtro);
 
-  if (!filas) return <p className="text-sm text-black/50">Cargando...</p>;
+  if (!filas) return <SkeletonTabla />;
 
   return (
     <div className="space-y-4">

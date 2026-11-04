@@ -9,6 +9,7 @@ import { FiltrosSucursalFecha, fechaISO, type SucursalFiltro } from "@/component
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { ETIQUETA_TIPO_TARJETA, esTipoTarjeta } from "@/lib/tarjetas";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 export type VentaHistorial = {
   _id: string;
@@ -283,7 +284,7 @@ export function HistorialVentasManager() {
         {ventas.length >= 2000 && <p role="status" className="mb-3 text-sm text-amber-900">La consulta y el Excel incluyen las 2,000 ventas más recientes. Reduce el periodo para consultar el resto.</p>}
 
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : ventas.length === 0 ? (
           <EmptyState message="No hay ventas registradas con estos filtros." />
         ) : (

@@ -14,6 +14,7 @@ import {
 import { Button, Card, EmptyState, FormField, Input, Modal, Pagination, formatMoney } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { formatFechaHora, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Sucursal = {
   _id: string;
@@ -341,7 +342,7 @@ export function Ventas2Manager() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : activaciones.length === 0 ? (
           <EmptyState message="Todavia no hay activaciones de Notas de venta." />
         ) : (

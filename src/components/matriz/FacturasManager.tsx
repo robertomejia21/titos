@@ -31,6 +31,7 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { REGIMENES_FISCALES, USOS_CFDI } from "@/lib/facturacion";
 import { MOTIVOS_CANCELACION, FORMAS_PAGO_SAT, METODOS_PAGO_SAT, etiquetaImpuestos } from "@/lib/facturas";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 export type VentaFacturable = {
   _id: string;
@@ -508,7 +509,7 @@ export function FacturasManager() {
         <p className="mb-3 text-sm text-black/70">El Excel incluye los registros consultados de todas las páginas. {tab === "porFacturar" ? "La consulta revisa hasta 600 ventas elegibles recientes; reduce el periodo para revisar las anteriores." : "La consulta admite hasta 500 facturas; reduce el periodo si alcanzas ese límite."}</p>
 
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : lista.length === 0 ? (
           <EmptyState
             message={

@@ -7,6 +7,7 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { TIPOS_INCIDENCIA, TIPO_INCIDENCIA_LABEL, type TipoIncidencia } from "@/lib/logistica";
 import type { IncidenciaVista } from "@/lib/incidencias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 /**
  * Incidencias de cajas y folios con su conversación. El CEDIS las resuelve; la
@@ -87,7 +88,7 @@ export function IncidenciasManager({ esMatriz, rutaFolio }: { esMatriz: boolean;
       </div>
 
       {lista === null ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : lista.length === 0 ? (
         <EmptyState message="No hay incidencias en esta vista." />
       ) : (

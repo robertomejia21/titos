@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 
 function LoginForm() {
@@ -12,27 +13,29 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // "validando" mientras responde el servidor y "abriendo" mientras carga el
+  // panel: el botón no regresa a su estado normal hasta salir del login.
+  const [loading, setLoading] = useState<false | "validando" | "abriendo">(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setLoading("validando");
 
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ usuario, password }),
-    });
+    }).catch(() => null);
 
-    setLoading(false);
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+    if (!res?.ok) {
+      const data = res ? await res.json().catch(() => ({})) : { error: "Sin conexión. Revisa el internet e intenta de nuevo." };
       setError(data.error || "No se pudo iniciar sesión");
+      setLoading(false);
       return;
     }
 
+    setLoading("abriendo");
     const data = await res.json();
     const next = searchParams.get("next");
     const destino = next || (data.role === "matriz" ? "/matriz" : "/sucursal");
@@ -86,6 +89,7 @@ function LoginForm() {
                   placeholder="tu usuario"
                   autoComplete="username"
                   autoFocus
+                  disabled={!!loading}
                 />
               </div>
               <div>
@@ -99,6 +103,7 @@ function LoginForm() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="pr-10"
+                    disabled={!!loading}
                   />
                   <button
                     type="button"
@@ -119,10 +124,24 @@ function LoginForm() {
                   </button>
                 </div>
               </div>
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
-              <Button type="submit" disabled={loading} className="w-full justify-center">
-                {loading ? "Entrando..." : "Iniciar sesión"}
+              {error ? (
+                <p role="alert" className="text-sm text-red-600">
+                  {error}
+                </p>
+              ) : null}
+              <Button type="submit" disabled={!!loading} aria-busy={!!loading} className="w-full justify-center">
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                    {loading === "validando" ? "Verificando tus datos…" : "Abriendo tu panel…"}
+                  </span>
+                ) : (
+                  "Iniciar sesión"
+                )}
               </Button>
+              <p role="status" aria-live="polite" className="sr-only">
+                {loading === "validando" ? "Verificando tus datos" : loading === "abriendo" ? "Sesión iniciada, abriendo tu panel" : ""}
+              </p>
             </form>
 
             <p className="mt-10 text-center text-xs text-black/30">

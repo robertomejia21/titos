@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button, Card, Input, EmptyState, Modal, FormField, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { Tags } from "lucide-react";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type LineaProducto = {
   _id: string;
@@ -193,7 +194,7 @@ export function LineasManager() {
           <Button onClick={() => setCreando(true)}>+ Nueva línea</Button>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : lineas.length === 0 ? (
           <EmptyState message="Todavía no hay líneas registradas." />
         ) : (

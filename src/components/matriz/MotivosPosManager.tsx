@@ -11,6 +11,7 @@ import {
   type MotivoPos,
   type TipoMotivoPos,
 } from "@/lib/motivosPos";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 const AYUDA: Record<TipoMotivoPos, string> = {
   cancelacion:
@@ -124,7 +125,7 @@ export function MotivosPosManager() {
       {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
 
       {cargando ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {TIPOS_MOTIVO_POS.map((tipo) => {
