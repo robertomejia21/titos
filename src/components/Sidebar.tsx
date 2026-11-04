@@ -44,6 +44,8 @@ import {
   Search,
   MessageCircle,
   Route,
+  ScanLine,
+  TriangleAlert,
   Gauge,
   Apple,
   ListChecks,
@@ -142,6 +144,8 @@ const MATRIZ_NAV: NavCategory[] = [
     icon: Route,
     items: [
       { href: "/matriz/rutas", label: "Rol de entregas", icon: Route },
+      { href: "/matriz/escanear", label: "Escanear cajas", icon: ScanLine },
+      { href: "/matriz/incidencias", label: "Incidencias de entrega", icon: TriangleAlert },
       { href: "/matriz/minimos", label: "Mínimos y productos clave", icon: Gauge },
       { href: "/matriz/perecederos", label: "Rotación de perecederos", icon: Apple },
       { href: "/matriz/faltantes", label: "Faltantes del día", icon: ListChecks },
@@ -166,6 +170,7 @@ const SUCURSAL_NAV: NavItem[] = [
   { href: "/sucursal/prestamos", label: "Préstamos", icon: ArrowLeftRight },
   { href: "/sucursal/nuevo-pedido", label: "Nuevo pedido", icon: PlusCircle },
   { href: "/sucursal/pedidos", label: "Mis pedidos", icon: ClipboardList },
+  { href: "/sucursal/escanear", label: "Recibir cajas (QR)", icon: ScanLine },
   { href: "/sucursal/usuarios", label: "Usuarios", icon: Users },
   { href: "/sucursal/ajustes", label: "Ajustes", icon: Settings },
   { href: "/sucursal/equipos-caja", label: "Equipos de caja", icon: Wrench },
@@ -358,7 +363,7 @@ export function Sidebar({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 md:hidden">
+      <div className="flex items-center justify-between border-b border-black/5 bg-white px-4 py-3 md:hidden print:hidden">
         <button
           onClick={() => setMobileOpen(true)}
           className="rounded-lg p-2 text-titos-green-900 hover:bg-titos-green-100"
@@ -384,7 +389,7 @@ export function Sidebar({
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-black/5 bg-white transition-all duration-200 ease-in-out md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-black/5 bg-white transition-all duration-200 ease-in-out print:hidden md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "w-64 md:w-20" : "w-64"}`}
       >

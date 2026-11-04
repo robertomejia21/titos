@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest } from "@/lib/apiAuth";
 import { evento } from "@/lib/logistica";
 import { cargarPedidoParaCajas, contenidoCaja, respuestaPedido } from "@/lib/cajasPedido";
+import { nuevoQr } from "@/lib/trazabilidad";
 
 /**
  * Arma una caja. Con los dos cinchos queda sellada de una vez (como antes);
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const sellada = !!cincho1;
-  pedido.cajas.push({ numero, estado: sellada ? "sellada" : "armada", cincho1, cincho2, categoria, items });
+  pedido.cajas.push({ numero, estado: sellada ? "sellada" : "armada", qr: nuevoQr(), cincho1, cincho2, categoria, items });
   pedido.historial.push(evento(session, "caja_armada", `Caja ${numero}`));
   if (sellada) pedido.historial.push(evento(session, "caja_sellada", `Caja ${numero} · cinchos ${cincho1} / ${cincho2}`));
   await pedido.save();

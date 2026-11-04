@@ -1,5 +1,5 @@
 import { Schema, model, models, type InferSchemaType } from "mongoose";
-import { ESTADOS_CAJA, ETAPAS_CARGA } from "@/lib/logistica";
+import { ESTADOS_CAJA, ETAPAS_CARGA, PUNTOS_ESCANEO } from "@/lib/logistica";
 
 export const ESTADOS_PEDIDO = ["pendiente", "nivelado", "surtido", "recibido"] as const;
 
@@ -44,11 +44,27 @@ const PedidoItemSchema = new Schema(
 // Una caja física en la que se empaca y sella (con dos cinchos numerados)
 // parte del surtido. Es información de trazabilidad adicional: no
 // reemplaza la cantidad surtida por producto.
+// Una lectura del QR de una caja (o del folio, si va sin cajas).
+const EscaneoSchema = new Schema(
+  {
+    punto: { type: String, enum: PUNTOS_ESCANEO, required: true },
+    en: { type: Date, default: Date.now },
+    porNombre: { type: String, default: "" },
+    sucursalId: { type: Schema.Types.ObjectId, ref: "Sucursal", default: null },
+    /** "sucursal_incorrecta" cuando la tienda que escaneó no es la de destino. */
+    resultado: { type: String, default: "ok" },
+  },
+  { _id: false }
+);
+
 // Las cajas que ya existían se capturaban selladas, por eso el default.
 const CajaSchema = new Schema(
   {
     numero: { type: String, required: true },
     estado: { type: String, enum: ESTADOS_CAJA, default: "sellada" },
+    /** Llave del QR de la caja; se genera al armarla (o al imprimir, en las viejas). */
+    qr: { type: String, default: null },
+    escaneos: { type: [EscaneoSchema], default: [] },
     cincho1: { type: String, default: "" },
     cincho2: { type: String, default: "" },
     categoria: { type: String, default: "" },
@@ -124,6 +140,9 @@ const PedidoSchema = new Schema(
     recibidoEn: { type: Date, default: null },
 
     carga: { type: CargaSchema, default: () => ({}) },
+    /** QR del folio completo: lo que va sin cajas (frutas, verduras, carnicería). */
+    qrToken: { type: String, default: null },
+    escaneos: { type: [EscaneoSchema], default: [] },
     historial: { type: [EventoPedidoSchema], default: [] },
 
     alertas: { type: [AlertaPedidoSchema], default: [] },
@@ -135,6 +154,8 @@ const PedidoSchema = new Schema(
 PedidoSchema.index({ estado: 1, fecha: 1 });
 PedidoSchema.index({ estado: 1, surtidoEn: 1 });
 PedidoSchema.index({ pedidoOrigenId: 1 });
+PedidoSchema.index({ qrToken: 1 }, { sparse: true });
+PedidoSchema.index({ "cajas.qr": 1 }, { sparse: true });
 
 export type Pedido = InferSchemaType<typeof PedidoSchema> & { _id: string };
 

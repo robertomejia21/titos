@@ -5,8 +5,8 @@ import { Card, EstadoBadge, formatMoney } from "@/components/ui";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { categoriaLabel } from "@/lib/categorias";
-import { ESTADO_CAJA_LABEL, ETAPA_CARGA_LABEL, TIPO_EVENTO_LABEL } from "@/lib/logistica";
-import type { TarjetaFolio } from "@/lib/tarjetaFolio";
+import { ESTADO_CAJA_LABEL, ETAPA_CARGA_LABEL, PUNTOS_ESCANEO, PUNTO_ESCANEO_LABEL, TIPO_EVENTO_LABEL, TIPO_INCIDENCIA_LABEL, type TipoIncidencia } from "@/lib/logistica";
+import type { EscaneoVista, TarjetaFolio } from "@/lib/tarjetaFolio";
 
 const ESTADO_SALIDA_LABEL: Record<string, string> = { programada: "Programada", en_ruta: "En ruta", completada: "Completada" };
 
@@ -15,6 +15,26 @@ const CLASE_CAJA = {
   cerrada: "bg-sky-100 text-sky-800",
   sellada: "bg-titos-green-100 text-titos-green-700",
 } as const;
+
+/** Dónde ya se leyó el QR: carga, acomodo, recepción (y si llegó a otra tienda). */
+function Escaneos({ escaneos, fecha }: { escaneos: EscaneoVista[]; fecha: (iso: string | null) => string | null }) {
+  const error = escaneos.find((e) => e.resultado !== "ok");
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
+      {PUNTOS_ESCANEO.map((p) => {
+        const hecho = escaneos.find((e) => e.punto === p && e.resultado === "ok");
+        return (
+          <span key={p} className={`rounded-full px-2 py-0.5 ${hecho ? "bg-titos-green-100 text-titos-green-700" : "bg-black/5 text-black/40"}`} title={hecho ? `${hecho.porNombre} · ${fecha(hecho.en)}` : "Sin escanear"}>
+            {hecho ? "✓ " : ""}
+            {PUNTO_ESCANEO_LABEL[p]}
+            {hecho ? ` · ${fecha(hecho.en)}` : ""}
+          </span>
+        );
+      })}
+      {error ? <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Se escaneó en otra sucursal</span> : null}
+    </div>
+  );
+}
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -98,11 +118,34 @@ export function TarjetaFolioVista({ tarjeta, acciones, sinContenido = false }: {
                   {c.cinchos ? <span className="font-mono text-xs text-black/55">cinchos {c.cinchos}</span> : null}
                 </div>
                 <p className="mt-1 text-black/70">{c.contenido}</p>
+                <Escaneos escaneos={c.escaneos} fecha={fecha} />
               </li>
             ))}
           </ul>
         )}
+        {tarjeta.cajas.length === 0 && tarjeta.escaneosFolio.length ? <Escaneos escaneos={tarjeta.escaneosFolio} fecha={fecha} /> : null}
       </Card>
+
+      {tarjeta.incidencias.length ? (
+        <Card className="border-l-4 border-l-red-500">
+          <h3 className="mb-2 font-semibold text-titos-green-900">Incidencias ({tarjeta.incidencias.length})</h3>
+          <ul className="space-y-2 text-sm">
+            {tarjeta.incidencias.map((i) => (
+              <li key={i._id}>
+                <p>
+                  <strong>{TIPO_INCIDENCIA_LABEL[i.tipo as TipoIncidencia] ?? i.tipo}</strong>
+                  {i.cajaNumero ? ` · caja ${i.cajaNumero}` : ""}
+                  {i.sucursalDetecto ? ` · en ${i.sucursalDetecto}` : ""}
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${i.estado === "abierta" ? "bg-red-100 text-red-700" : "bg-titos-green-100 text-titos-green-700"}`}>
+                    {i.estado === "abierta" ? "Abierta" : "Resuelta"}
+                  </span>
+                </p>
+                <p className="text-black/60">{i.comentarios.at(-1)?.texto}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {sinContenido ? null : (
       <Card>

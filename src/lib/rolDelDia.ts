@@ -9,6 +9,7 @@ import { listarChoferes } from "@/lib/operacionApi";
 import { asignarPedidos, conflictosDelRol, sugerirRol, type RutaPlan } from "@/lib/rolEntregas";
 import { sumarDias } from "@/lib/zonasHorarias";
 import { etapaDe, evento, impedimentosSalida } from "@/lib/logistica";
+import { registrarEventoRuta } from "@/lib/trazabilidad";
 
 // Lectura y escritura del rol de entregas de un día. Lo comparten la pantalla
 // de rutas (que lo edita) y la pantalla del área operativa (que solo lo lee).
@@ -16,7 +17,17 @@ import { etapaDe, evento, impedimentosSalida } from "@/lib/logistica";
 /** Pedidos que ya salieron del Nivelador y todavía no confirma la tienda. */
 const PENDIENTES_DE_ENTREGA = { estado: { $in: ["nivelado", "surtido"] } };
 
-export type PedidoRolVista = { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string; etapaCarga: string };
+export type PedidoRolVista = {
+  _id: string;
+  folio: string;
+  sucursalNombre: string;
+  vuelta: number;
+  estado: string;
+  etapaCarga: string;
+  /** Cajas (o 1 si el folio va sin cajas) y cuántas ya se escanearon al subir a la unidad. */
+  bultos: number;
+  bultosEnCarga: number;
+};
 
 export type SalidaVista = {
   _id: string;
@@ -80,19 +91,32 @@ export async function cargarRol(fecha: string): Promise<RolVista> {
     Vehiculo.find().select("nombre refrigerado").lean(),
     Empleado.find().select("nombre").lean(),
     Sucursal.find().select("nombre").lean(),
-    Pedido.find({ _id: { $in: pedidoIds } }).select("folio sucursalId vuelta estado carga.etapa").lean(),
-    Pedido.find(PENDIENTES_DE_ENTREGA).select("folio sucursalId vuelta estado carga.etapa").sort({ fecha: 1 }).lean(),
+    Pedido.find({ _id: { $in: pedidoIds } }).select("folio sucursalId vuelta estado carga.etapa cajas.escaneos escaneos").lean(),
+    Pedido.find(PENDIENTES_DE_ENTREGA).select("folio sucursalId vuelta estado carga.etapa cajas.escaneos escaneos").sort({ fecha: 1 }).lean(),
   ]);
   const vehiculo = new Map(vehiculos.map((v) => [String(v._id), v]));
   const chofer = new Map(choferes.map((c) => [String(c._id), c.nombre]));
   const sucursal = new Map(sucursales.map((s) => [String(s._id), s.nombre]));
-  const pedidoVista = (p: { _id: unknown; folio: string; sucursalId: unknown; vuelta?: number | null; estado: string; carga?: { etapa?: string | null } | null }): PedidoRolVista => ({
+  type Escaneos = { punto: string; resultado?: string | null }[] | null | undefined;
+  const enCarga = (e: Escaneos) => (e ?? []).some((x) => x.punto === "carga" && (x.resultado ?? "ok") === "ok");
+  const pedidoVista = (p: {
+    _id: unknown;
+    folio: string;
+    sucursalId: unknown;
+    vuelta?: number | null;
+    estado: string;
+    carga?: { etapa?: string | null } | null;
+    cajas?: { escaneos?: Escaneos }[] | null;
+    escaneos?: Escaneos;
+  }): PedidoRolVista => ({
     _id: String(p._id),
     folio: p.folio,
     sucursalNombre: sucursal.get(String(p.sucursalId)) ?? "Sucursal",
     vuelta: p.vuelta ?? 1,
     estado: p.estado,
     etapaCarga: etapaDe(p),
+    bultos: p.cajas?.length || 1,
+    bultosEnCarga: p.cajas?.length ? p.cajas.filter((c) => enCarga(c.escaneos)).length : enCarga(p.escaneos) ? 1 : 0,
   });
   const pedidos = new Map(pedidosAsignados.map((p) => [String(p._id), pedidoVista(p)]));
   const asignados = new Set(pedidoIds);
@@ -172,6 +196,16 @@ async function sincronizarCarga(fecha: string, usuario: { userId: string; nombre
         p.set("carga.salidaId", s._id);
         p.historial.push(evento(usuario, "en_ruta", `${s.nombre} · chofer ${chofer.get(String(s.choferId)) ?? ""}${unidad}`));
         await p.save();
+      }
+      if (salen.length) {
+        await registrarEventoRuta({
+          fecha,
+          salidaId: s._id,
+          salidaNombre: s.nombre,
+          tipo: "salida",
+          detalle: `Chofer ${chofer.get(String(s.choferId)) ?? ""}${unidad} · ${salen.map((p) => p.folio).join(", ")}`,
+          porNombre: usuario.nombre ?? "",
+        });
       }
     } else if (!SALIO.includes(s.estado ?? "")) {
       const movidos = await Pedido.find({ _id: { $in: ids }, "carga.fechaSalida": fecha, "carga.etapa": { $in: ["precargado", "cargado"] }, "carga.salidaId": { $ne: s._id } });
