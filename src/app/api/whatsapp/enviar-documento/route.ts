@@ -3,12 +3,13 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import OrdenCompra from "@/models/OrdenCompra";
 import "@/models/Sucursal"; // necesario para que populate("sucursalId") funcione
-import "@/models/Empleado"; // necesario para que populate("repartidorId") funcione
+import "@/models/Empleado"; // necesario para que populate("repartidorId"/"surtidorId") funcione
 import "@/models/Proveedor"; // necesario para que populate("proveedorId") funcione
 import { requireSession, unauthorized, forbidden, badRequest, notFound } from "@/lib/apiAuth";
 import { generarPdfPedido, generarPdfOrdenCompra } from "@/lib/pdf";
 import { sendFileByUpload } from "@/lib/greenApi";
 import { formatFechaLarga, ZONA_HORARIA_DEFAULT } from "@/lib/zonasHorarias";
+import { puedeVerMontosTraspasos } from "@/lib/montosTraspasos";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   let fileName: string;
 
   if (tipo === "pedido") {
-    const pedido = await Pedido.findById(id).populate("sucursalId", "nombre").populate("repartidorId", "nombre").lean();
+    const pedido = await Pedido.findById(id).populate("sucursalId", "nombre").populate("repartidorId", "nombre").populate("surtidorId", "nombre").lean();
     if (!pedido) return notFound("Pedido no encontrado");
 
     pdfBytes = await generarPdfPedido({
@@ -38,9 +39,11 @@ export async function POST(req: NextRequest) {
       corte: pedido.corte,
       estado: pedido.estado,
       sucursalNombre: (pedido.sucursalId as unknown as { nombre?: string })?.nombre ?? "Sucursal",
-      repartidorNombre: (pedido.repartidorId as unknown as { nombre?: string } | null)?.nombre ?? null,
+      surtidorNombre: (pedido.surtidorId as unknown as { nombre?: string } | null)?.nombre ?? null,
+      choferNombre: (pedido.repartidorId as unknown as { nombre?: string } | null)?.nombre ?? null,
       items: pedido.items,
       cajas: pedido.cajas,
+      verMontos: await puedeVerMontosTraspasos(session),
     });
     fileName = `Pedido-${pedido.folio}.pdf`;
   } else {

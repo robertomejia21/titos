@@ -8,6 +8,8 @@ import "@/models/Empleado"; // necesario para que populate("repartidorId") funci
 import "@/models/User"; // necesario para que populate("surtidoPorId"/"recibidoPorId") funcione
 import { requireSession, unauthorized, forbidden, badRequest, generateFolio, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
+import { evento } from "@/lib/logistica";
+import { puedeVerMontosTraspasos, sinMontos } from "@/lib/montosTraspasos";
 
 export async function GET(req: NextRequest) {
   const session = await requireSession(req);
@@ -30,10 +32,13 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .populate("sucursalId", "nombre whatsapp")
     .populate("repartidorId", "nombre whatsapp puesto")
+    .populate("surtidorId", "nombre whatsapp puesto")
+    .populate("cargadorId", "nombre puesto")
     .populate("surtidoPorId", "nombre")
     .populate("recibidoPorId", "nombre")
+    .select("-historial")
     .lean();
-  return NextResponse.json(pedidos);
+  return NextResponse.json((await puedeVerMontosTraspasos(session)) ? pedidos : pedidos.map(sinMontos));
 }
 
 export async function POST(req: NextRequest) {
@@ -89,6 +94,9 @@ export async function POST(req: NextRequest) {
       corte: todayCorte(await zonaHorariaDeSucursal(session.sucursalId)),
       estado: "pendiente",
       items: pedidoItems,
+      capturadoPorId: session.userId,
+      capturadoPorNombre: session.nombre ?? "",
+      historial: [evento(session, "capturado", `${pedidoItems.length} producto(s)`)],
     });
   }
 

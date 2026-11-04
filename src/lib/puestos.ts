@@ -1,6 +1,6 @@
 import { PERFILES_DOCUMENTO } from "./perfilesDocumento";
 
-export const PUESTOS_BASE = ["Repartidor", "Recepción de compras", "Almacén", "Compras", "Chofer", "Supervisor", "Gerente"] as const;
+export const PUESTOS_BASE = ["Repartidor", "Recepción de compras", "Almacén", "Surtidor", "Cargador", "Compras", "Chofer", "Supervisor", "Gerente"] as const;
 
 const pos = ["pos.vender", "caja.retirar", "ventas.historial", "devoluciones.registrar"];
 const definiciones: Record<string, { nombre: string; ambito: "matriz" | "sucursal"; permisos: string[]; esSupervisor?: boolean; pendientes: string }> = {

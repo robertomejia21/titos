@@ -7,6 +7,7 @@ import AlertaInventarioCero from "@/models/AlertaInventarioCero";
 import MovimientoInventario from "@/models/MovimientoInventario";
 import { requireSession, unauthorized, forbidden, puede } from "@/lib/apiAuth";
 import { ErrorRecepcion, validarRecepcion, validarProductosRecepcion } from "@/lib/recepcion";
+import { evento } from "@/lib/logistica";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await requireSession(req);
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       pedido.estado = "recibido";
       pedido.recibidoEn = new Date();
       pedido.recibidoPorId = usuario.userId;
+      pedido.historial.push(evento(usuario, "recibido"));
       await pedido.save({session});
       return {pedido, movimientos};
     });

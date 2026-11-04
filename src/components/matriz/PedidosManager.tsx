@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, IdCard } from "lucide-react";
 import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, formatMoney, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
@@ -12,11 +13,16 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { categoriaLabel } from "@/lib/categorias";
 import { montoLineaPedido } from "@/lib/montoPedido";
 import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
+import { ESTADO_CAJA_LABEL, ETAPA_CARGA_LABEL, estadoCaja, etapaDe, impedimentosPrecarga, puedeEditarCajas, type EstadoCaja, type EtapaCarga } from "@/lib/logistica";
+import { AccionesCarga } from "@/components/matriz/AccionesCarga";
 
 // Frutas y verduras y carnicería se surten directo, sin empacar en cajas selladas.
 const CATEGORIAS_SIN_CAJAS = ["frutas_verduras", "carniceria"];
 
-type Empleado = { _id: string; nombre: string; puesto: string; whatsapp: string };
+type Empleado = { _id: string; nombre: string; puesto: string; whatsapp: string; activo?: boolean };
+
+/** Puestos que se proponen primero como surtidor (el resto del personal también se puede elegir). */
+const PUESTOS_SURTIDOR = ["Surtidor", "Almacén", "Cargador"];
 
 type Item = {
   productoId: string;
@@ -24,7 +30,7 @@ type Item = {
   categoria: string;
   unidad: "pieza" | "kg";
   requierePesaje: boolean;
-  precioVenta: number;
+  precioVenta: number | null;
   cantidadPedida: number;
   cantidadAsignada: number | null;
   cantidadSurtida: number | null;
@@ -36,7 +42,9 @@ type Item = {
 };
 
 type CajaItem = { productoId: string; nombreProducto: string; cantidad: number };
-type Caja = { numero: string; cincho1: string; cincho2: string; categoria: string; items: CajaItem[] };
+type Caja = { numero: string; estado?: EstadoCaja; cincho1: string; cincho2: string; categoria: string; items: CajaItem[] };
+
+type EmpleadoRef = { _id: string; nombre: string; whatsapp?: string } | string | null;
 
 type Pedido = {
   _id: string;
@@ -47,7 +55,11 @@ type Pedido = {
   corte: string;
   fecha: string;
   sucursalId: { _id: string; nombre: string; whatsapp?: string } | string;
-  repartidorId: { _id: string; nombre: string; whatsapp?: string } | string | null;
+  repartidorId: EmpleadoRef;
+  surtidorId?: EmpleadoRef;
+  cargadorId?: EmpleadoRef;
+  capturadoPorNombre?: string;
+  carga?: { etapa?: EtapaCarga; fechaSalida?: string | null; salidaId?: string | null } | null;
   items: Item[];
   cajas: Caja[];
   surtidoEn?: string | null;
@@ -56,9 +68,13 @@ type Pedido = {
   recibidoPorId?: { _id: string; nombre: string } | string | null;
 };
 
-function repartidorDe(pedido: Pedido) {
-  return pedido.repartidorId && typeof pedido.repartidorId !== "string" ? pedido.repartidorId : null;
+/** Viene poblado con el empleado; si quedó como string, ya no existe en Personal. */
+function empleadoDe(valor: EmpleadoRef | undefined) {
+  return valor && typeof valor !== "string" ? valor : null;
 }
+
+/** El chofer con el que salió (se amarra al arrancar la salida en el rol). */
+const choferDe = (pedido: Pedido) => empleadoDe(pedido.repartidorId);
 
 /** Viene poblado con el nombre; si quedó como string, el usuario ya no existe. */
 function nombreUsuario(valor: Pedido["surtidoPorId"]) {
@@ -68,6 +84,7 @@ function nombreUsuario(valor: Pedido["surtidoPorId"]) {
 const TABS = [
   { value: "pendiente", label: "Pendientes" },
   { value: "nivelado", label: "Nivelados (listos para surtir)" },
+  { value: "carga", label: "Carga y salida" },
   { value: "segunda-vuelta", label: "Segundas vueltas" },
   { value: "historial", label: "Historial" },
 ] as const;
@@ -212,20 +229,22 @@ function totalPedido(pedido: Pedido) {
 
 // Texto corto que acompaña al PDF adjunto por WhatsApp (el detalle completo
 // va en el documento, no en el mensaje).
-function resumenWhatsAppPedido(pedido: Pedido) {
-  const repartidor = repartidorDe(pedido);
+function resumenWhatsAppPedido(pedido: Pedido, verMontos: boolean) {
+  const surtidor = empleadoDe(pedido.surtidorId);
+  const chofer = choferDe(pedido);
 
   return [
     `*Pedido ${pedido.folio}* — ${nombreSucursal(pedido)}`,
     `Corte: ${pedido.corte} · Estado: ${pedido.estado}`,
-    ...(repartidor ? [`Repartidor: ${repartidor.nombre}`] : []),
-    `Total: ${formatMoney(totalPedido(pedido))}`,
+    ...(surtidor ? [`Surtidor: ${surtidor.nombre}`] : []),
+    ...(chofer ? [`Chofer: ${chofer.nombre}`] : []),
+    ...(verMontos ? [`Total: ${formatMoney(totalPedido(pedido))}`] : []),
     "",
     "Se adjunta el detalle completo en PDF.",
   ].join("\n");
 }
 
-function htmlImprimiblePedido(pedido: Pedido) {
+function htmlImprimiblePedido(pedido: Pedido, verMontos: boolean) {
   const filas = pedido.items
     .map(
       (i) => `
@@ -234,8 +253,7 @@ function htmlImprimiblePedido(pedido: Pedido) {
         <td>${i.cantidadPedida} ${i.unidad}</td>
         <td>${i.cantidadAsignada ?? "—"}</td>
         <td>${i.cantidadSurtida ?? "—"}${i.pesoSurtidoKg ? ` (${i.pesoSurtidoKg} kg)` : ""}</td>
-        <td>${formatMoney(i.precioVenta)}</td>
-        <td>${formatMoney(montoLineaPedido(i))}</td>
+        ${verMontos ? `<td>${formatMoney(i.precioVenta ?? 0)}</td><td>${formatMoney(montoLineaPedido(i))}</td>` : ""}
       </tr>`
     )
     .join("");
@@ -247,30 +265,29 @@ function htmlImprimiblePedido(pedido: Pedido) {
         <td>Caja ${c.numero}</td>
         <td>${categoriaLabel(c.categoria)}</td>
         <td>${c.items.map((i) => `${i.nombreProducto} (${i.cantidad})`).join(", ")}</td>
-        <td>${c.cincho1} / ${c.cincho2}</td>
+        <td>${c.cincho1 ? `${c.cincho1} / ${c.cincho2}` : ESTADO_CAJA_LABEL[estadoCaja(c)]}</td>
       </tr>`
     )
     .join("");
 
-  const repartidor = repartidorDe(pedido);
+  const surtidor = empleadoDe(pedido.surtidorId);
+  const chofer = choferDe(pedido);
 
   return `
     <h1>Pedido ${pedido.folio}</h1>
     <p class="subtitulo">${nombreSucursal(pedido)} · corte ${pedido.corte} · estado ${pedido.estado}${
-      repartidor ? ` · repartidor: ${repartidor.nombre}` : ""
-    }</p>
+      surtidor ? ` · surtidor: ${surtidor.nombre}` : ""
+    }${chofer ? ` · chofer: ${chofer.nombre}` : ""}</p>
     <table>
       <thead>
-        <tr><th>Producto</th><th>Pedido</th><th>Nivelado</th><th>Surtido</th><th>Precio venta</th><th>Subtotal</th></tr>
+        <tr><th>Producto</th><th>Pedido</th><th>Nivelado</th><th>Surtido</th>${verMontos ? "<th>Precio venta</th><th>Subtotal</th>" : ""}</tr>
       </thead>
       <tbody>${filas}</tbody>
-      <tfoot>
-        <tr><td colspan="4"></td><td>Total</td><td>${formatMoney(totalPedido(pedido))}</td></tr>
-      </tfoot>
+      ${verMontos ? `<tfoot><tr><td colspan="4"></td><td>Total</td><td>${formatMoney(totalPedido(pedido))}</td></tr></tfoot>` : ""}
     </table>
     ${
       pedido.cajas.length > 0
-        ? `<h1 style="margin-top:20px;font-size:16px;">Cajas selladas</h1>
+        ? `<h1 style="margin-top:20px;font-size:16px;">Cajas</h1>
       <table>
         <thead><tr><th>Caja</th><th>Categoría</th><th>Contenido</th><th>Cinchos</th></tr></thead>
         <tbody>${filasCajas}</tbody>
@@ -278,6 +295,110 @@ function htmlImprimiblePedido(pedido: Pedido) {
         : ""
     }
   `;
+}
+
+const CLASE_ESTADO_CAJA: Record<EstadoCaja, string> = {
+  armada: "bg-amber-100 text-amber-800",
+  cerrada: "bg-sky-100 text-sky-800",
+  sellada: "bg-titos-green-100 text-titos-green-700",
+};
+
+function FilaCaja({
+  pedidoId,
+  caja,
+  editable,
+  onActualizado,
+  onEditarContenido,
+}: {
+  pedidoId: string;
+  caja: Caja;
+  editable: boolean;
+  onActualizado: (pedido: Pedido) => void;
+  onEditarContenido: (caja: Caja) => void;
+}) {
+  const estado = estadoCaja(caja);
+  const [sellando, setSellando] = useState(false);
+  const [cincho1, setCincho1] = useState("");
+  const [cincho2, setCincho2] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function mover(cuerpo: Record<string, unknown>, metodo: "PATCH" | "DELETE" = "PATCH") {
+    setEnviando(true);
+    setError(null);
+    const res = await fetch(`/api/pedidos/${pedidoId}/cajas/${encodeURIComponent(caja.numero)}`, {
+      method: metodo,
+      headers: { "Content-Type": "application/json" },
+      body: metodo === "PATCH" ? JSON.stringify(cuerpo) : undefined,
+    });
+    setEnviando(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return setError(data.error || "No se pudo actualizar la caja");
+    setSellando(false);
+    onActualizado(data);
+  }
+
+  return (
+    <li className="rounded bg-black/2 px-2 py-1.5 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span>
+          <span className="font-semibold">Caja {caja.numero}</span>{" "}
+          <span className={`rounded-full px-1.5 py-0.5 font-semibold ${CLASE_ESTADO_CAJA[estado]}`}>{ESTADO_CAJA_LABEL[estado]}</span>
+          {" — "}
+          {caja.items.map((i) => `${i.nombreProducto} (${i.cantidad})`).join(", ")}
+          {caja.cincho1 ? (
+            <>
+              {" · "}cinchos <span className="font-mono">{caja.cincho1}</span> / <span className="font-mono">{caja.cincho2}</span>
+            </>
+          ) : null}
+        </span>
+        {editable ? (
+          <span className="flex flex-wrap gap-2">
+            {estado === "armada" ? (
+              <>
+                <button onClick={() => onEditarContenido(caja)} disabled={enviando} className="font-medium text-titos-green-700">
+                  Cambiar contenido
+                </button>
+                <button onClick={() => mover({ accion: "cerrar" })} disabled={enviando} className="font-medium text-titos-green-700">
+                  Cerrar caja
+                </button>
+              </>
+            ) : null}
+            {estado !== "sellada" ? (
+              <button onClick={() => setSellando((v) => !v)} disabled={enviando} className="font-medium text-titos-green-700">
+                Sellar
+              </button>
+            ) : null}
+            {estado !== "armada" ? (
+              <button
+                onClick={() => {
+                  const motivo = window.prompt(`¿Por qué se reabre la caja ${caja.numero}? (opcional)`);
+                  if (motivo !== null) mover({ accion: "reabrir", motivo });
+                }}
+                disabled={enviando}
+                className="font-medium text-amber-700"
+              >
+                Reabrir para rearmar
+              </button>
+            ) : null}
+            <button onClick={() => mover({}, "DELETE")} disabled={enviando} className="text-red-500">
+              Quitar
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {sellando ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <Input value={cincho1} onChange={(e) => setCincho1(e.target.value)} placeholder="Cincho 1" className="w-28 py-1" aria-label="Cincho 1" />
+          <Input value={cincho2} onChange={(e) => setCincho2(e.target.value)} placeholder="Cincho 2" className="w-28 py-1" aria-label="Cincho 2" />
+          <Button size="sm" onClick={() => mover({ accion: "sellar", cincho1, cincho2 })} disabled={enviando || !cincho1 || !cincho2}>
+            Guardar sello
+          </Button>
+        </div>
+      ) : null}
+      {error ? <p className="mt-1 text-red-600">{error}</p> : null}
+    </li>
+  );
 }
 
 function CajasCategoria({
@@ -298,6 +419,8 @@ function CajasCategoria({
   const [numeroCaja, setNumeroCaja] = useState("");
   const [cincho1, setCincho1] = useState("");
   const [cincho2, setCincho2] = useState("");
+  // Número de la caja armada cuyo contenido se está cambiando; null = caja nueva.
+  const [editando, setEditando] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -313,7 +436,22 @@ function CajasCategoria({
     });
   }
 
-  async function agregarCaja() {
+  function limpiar() {
+    setSeleccion({});
+    setNumeroCaja("");
+    setCincho1("");
+    setCincho2("");
+    setEditando(null);
+  }
+
+  function editarContenido(caja: Caja) {
+    setEditando(caja.numero);
+    setNumeroCaja(caja.numero);
+    setSeleccion(Object.fromEntries(caja.items.map((i) => [i.productoId, String(i.cantidad)])));
+    setError(null);
+  }
+
+  async function guardarCaja() {
     setError(null);
     const items = Object.entries(seleccion)
       .filter(([, cant]) => Number(cant) > 0)
@@ -322,17 +460,27 @@ function CajasCategoria({
         return { productoId, nombreProducto: item.nombreProducto, cantidad: Number(cant) };
       });
 
-    if (items.length === 0 || !numeroCaja || !cincho1 || !cincho2) {
-      setError("Captura el número de caja, selecciona al menos un producto y los dos números de cincho");
+    if (items.length === 0 || !numeroCaja) {
+      setError("Captura el número de caja y selecciona al menos un producto");
+      return;
+    }
+    if (!editando && !!cincho1 !== !!cincho2) {
+      setError("Para sellar de una vez captura los dos cinchos, o déjalos vacíos para sellar después");
       return;
     }
 
     setGuardando(true);
-    const res = await fetch(`/api/pedidos/${pedido._id}/cajas`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ numero: numeroCaja, cincho1, cincho2, categoria, items }),
-    });
+    const res = editando
+      ? await fetch(`/api/pedidos/${pedido._id}/cajas/${encodeURIComponent(editando)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accion: "editar", items }),
+        })
+      : await fetch(`/api/pedidos/${pedido._id}/cajas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ numero: numeroCaja, cincho1, cincho2, categoria, items }),
+        });
     setGuardando(false);
 
     if (!res.ok) {
@@ -342,53 +490,34 @@ function CajasCategoria({
     }
 
     onActualizado(await res.json());
-    setSeleccion({});
-    setNumeroCaja("");
-    setCincho1("");
-    setCincho2("");
-  }
-
-  async function quitarCaja(numero: string) {
-    const res = await fetch(`/api/pedidos/${pedido._id}/cajas/${encodeURIComponent(numero)}`, { method: "DELETE" });
-    if (res.ok) onActualizado(await res.json());
+    limpiar();
   }
 
   return (
     <div className="mt-4 rounded-lg border border-black/5 p-3">
-      <p className="mb-2 text-sm font-semibold text-titos-green-900">Cajas selladas</p>
+      <p className="mb-2 text-sm font-semibold text-titos-green-900">Cajas</p>
 
       {cajasCategoria.length === 0 ? (
         <p className="mb-2 text-xs text-black/40">Todavía no se ha registrado ninguna caja de esta categoría.</p>
       ) : (
         <ul className="mb-3 space-y-1.5">
           {cajasCategoria.map((c) => (
-            <li key={c.numero} className="flex flex-wrap items-center justify-between gap-2 rounded bg-black/2 px-2 py-1.5 text-xs">
-              <span>
-                <span className="font-semibold">Caja {c.numero}</span> — {c.items.map((i) => `${i.nombreProducto} (${i.cantidad})`).join(", ")}
-                {" · "}
-                cinchos <span className="font-mono">{c.cincho1}</span> / <span className="font-mono">{c.cincho2}</span>
-              </span>
-              {editable ? (
-                <button onClick={() => quitarCaja(c.numero)} className="text-red-500">
-                  Quitar
-                </button>
-              ) : null}
-            </li>
+            <FilaCaja key={c.numero} pedidoId={pedido._id} caja={c} editable={editable} onActualizado={onActualizado} onEditarContenido={editarContenido} />
           ))}
         </ul>
       )}
 
       {editable ? (
         <div className="rounded-lg bg-black/2 p-3">
-          <p className="mb-1.5 text-xs font-medium text-black/50">Nueva caja: selecciona qué lleva y séllala</p>
+          <p className="mb-1.5 text-xs font-medium text-black/50">
+            {editando
+              ? `Cambiar el contenido de la caja ${editando}`
+              : "Nueva caja: selecciona qué lleva. Con los dos cinchos queda sellada; sin ellos queda armada para cerrar y sellar después."}
+          </p>
           <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1.5">
             {itemsCategoria.map((item) => (
               <label key={item.productoId} className="flex items-center gap-1.5 text-sm text-black/70">
-                <input
-                  type="checkbox"
-                  checked={item.productoId in seleccion}
-                  onChange={() => alternarProducto(item)}
-                />
+                <input type="checkbox" checked={item.productoId in seleccion} onChange={() => alternarProducto(item)} />
                 {item.nombreProducto}
                 {item.productoId in seleccion ? (
                   <Input
@@ -405,19 +534,28 @@ function CajasCategoria({
           <div className="flex flex-wrap items-end gap-2">
             <div className="w-32">
               <label className="mb-1 block text-xs text-black/50">Número de caja</label>
-              <Input value={numeroCaja} onChange={(e) => setNumeroCaja(e.target.value)} />
+              <Input value={numeroCaja} onChange={(e) => setNumeroCaja(e.target.value)} disabled={!!editando} />
             </div>
-            <div className="w-32">
-              <label className="mb-1 block text-xs text-black/50">Cincho 1</label>
-              <Input value={cincho1} onChange={(e) => setCincho1(e.target.value)} />
-            </div>
-            <div className="w-32">
-              <label className="mb-1 block text-xs text-black/50">Cincho 2</label>
-              <Input value={cincho2} onChange={(e) => setCincho2(e.target.value)} />
-            </div>
-            <Button type="button" variant="ghost" onClick={agregarCaja} disabled={guardando}>
-              {guardando ? "Guardando..." : "Agregar caja"}
+            {editando ? null : (
+              <>
+                <div className="w-32">
+                  <label className="mb-1 block text-xs text-black/50">Cincho 1 (opcional)</label>
+                  <Input value={cincho1} onChange={(e) => setCincho1(e.target.value)} />
+                </div>
+                <div className="w-32">
+                  <label className="mb-1 block text-xs text-black/50">Cincho 2 (opcional)</label>
+                  <Input value={cincho2} onChange={(e) => setCincho2(e.target.value)} />
+                </div>
+              </>
+            )}
+            <Button type="button" variant="ghost" onClick={guardarCaja} disabled={guardando}>
+              {guardando ? "Guardando..." : editando ? "Guardar contenido" : cincho1 && cincho2 ? "Agregar caja sellada" : "Armar caja"}
             </Button>
+            {editando ? (
+              <Button type="button" variant="ghost" onClick={limpiar}>
+                Cancelar
+              </Button>
+            ) : null}
           </div>
           {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
         </div>
@@ -429,17 +567,21 @@ function CajasCategoria({
 function PedidoModal({
   pedido: pedidoInicial,
   empleados,
+  verMontos,
   onClose,
   onRefrescar,
 }: {
   pedido: Pedido;
   empleados: Empleado[];
+  verMontos: boolean;
   onClose: () => void;
   onRefrescar: () => void;
 }) {
   const zonaHoraria = useZonaHoraria();
   const [pedido, setPedido] = useState(pedidoInicial);
   const editable = pedido.estado === "nivelado";
+  const cajasEditables = puedeEditarCajas(pedido);
+  const etapa = etapaDe(pedido);
 
   const categorias = useMemo(
     () => Array.from(new Set(pedido.items.map(categoriaDe))),
@@ -459,21 +601,33 @@ function PedidoModal({
     )
   );
   const [guardandoCategoria, setGuardandoCategoria] = useState<string | null>(null);
-  const [asignandoRepartidor, setAsignandoRepartidor] = useState(false);
+  const [asignandoSurtidor, setAsignandoSurtidor] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const repartidores = useMemo(() => empleados.filter((e) => e.puesto === "Repartidor"), [empleados]);
-  const repartidorAsignado = repartidorDe(pedido);
+  // Primero el personal de almacén; luego el resto, por si surte alguien más.
+  const candidatosSurtidor = useMemo(
+    () =>
+      empleados
+        .filter((e) => e.activo !== false)
+        .sort((a, b) => Number(PUESTOS_SURTIDOR.includes(b.puesto)) - Number(PUESTOS_SURTIDOR.includes(a.puesto)) || a.nombre.localeCompare(b.nombre)),
+    [empleados]
+  );
+  const surtidor = empleadoDe(pedido.surtidorId);
+  const chofer = choferDe(pedido);
+  const cargador = empleadoDe(pedido.cargadorId);
 
-  async function asignarRepartidor(repartidorId: string) {
-    setAsignandoRepartidor(true);
+  async function asignarSurtidor(surtidorId: string) {
+    setAsignandoSurtidor(true);
+    setError(null);
     const res = await fetch(`/api/pedidos/${pedido._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repartidorId: repartidorId || null }),
+      body: JSON.stringify({ surtidorId: surtidorId || null }),
     });
-    setAsignandoRepartidor(false);
-    if (res.ok) setPedido(await res.json());
+    setAsignandoSurtidor(false);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) setPedido(data);
+    else setError(data.error || "No se pudo asignar al surtidor");
   }
 
   function actualizar(productoId: string, campo: "cantidad" | "peso", value: string) {
@@ -532,13 +686,25 @@ function PedidoModal({
       }}
       title={`${nombreSucursal(pedido)} · ${pedido.folio}${pedido.vuelta === 2 ? " · Segunda vuelta" : ""}`}
       footer={
-        <Button variant="ghost" onClick={() => imprimirHTML(`Pedido ${pedido.folio}`, htmlImprimiblePedido(pedido))}>
-          Imprimir
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/matriz/pedidos/folio/${pedido._id}`}>
+            <Button variant="ghost">
+              <span className="inline-flex items-center gap-1.5">
+                <IdCard className="h-4 w-4" aria-hidden="true" /> Tarjeta digital
+              </span>
+            </Button>
+          </Link>
+          <Button variant="ghost" onClick={() => imprimirHTML(`Pedido ${pedido.folio}`, htmlImprimiblePedido(pedido, verMontos))}>
+            Imprimir
+          </Button>
+        </div>
       }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <EstadoBadge estado={pedido.estado} />
+        {pedido.estado === "surtido" || etapa !== "sin_cargar" ? (
+          <span className="rounded-full bg-titos-green-100 px-2.5 py-0.5 text-xs font-semibold text-titos-green-700">{ETAPA_CARGA_LABEL[etapa]}</span>
+        ) : null}
         <span className="text-xs text-black/40">corte {pedido.corte}</span>
         {editable ? (
           <span className="text-xs text-black/40">
@@ -547,48 +713,66 @@ function PedidoModal({
         ) : null}
       </div>
 
-      {/* Trazabilidad del pedido: quién lo surtió y quién confirmó que llegó.
-          Es lo mismo que reporta la bitácora, a la mano de quien abre el pedido. */}
-      {pedido.surtidoEn || pedido.recibidoEn ? (
-        <div className="mb-3 space-y-0.5 rounded-lg bg-black/3 px-3 py-2 text-xs text-black/60">
-          {pedido.surtidoEn ? (
-            <p>
-              Surtió <strong>{nombreUsuario(pedido.surtidoPorId) ?? "—"}</strong> el{" "}
-              {formatFechaHora(pedido.surtidoEn, zonaHoraria)}
-            </p>
-          ) : null}
-          {pedido.recibidoEn ? (
-            <p>
-              Recibió <strong>{nombreUsuario(pedido.recibidoPorId) ?? "—"}</strong> el{" "}
-              {formatFechaHora(pedido.recibidoEn, zonaHoraria)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Responsables del folio: los mismos que muestra su tarjeta digital. */}
+      <div className="mb-3 grid grid-cols-1 gap-x-4 gap-y-0.5 rounded-lg bg-black/3 px-3 py-2 text-xs text-black/60 sm:grid-cols-2">
+        <p>
+          Capturó <strong>{pedido.capturadoPorNombre || (pedido.vuelta === 2 ? "Sistema (segunda vuelta)" : "—")}</strong>
+        </p>
+        <p>
+          Surtió{" "}
+          <strong>{nombreUsuario(pedido.surtidoPorId) ?? "—"}</strong>
+          {pedido.surtidoEn ? ` el ${formatFechaHora(pedido.surtidoEn, zonaHoraria)}` : ""}
+        </p>
+        <p>
+          Cargó <strong>{cargador?.nombre ?? "—"}</strong>
+        </p>
+        <p>
+          Chofer <strong>{chofer?.nombre ?? "—"}</strong>
+          {chofer ? "" : <span className="text-black/40"> (se confirma al salir en el rol)</span>}
+        </p>
+        {pedido.recibidoEn ? (
+          <p>
+            Recibió <strong>{nombreUsuario(pedido.recibidoPorId) ?? "—"}</strong> el {formatFechaHora(pedido.recibidoEn, zonaHoraria)}
+          </p>
+        ) : null}
+      </div>
 
       {pedido.estado !== "pendiente" ? (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium text-black/50">Repartidor asignado:</label>
+          <label className="text-xs font-medium text-black/50" htmlFor="surtidor-asignado">
+            Surtidor asignado:
+          </label>
           {pedido.estado === "recibido" ? (
-            <span className="text-sm text-black/70">{repartidorAsignado?.nombre ?? "— Sin asignar —"}</span>
+            <span className="text-sm text-black/70">{surtidor?.nombre ?? "— Sin asignar —"}</span>
           ) : (
-            <Select
-              value={repartidorAsignado?._id ?? ""}
-              onChange={(e) => asignarRepartidor(e.target.value)}
-              disabled={asignandoRepartidor}
-              className="w-56"
-            >
+            <Select id="surtidor-asignado" value={surtidor?._id ?? ""} onChange={(e) => asignarSurtidor(e.target.value)} disabled={asignandoSurtidor} className="w-64">
               <option value="">— Sin asignar —</option>
-              {repartidores.map((r) => (
-                <option key={r._id} value={r._id}>
-                  {r.nombre}
+              {candidatosSurtidor.map((e) => (
+                <option key={e._id} value={e._id}>
+                  {e.nombre}
+                  {e.puesto ? ` · ${e.puesto}` : ""}
                 </option>
               ))}
             </Select>
           )}
-          {repartidores.length === 0 ? (
-            <span className="text-xs text-black/40">No hay repartidores dados de alta en Personal.</span>
-          ) : null}
+          {candidatosSurtidor.length === 0 ? <span className="text-xs text-black/40">No hay personal dado de alta en Personal.</span> : null}
+        </div>
+      ) : null}
+
+      {pedido.estado === "surtido" ? (
+        <div className="mb-3 rounded-lg border border-black/5 p-3">
+          <p className="mb-2 text-sm font-semibold text-titos-green-900">Carga y salida</p>
+          <AccionesCarga
+            pedidoId={pedido._id}
+            etapa={etapa}
+            impedimentos={impedimentosPrecarga(pedido)}
+            fechaSalida={pedido.carga?.fechaSalida}
+            salidaId={pedido.carga?.salidaId}
+            onActualizado={(p) => {
+              setPedido(p as Pedido);
+              onRefrescar();
+            }}
+          />
         </div>
       ) : null}
 
@@ -622,12 +806,12 @@ function PedidoModal({
               <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Producto</th>
               <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Pedido</th>
               {pedido.estado !== "pendiente" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Nivelado</th> : null}
-              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Precio venta</th>
+              {verMontos ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Precio venta</th> : null}
               {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Surtir cantidad</th> : null}
               {editable ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Peso (kg)</th> : null}
               {!editable && pedido.estado !== "pendiente" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Surtido</th> : null}
               {pedido.estado === "recibido" ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Recibido</th> : null}
-              <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Subtotal</th>
+              {verMontos ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Subtotal</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -649,7 +833,7 @@ function PedidoModal({
                     ) : null}
                   </td>
                 ) : null}
-                <td className="whitespace-nowrap px-2 py-1.5">{formatMoney(item.precioVenta)}</td>
+                {verMontos ? <td className="whitespace-nowrap px-2 py-1.5">{formatMoney(item.precioVenta ?? 0)}</td> : null}
                 {editable ? (
                   <td className="whitespace-nowrap px-2 py-1.5">
                     <Input
@@ -690,17 +874,19 @@ function PedidoModal({
                     {item.pesoRecibidoKg ? ` (${item.pesoRecibidoKg} kg)` : ""}
                   </td>
                 ) : null}
-                <td className="whitespace-nowrap px-2 py-1.5 font-medium">{formatMoney(montoLineaPedido(item))}</td>
+                {verMontos ? <td className="whitespace-nowrap px-2 py-1.5 font-medium">{formatMoney(montoLineaPedido(item))}</td> : null}
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={pedido.estado === "pendiente" ? 3 : 4} />
-              <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total del pedido</td>
-              <td className="whitespace-nowrap px-2 pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
-            </tr>
-          </tfoot>
+          {verMontos ? (
+            <tfoot>
+              <tr>
+                <td colSpan={pedido.estado === "pendiente" ? 3 : 4} />
+                <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total del pedido</td>
+                <td className="whitespace-nowrap px-2 pt-2 font-semibold text-titos-green-900">{formatMoney(total)}</td>
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
 
@@ -715,23 +901,19 @@ function PedidoModal({
       ) : null}
 
       {tabActiva && !CATEGORIAS_SIN_CAJAS.includes(tabActiva) ? (
-        <CajasCategoria pedido={pedido} categoria={tabActiva} editable={editable} onActualizado={setPedido} />
+        <CajasCategoria key={tabActiva} pedido={pedido} categoria={tabActiva} editable={cajasEditables} onActualizado={setPedido} />
       ) : null}
 
       <div className="mt-4 border-t border-black/5 pt-4">
         <EnviarWhatsAppControl
           documento={{ tipo: "pedido", id: pedido._id }}
-          caption={resumenWhatsAppPedido(pedido)}
+          caption={resumenWhatsAppPedido(pedido, verMontos)}
           destinatarios={[
             { id: "sucursal", label: `Sucursal: ${nombreSucursal(pedido)}`, whatsapp: whatsappSucursal(pedido) },
-            ...(repartidorAsignado
-              ? [{ id: repartidorAsignado._id, label: `Repartidor: ${repartidorAsignado.nombre}`, whatsapp: repartidorAsignado.whatsapp ?? "" }]
-              : []),
+            ...(surtidor ? [{ id: `surtidor-${surtidor._id}`, label: `Surtidor: ${surtidor.nombre}`, whatsapp: surtidor.whatsapp ?? "" }] : []),
+            ...(chofer ? [{ id: `chofer-${chofer._id}`, label: `Chofer: ${chofer.nombre}`, whatsapp: chofer.whatsapp ?? "" }] : []),
           ]}
         />
-        {!repartidorAsignado ? (
-          <p className="mt-1.5 text-xs text-black/40">Asigna un repartidor arriba para poder enviarle el pedido por WhatsApp.</p>
-        ) : null}
       </div>
     </Modal>
   );
@@ -923,7 +1105,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function PedidosManager() {
+export function PedidosManager({ verMontos }: { verMontos: boolean }) {
   const searchParams = useSearchParams();
   const tabInicial = TABS.find((t) => t.value === searchParams.get("tab"))?.value ?? "pendiente";
 
@@ -956,6 +1138,7 @@ export function PedidosManager() {
   const visibles = useMemo(() => {
     if (tab === "segunda-vuelta") return [];
     if (tab === "historial") return pedidos.filter((p) => p.estado === "surtido" || p.estado === "recibido");
+    if (tab === "carga") return pedidos.filter((p) => p.estado === "surtido" && etapaDe(p) !== "en_ruta");
     return pedidos.filter((p) => p.estado === tab);
   }, [pedidos, tab]);
 
@@ -1062,8 +1245,9 @@ export function PedidosManager() {
                   <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Estado</th>
                   <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Corte</th>
                   <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Productos</th>
-                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Repartidor</th>
-                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Total</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Surtidor</th>
+                  <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Carga</th>
+                  {verMontos ? <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium">Total</th> : null}
                   <th className="whitespace-nowrap px-2 py-1.5 text-xs font-medium" />
                 </tr>
               </thead>
@@ -1080,13 +1264,19 @@ export function PedidosManager() {
                     </td>
                     <td className="whitespace-nowrap px-2 py-1.5 text-black/40">{p.corte}</td>
                     <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{p.items.length}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{repartidorDe(p)?.nombre ?? "—"}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{formatMoney(totalPedido(p))}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">{empleadoDe(p.surtidorId)?.nombre ?? "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-black/60">
+                      {p.estado === "surtido" || etapaDe(p) !== "sin_cargar" ? ETAPA_CARGA_LABEL[etapaDe(p)] : "—"}
+                    </td>
+                    {verMontos ? <td className="whitespace-nowrap px-2 py-1.5 font-medium text-titos-green-900">{formatMoney(totalPedido(p))}</td> : null}
                     <td className="whitespace-nowrap px-2 py-1.5 text-right">
                       <div className="inline-flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setPedidoModal(p)}>
-                          {p.estado === "nivelado" ? "Ver / Surtir" : "Ver detalle"}
+                          {p.estado === "nivelado" ? "Ver / Surtir" : tab === "carga" ? "Cargar" : "Ver detalle"}
                         </Button>
+                        <Link href={`/matriz/pedidos/folio/${p._id}`} className="inline-flex items-center rounded-lg px-2 text-titos-green-700 hover:bg-titos-green-100" aria-label={`Tarjeta digital de ${p.folio}`} title="Tarjeta digital">
+                          <IdCard className="h-4 w-4" aria-hidden="true" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -1102,6 +1292,7 @@ export function PedidosManager() {
         <PedidoModal
           pedido={pedidoModal}
           empleados={empleados}
+          verMontos={verMontos}
           onClose={() => setPedidoModal(null)}
           onRefrescar={cargar}
         />

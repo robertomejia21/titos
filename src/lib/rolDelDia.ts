@@ -8,12 +8,15 @@ import { obtenerConfiguracionOperacion } from "@/lib/operacion";
 import { listarChoferes } from "@/lib/operacionApi";
 import { asignarPedidos, conflictosDelRol, sugerirRol, type RutaPlan } from "@/lib/rolEntregas";
 import { sumarDias } from "@/lib/zonasHorarias";
+import { etapaDe, evento, impedimentosSalida } from "@/lib/logistica";
 
 // Lectura y escritura del rol de entregas de un día. Lo comparten la pantalla
 // de rutas (que lo edita) y la pantalla del área operativa (que solo lo lee).
 
 /** Pedidos que ya salieron del Nivelador y todavía no confirma la tienda. */
 const PENDIENTES_DE_ENTREGA = { estado: { $in: ["nivelado", "surtido"] } };
+
+export type PedidoRolVista = { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string; etapaCarga: string };
 
 export type SalidaVista = {
   _id: string;
@@ -33,7 +36,7 @@ export type SalidaVista = {
   ajustadaManualmente: boolean;
   notas: string;
   paradas: { tipo: string; sucursalId: string | null; descripcion: string; nombre: string }[];
-  pedidos: { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string }[];
+  pedidos: PedidoRolVista[];
 };
 
 export type RolVista = {
@@ -42,7 +45,7 @@ export type RolVista = {
   actualizadoEn: Date | null;
   actualizadoPorNombre: string;
   salidas: SalidaVista[];
-  pedidosSinSalida: { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string }[];
+  pedidosSinSalida: PedidoRolVista[];
   conflictos: string[];
 };
 
@@ -77,18 +80,19 @@ export async function cargarRol(fecha: string): Promise<RolVista> {
     Vehiculo.find().select("nombre refrigerado").lean(),
     Empleado.find().select("nombre").lean(),
     Sucursal.find().select("nombre").lean(),
-    Pedido.find({ _id: { $in: pedidoIds } }).select("folio sucursalId vuelta estado").lean(),
-    Pedido.find(PENDIENTES_DE_ENTREGA).select("folio sucursalId vuelta estado").sort({ fecha: 1 }).lean(),
+    Pedido.find({ _id: { $in: pedidoIds } }).select("folio sucursalId vuelta estado carga.etapa").lean(),
+    Pedido.find(PENDIENTES_DE_ENTREGA).select("folio sucursalId vuelta estado carga.etapa").sort({ fecha: 1 }).lean(),
   ]);
   const vehiculo = new Map(vehiculos.map((v) => [String(v._id), v]));
   const chofer = new Map(choferes.map((c) => [String(c._id), c.nombre]));
   const sucursal = new Map(sucursales.map((s) => [String(s._id), s.nombre]));
-  const pedidoVista = (p: { _id: unknown; folio: string; sucursalId: unknown; vuelta?: number | null; estado: string }) => ({
+  const pedidoVista = (p: { _id: unknown; folio: string; sucursalId: unknown; vuelta?: number | null; estado: string; carga?: { etapa?: string | null } | null }): PedidoRolVista => ({
     _id: String(p._id),
     folio: p.folio,
     sucursalNombre: sucursal.get(String(p.sucursalId)) ?? "Sucursal",
     vuelta: p.vuelta ?? 1,
     estado: p.estado,
+    etapaCarga: etapaDe(p),
   });
   const pedidos = new Map(pedidosAsignados.map((p) => [String(p._id), pedidoVista(p)]));
   const asignados = new Set(pedidoIds);
@@ -133,13 +137,78 @@ export async function cargarRol(fecha: string): Promise<RolVista> {
   };
 }
 
-/** Pone al chofer de cada salida como repartidor de sus pedidos (lo que ya mostraba Pedidos). */
-async function sincronizarRepartidores(salidas: { choferId?: unknown; pedidoIds?: unknown[] }[]) {
-  await Promise.all(
-    salidas
-      .filter((s) => s.choferId && s.pedidoIds?.length)
-      .map((s) => Pedido.updateMany({ _id: { $in: s.pedidoIds }, estado: { $ne: "recibido" } }, { $set: { repartidorId: s.choferId } }))
-  );
+type SalidaGuardada = { _id: unknown; nombre: string; estado?: string | null; choferId?: unknown; vehiculoId?: unknown; pedidoIds?: unknown[] };
+
+const SALIO = ["en_ruta", "completada"];
+
+/**
+ * Lleva al pedido lo que pasó en el rol del día:
+ *  - la salida arrancó: el chofer queda amarrado al folio y el folio pasa a "en ruta";
+ *  - el coordinador movió un folio pre-cargado a otra salida: se registra el cambio;
+ *  - lo quitó del rol: el folio se baja de la unidad.
+ * Antes de arrancar el chofer es solo el programado: se puede cambiar sin tocar
+ * la pre-carga (minuta del 28 de octubre).
+ */
+async function sincronizarCarga(fecha: string, usuario: { userId: string; nombre?: string }) {
+  const rol = (await RolEntrega.findOne({ fecha }).lean()) as { salidas?: SalidaGuardada[] } | null;
+  const salidas = rol?.salidas ?? [];
+  const [choferes, vehiculos] = await Promise.all([Empleado.find().select("nombre").lean(), Vehiculo.find().select("nombre").lean()]);
+  const chofer = new Map(choferes.map((c) => [String(c._id), c.nombre]));
+  const vehiculo = new Map(vehiculos.map((v) => [String(v._id), v.nombre]));
+  const enRol = new Set<string>();
+
+  for (const s of salidas) {
+    const ids = (s.pedidoIds ?? []).map(String);
+    ids.forEach((pid) => enRol.add(pid));
+    if (!ids.length) continue;
+    if (SALIO.includes(s.estado ?? "") && s.choferId) {
+      const unidad = s.vehiculoId ? ` · ${vehiculo.get(String(s.vehiculoId)) ?? "unidad"}` : "";
+      const salen = await Pedido.find({ _id: { $in: ids }, estado: { $ne: "recibido" }, "carga.etapa": { $ne: "en_ruta" } });
+      for (const p of salen) {
+        p.repartidorId = s.choferId;
+        p.set("carga.etapa", "en_ruta");
+        p.set("carga.salioEn", new Date());
+        p.set("carga.fechaSalida", fecha);
+        p.set("carga.salidaId", s._id);
+        p.historial.push(evento(usuario, "en_ruta", `${s.nombre} · chofer ${chofer.get(String(s.choferId)) ?? ""}${unidad}`));
+        await p.save();
+      }
+    } else if (!SALIO.includes(s.estado ?? "")) {
+      const movidos = await Pedido.find({ _id: { $in: ids }, "carga.fechaSalida": fecha, "carga.etapa": { $in: ["precargado", "cargado"] }, "carga.salidaId": { $ne: s._id } });
+      for (const p of movidos) {
+        p.set("carga.salidaId", s._id);
+        p.historial.push(evento(usuario, "cambio_salida", `Ahora va en ${s.nombre}`));
+        await p.save();
+      }
+    }
+  }
+
+  const fuera = await Pedido.find({ _id: { $nin: [...enRol] }, "carga.fechaSalida": fecha, "carga.etapa": { $in: ["precargado", "cargado"] } });
+  for (const p of fuera) {
+    p.set("carga.etapa", "sin_cargar");
+    p.set("carga.precargadoEn", null);
+    p.set("carga.cargadoEn", null);
+    p.historial.push(evento(usuario, "carga_deshecha", "Se quitó del rol de entregas"));
+    await p.save();
+  }
+}
+
+/**
+ * Lo que impide que una salida arranque: sin chofer, o con folios que no están
+ * listos (sin surtir o con cajas abiertas). Vacío si todo puede salir.
+ */
+export async function impedimentosDelRol(salidas: SalidaEditada[]) {
+  const errores: string[] = [];
+  const arrancan = salidas.filter((s) => SALIO.includes(s.estado));
+  for (const s of arrancan) if (!s.choferId) errores.push(`Asigna chofer a "${s.nombre}" antes de marcarla en ruta`);
+  const ids = arrancan.flatMap((s) => s.pedidoIds);
+  if (!ids.length) return errores;
+  const pedidos = await Pedido.find({ _id: { $in: ids }, estado: { $ne: "recibido" }, "carga.etapa": { $ne: "en_ruta" } }).select("folio estado cajas carga").lean();
+  for (const p of pedidos) {
+    if (p.estado !== "surtido") errores.push(`${p.folio}: todavía no está surtido; sácalo de la salida o súrtelo antes de arrancar`);
+    else errores.push(...impedimentosSalida(p));
+  }
+  return errores;
 }
 
 /**
@@ -204,7 +273,7 @@ export async function sugerirRolDelDia(fecha: string, usuario: { userId: string;
     { $set: { salidas, generadoEn: new Date(), actualizadoPorId: usuario.userId, actualizadoPorNombre: usuario.nombre ?? "" } },
     { upsert: true }
   );
-  await sincronizarRepartidores(salidas);
+  await sincronizarCarga(fecha, usuario);
   return cargarRol(fecha);
 }
 
@@ -233,6 +302,6 @@ export async function guardarRolDelDia(fecha: string, salidas: SalidaEditada[], 
     { $set: { salidas, actualizadoPorId: usuario.userId, actualizadoPorNombre: usuario.nombre ?? "" } },
     { upsert: true, runValidators: true }
   );
-  await sincronizarRepartidores(salidas);
+  await sincronizarCarga(fecha, usuario);
   return cargarRol(fecha);
 }

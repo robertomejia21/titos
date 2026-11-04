@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import MovimientoInventario from "@/models/MovimientoInventario";
 import { requireSession, unauthorized, forbidden, badRequest, notFound, puede, sinPermiso } from "@/lib/apiAuth";
+import { evento } from "@/lib/logistica";
+import { respuestaPedido } from "@/lib/cajasPedido";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession(req);
@@ -61,9 +63,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // recepción y lo que la bitácora reporta como "quién surtió".
     pedido.surtidoEn = new Date();
     pedido.surtidoPorId = session.userId;
+    pedido.historial.push(evento(session, "surtido"));
   }
 
   await pedido.save();
 
-  return NextResponse.json({ pedido, movimientos });
+  // Poblado y sin montos si no se pueden ver: es lo que vuelve a pintar el detalle.
+  return NextResponse.json({ pedido: await respuestaPedido(pedido._id, session), movimientos });
 }

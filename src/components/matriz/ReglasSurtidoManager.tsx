@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Tv } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, Tv } from "lucide-react";
 import { Button, Card, FormField, Input } from "@/components/ui";
 import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
 
@@ -10,11 +10,23 @@ type Config = {
   prioridadSucursales: { sucursalId: string; prioridad: number }[];
   segundaVuelta: { automatica: boolean; diasVigencia: number };
   temporadaAlta: { meses: number[]; factorMinimos: number };
-  faltantesDiarios: { activo: boolean; hora: string; destinatariosAlmacen: string[]; enviarAProveedores: boolean };
+  faltantesDiarios: {
+    activo: boolean;
+    hora: string;
+    destinatariosAlmacen: string[];
+    enviarAProveedores: boolean;
+    segmentos?: SegmentoFaltantes[];
+    generalSoloResto?: boolean;
+  };
+  traspasos?: { mostrarMontos: boolean };
   duracionRutaMin: number;
   pantallaToken?: string;
   sucursales: { _id: string; nombre: string }[];
 };
+
+type SegmentoFaltantes = { nombre: string; categorias: string[]; destinatarios: string[] };
+/** El grupo como se edita: los WhatsApp van en un solo campo de texto. */
+type GrupoEditable = { nombre: string; categorias: string[]; destinatarios: string };
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -24,6 +36,8 @@ const AYUDA_CRITERIO: Record<CriterioProrrateo, string> = {
   proporcional: "Cada tienda recibe la misma fracción de lo que pidió (si alcanza para la mitad, todas reciben la mitad).",
   prioridad: "Se llena tienda por tienda en el orden de prioridad; las últimas de la lista esperan la segunda vuelta.",
 };
+
+const separarNumeros = (texto: string) => texto.split(/[,\n]/).map((d) => d.trim()).filter(Boolean);
 
 function Seccion({ titulo, descripcion, children }: { titulo: string; descripcion?: string; children: React.ReactNode }) {
   return (
@@ -39,6 +53,8 @@ export function ReglasSurtidoManager() {
   const [config, setConfig] = useState<Config | null>(null);
   const [orden, setOrden] = useState<string[]>([]);
   const [almacen, setAlmacen] = useState("");
+  const [grupos, setGrupos] = useState<GrupoEditable[]>([]);
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
 
@@ -48,6 +64,7 @@ export function ReglasSurtidoManager() {
     const activas = new Set(data.sucursales.map((s) => s._id));
     setOrden([...priorizadas.filter((id) => activas.has(id)), ...data.sucursales.map((s) => s._id).filter((id) => !priorizadas.includes(id))]);
     setAlmacen((data.faltantesDiarios?.destinatariosAlmacen ?? []).join(", "));
+    setGrupos((data.faltantesDiarios?.segmentos ?? []).map((g) => ({ ...g, destinatarios: g.destinatarios.join(", ") })));
   }
 
   useEffect(() => {
@@ -55,6 +72,10 @@ export function ReglasSurtidoManager() {
       .then((r) => r.json())
       .then(aplicar)
       .catch(() => setMensaje({ tipo: "error", texto: "No se pudo cargar la configuración" }));
+    fetch("/api/categorias")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista: { nombre: string }[]) => setCategorias(lista.map((c) => c.nombre)))
+      .catch(() => setCategorias([]));
   }, []);
 
   if (!config) return <p className="text-sm text-black/50">{mensaje?.texto ?? "Cargando..."}</p>;
@@ -82,7 +103,12 @@ export function ReglasSurtidoManager() {
         prioridadSucursales: orden.map((sucursalId) => ({ sucursalId })),
         segundaVuelta: config.segundaVuelta,
         temporadaAlta: config.temporadaAlta,
-        faltantesDiarios: { ...config.faltantesDiarios, destinatariosAlmacen: almacen.split(/[,\n]/).map((d) => d.trim()).filter(Boolean) },
+        faltantesDiarios: {
+          ...config.faltantesDiarios,
+          destinatariosAlmacen: separarNumeros(almacen),
+          segmentos: grupos.map((g) => ({ nombre: g.nombre, categorias: g.categorias, destinatarios: separarNumeros(g.destinatarios) })),
+        },
+        traspasos: { mostrarMontos: config.traspasos?.mostrarMontos === true },
         duracionRutaMin: config.duracionRutaMin,
       }),
     });
@@ -205,6 +231,78 @@ export function ReglasSurtidoManager() {
             <Input value={almacen} onChange={(e) => setAlmacen(e.target.value)} placeholder="6861234567, 6867654321" />
           </FormField>
         </div>
+
+        <div className="mt-4 border-t border-black/5 pt-3">
+          <p className="text-sm font-medium text-black/70">Grupos por categoría</p>
+          <p className="mb-2 text-xs text-black/50">
+            A cada grupo le llega solo lo de sus categorías. Ejemplo: &quot;Frutas y verduras&quot; para Alonso y &quot;Abarrotes&quot; para Compras.
+          </p>
+          <div className="space-y-3">
+            {grupos.map((g, i) => {
+              const cambiar = (cambios: Partial<GrupoEditable>) => setGrupos(grupos.map((x, j) => (j === i ? { ...x, ...cambios } : x)));
+              return (
+                <div key={i} className="rounded-lg border border-black/10 p-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <FormField label="Nombre del grupo">
+                      <Input value={g.nombre} onChange={(e) => cambiar({ nombre: e.target.value })} placeholder="Frutas y verduras" />
+                    </FormField>
+                    <FormField label="WhatsApp (separados por coma)">
+                      <Input value={g.destinatarios} onChange={(e) => cambiar({ destinatarios: e.target.value })} placeholder="6861234567" />
+                    </FormField>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {categorias.map((c) => {
+                      const activa = g.categorias.includes(c);
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => cambiar({ categorias: activa ? g.categorias.filter((x) => x !== c) : [...g.categorias, c] })}
+                          className={`rounded-lg border px-2 py-0.5 text-xs font-medium ${activa ? "border-titos-green-500 bg-titos-green-100 text-titos-green-700" : "border-black/10 text-black/50"}`}
+                          aria-pressed={activa}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button type="button" onClick={() => setGrupos(grupos.filter((_, j) => j !== i))} className="mt-2 inline-flex items-center gap-1 text-xs text-red-600">
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Quitar grupo
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <Button variant="ghost" size="sm" className="mt-2" onClick={() => setGrupos([...grupos, { nombre: "", categorias: [], destinatarios: "" }])}>
+            <span className="inline-flex items-center gap-1">
+              <Plus className="h-4 w-4" aria-hidden="true" /> Agregar grupo
+            </span>
+          </Button>
+          {grupos.length ? (
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={config.faltantesDiarios.generalSoloResto !== false}
+                onChange={(e) => set({ faltantesDiarios: { ...config.faltantesDiarios, generalSoloResto: e.target.checked } })}
+              />
+              Compras y el almacén reciben solo lo que no es de ningún grupo
+            </label>
+          ) : null}
+        </div>
+      </Seccion>
+
+      <Seccion titulo="Montos en traspasos" descripcion="Los traspasos a tiendas se muestran e imprimen sin precios ni totales.">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={config.traspasos?.mostrarMontos === true}
+            onChange={(e) => set({ traspasos: { mostrarMontos: e.target.checked } })}
+          />
+          Mostrar montos a todos
+        </label>
+        <p className="mt-2 text-xs text-black/50">
+          Apagado, solo los ven los roles con el permiso &quot;Ver e imprimir los montos de los traspasos&quot; (se asigna en Usuarios y roles).
+        </p>
       </Seccion>
 
       <Seccion titulo="Rutas y pantalla del área operativa" descripcion="La pantalla no inicia sesión: entra con esta llave. Si se filtra, genera otra y la TV anterior deja de ver el rol.">

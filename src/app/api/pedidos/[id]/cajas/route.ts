@@ -1,55 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/db";
-import Pedido from "@/models/Pedido";
-import { requireSession, unauthorized, forbidden, badRequest, notFound } from "@/lib/apiAuth";
+import { badRequest } from "@/lib/apiAuth";
+import { evento } from "@/lib/logistica";
+import { cargarPedidoParaCajas, contenidoCaja, respuestaPedido } from "@/lib/cajasPedido";
 
-type ItemCaja = { productoId: string; nombreProducto: string; cantidad: number };
-
+/**
+ * Arma una caja. Con los dos cinchos queda sellada de una vez (como antes);
+ * sin ellos queda armada y se cierra y sella después.
+ */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireSession(req);
-  if (!session) return unauthorized();
-  if (session.role !== "matriz") return forbidden();
-
   const { id } = await params;
+  const { pedido, session, error } = await cargarPedidoParaCajas(req, id);
+  if (error) return error;
+
   const body = await req.json().catch(() => null);
-  const numero = body?.numero;
-  const cincho1 = body?.cincho1;
-  const cincho2 = body?.cincho2;
+  const numero = String(body?.numero ?? "").trim();
+  const cincho1 = String(body?.cincho1 ?? "").trim();
+  const cincho2 = String(body?.cincho2 ?? "").trim();
   const categoria = body?.categoria || "";
-  const items: ItemCaja[] = body?.items ?? [];
 
-  if (!numero) {
-    return badRequest("Captura el número de la caja");
-  }
-  if (!cincho1 || !cincho2) {
-    return badRequest("Se requieren los dos números de cincho para sellar la caja");
-  }
-  if (items.length === 0) {
-    return badRequest("La caja debe tener al menos un producto");
-  }
-
-  await connectDB();
-  const pedido = await Pedido.findById(id);
-  if (!pedido) return notFound("Pedido no encontrado");
+  if (!numero) return badRequest("Captura el número de la caja");
+  if (!!cincho1 !== !!cincho2) return badRequest("Para sellar la caja se necesitan los dos números de cincho");
+  const items = contenidoCaja(body?.items);
+  if (typeof items === "string") return badRequest(items);
 
   type CajaDoc = (typeof pedido.cajas)[number];
-  if (pedido.cajas.some((c: CajaDoc) => c.numero === String(numero))) {
+  if (pedido.cajas.some((c: CajaDoc) => c.numero === numero)) {
     return badRequest(`Ya existe una caja con el número ${numero} en este pedido`);
   }
 
-  pedido.cajas.push({
-    numero: String(numero),
-    cincho1,
-    cincho2,
-    categoria,
-    items: items.map((i) => ({
-      productoId: i.productoId,
-      nombreProducto: i.nombreProducto,
-      cantidad: i.cantidad,
-    })),
-  });
-
+  const sellada = !!cincho1;
+  pedido.cajas.push({ numero, estado: sellada ? "sellada" : "armada", cincho1, cincho2, categoria, items });
+  pedido.historial.push(evento(session, "caja_armada", `Caja ${numero}`));
+  if (sellada) pedido.historial.push(evento(session, "caja_sellada", `Caja ${numero} · cinchos ${cincho1} / ${cincho2}`));
   await pedido.save();
 
-  return NextResponse.json(pedido, { status: 201 });
+  return NextResponse.json(await respuestaPedido(pedido._id, session), { status: 201 });
 }

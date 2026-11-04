@@ -18,6 +18,19 @@ const PrioridadSucursalSchema = new Schema(
   { _id: false }
 );
 
+/**
+ * Un grupo de la lista de faltantes: a estos números solo les llega lo de sus
+ * categorías (frutas y verduras para Alonso, abarrotes para Compras).
+ */
+const SegmentoFaltantesSchema = new Schema(
+  {
+    nombre: { type: String, required: true, trim: true, maxlength: 60 },
+    categorias: { type: [String], default: [] },
+    destinatarios: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const ConfiguracionOperacionSchema = new Schema(
   {
     /**
@@ -73,6 +86,26 @@ const ConfiguracionOperacionSchema = new Schema(
            * cada proveedor sea el de la persona responsable.
            */
           enviarAProveedores: { type: Boolean, default: false },
+          segmentos: { type: [SegmentoFaltantesSchema], default: [] },
+          /**
+           * Con grupos capturados, Compras y el almacén reciben solo lo que no
+           * cae en ningún grupo. Apagado, siguen recibiendo la lista completa.
+           */
+          generalSoloResto: { type: Boolean, default: true },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
+
+    traspasos: {
+      type: new Schema(
+        {
+          /**
+           * Los traspasos al CEDIS salen sin precios ni totales. Prendido, todos
+           * los ven; apagado, solo quien tenga el permiso "pedidos.ver_montos".
+           */
+          mostrarMontos: { type: Boolean, default: false },
         },
         { _id: false }
       ),
