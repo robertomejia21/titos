@@ -9,6 +9,7 @@ import "@/models/User"; // necesario para que populate("surtidoPorId"/"recibidoP
 import { requireSession, unauthorized, forbidden, badRequest, generateFolio, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { evento } from "@/lib/logistica";
+import { estadoTemporada, textoMesDia } from "@/lib/temporadas";
 import { puedeVerMontosTraspasos, sinMontos } from "@/lib/montosTraspasos";
 
 export async function GET(req: NextRequest) {
@@ -68,6 +69,15 @@ export async function POST(req: NextRequest) {
     const productoIds = items.map((i) => i.productoId);
     const productos = await Producto.find({ _id: { $in: productoIds } });
     const productoMap = new Map(productos.map((p) => [String(p._id), p]));
+
+    // Candado de temporada: fuera de fechas y agotado en el CEDIS no se pide.
+    const dia = todayCorte(await zonaHorariaDeSucursal(session.sucursalId));
+    const bloqueados = productos.filter((p) => estadoTemporada(p.temporada, dia, p.existenciaMatriz ?? 0) === "bloqueado");
+    if (bloqueados.length) {
+      return badRequest(
+        `Fuera de temporada y agotado en el CEDIS: ${bloqueados.map((p) => `${p.nombre} (vuelve el ${textoMesDia(p.temporada?.inicio)})`).join(", ")}. Quítalo del pedido.`
+      );
+    }
 
     const pedidoItems = [];
     for (const item of items) {

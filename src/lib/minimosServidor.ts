@@ -1,9 +1,10 @@
+import { enTemporada } from "@/lib/temporadas";
 import Producto from "@/models/Producto";
 import NecesidadCompra from "@/models/NecesidadCompra";
 import { obtenerConfiguracionOperacion, hoyCedis } from "@/lib/operacion";
 import { cantidadAResurtir, esTemporadaAlta, maximoVigente, minimoVigente } from "@/lib/minimos";
 
-const CAMPOS = "sku nombre linea unidad existenciaMatriz stockMinimo stockMaximo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave vidaUtilDias";
+const CAMPOS = "sku nombre linea unidad existenciaMatriz stockMinimo stockMaximo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave vidaUtilDias temporada";
 const TOPE = 6000;
 
 function escapeRegExp(value: string) {
@@ -30,7 +31,9 @@ export async function tablaMinimos({ q, soloClave, soloBajo, soloPerecederos }: 
     .map((p) => {
       const minimo = minimoVigente(p, hoy, config.temporadaAlta);
       const maximo = maximoVigente(p, hoy, config.temporadaAlta);
-      const bajoMinimo = minimo > 0 && p.existenciaMatriz <= minimo;
+      // Fuera de temporada no se vuelve a comprar: se vende lo que queda y se bloquea al agotarse.
+      const fueraDeTemporada = !enTemporada(p.temporada ?? {}, hoy);
+      const bajoMinimo = minimo > 0 && p.existenciaMatriz <= minimo && !fueraDeTemporada;
       return {
         _id: String(p._id),
         sku: p.sku,
@@ -50,6 +53,7 @@ export async function tablaMinimos({ q, soloClave, soloBajo, soloPerecederos }: 
         bajoMinimo,
         aResurtir: bajoMinimo ? cantidadAResurtir(p.existenciaMatriz, minimo, maximo, p) : 0,
         necesidadPendiente: pendientes.has(String(p._id)),
+        fueraDeTemporada,
       };
     })
     .filter((p) => !soloBajo || p.bajoMinimo);

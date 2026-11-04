@@ -37,6 +37,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   if (recurso === "empleados" && get && tiene("pedidos.surtir")) return true;
   if (["empleados", "terminales", "vales"].includes(recurso)) return tiene("catalogos.administrar") || (get && recurso !== "empleados" && tiene("pos.vender"));
   // Escaneo de QR e incidencias: carga y acomodo en el CEDIS, recepción en tienda.
+  if (recurso === "solicitudes-ruta") return s.role === "matriz" ? tiene("pedidos.surtir") : tiene("pedidos.crear");
   if (recurso === "escaneos" || recurso === "incidencias") return s.role === "matriz" ? tiene("pedidos.surtir") : tiene("pedidos.recibir");
   if (recurso === "inventario") return parte[2] === "entrada" && method === "POST" && tiene("inventario.administrar");
   if (recurso === "inventario-sucursal") return get && tiene("pos.vender", "inventario.administrar", "pedidos.crear", "pedidos.recibir", "prestamos.operar");
@@ -72,7 +73,7 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
     // y perecederos, del inventario (Compras los consulta); faltantes, de Compras.
     const seccion = parte[2];
     if (["catalogo", "vehiculos", "rutas", "rol", "segunda-vuelta", "bitacora-rutas"].includes(seccion)) return tiene("pedidos.surtir");
-    if (["minimos", "perecederos"].includes(seccion)) return tiene("inventario.administrar") || (get && tiene("compras.administrar"));
+    if (["minimos", "perecederos", "temporadas"].includes(seccion)) return tiene("inventario.administrar") || (get && tiene("compras.administrar"));
     if (seccion === "faltantes") return tiene("compras.administrar");
     if (seccion === "config") return tiene("configuracion.editar") || (get && tiene("pedidos.surtir", "inventario.administrar"));
     return false;

@@ -65,3 +65,30 @@ export async function agregarItemAOrden(
 
   return orden;
 }
+
+type ItemRecibido = {
+  productoId: unknown;
+  nombreProducto: string;
+  cantidadOrdenada: number;
+  cantidadRecibida?: number | null;
+  precioUnitario?: number | null;
+  pedidosOrigen?: unknown[];
+};
+
+/**
+ * Lo que faltó de cada renglón (ordenado menos recibido; lo rechazado también
+ * falta, porque el proveedor lo tiene que reponer). Son los renglones de la
+ * orden remanente que queda abierta tras una recepción parcial.
+ */
+export function itemsRemanentes(items: ItemRecibido[]) {
+  return items
+    .map((i) => ({ item: i, falta: Math.max(0, i.cantidadOrdenada - (i.cantidadRecibida ?? 0)) }))
+    .filter(({ falta }) => falta > 0)
+    .map(({ item, falta }) => ({
+      productoId: item.productoId,
+      nombreProducto: item.nombreProducto,
+      cantidadOrdenada: Math.round(falta * 1000) / 1000,
+      precioUnitario: item.precioUnitario ?? 0,
+      pedidosOrigen: item.pedidosOrigen ?? [],
+    }));
+}

@@ -77,6 +77,20 @@ export async function PATCH(req: NextRequest) {
       generalSoloResto: f.generalSoloResto !== false,
     };
   }
+  if ("nivelador" in body) {
+    const ventanaDias = Number(body.nivelador?.ventanaDias ?? 30);
+    const diasCobertura = Number(body.nivelador?.diasCobertura ?? 2);
+    if (![30, 60].includes(ventanaDias)) return badRequest("El patrón de consumo es mensual (30) o bimestral (60)");
+    if (!Number.isInteger(diasCobertura) || diasCobertura < 1 || diasCobertura > 14) return badRequest("La cobertura va de 1 a 14 días");
+    config.nivelador = { ventanaDias, diasCobertura };
+  }
+  if ("tiemposRuta" in body) {
+    const minutosPorParada = Number(body.tiemposRuta?.minutosPorParada ?? 0);
+    const holguraMin = Number(body.tiemposRuta?.holguraMin ?? 20);
+    if (!Number.isInteger(minutosPorParada) || minutosPorParada < 0 || minutosPorParada > 180) return badRequest("Minutos por parada: de 0 a 180");
+    if (!Number.isInteger(holguraMin) || holguraMin < 0 || holguraMin > 240) return badRequest("Holgura: de 0 a 240 minutos");
+    config.tiemposRuta = { minutosPorParada, holguraMin };
+  }
   if ("traspasos" in body) {
     config.traspasos = { mostrarMontos: body.traspasos?.mostrarMontos === true };
   }

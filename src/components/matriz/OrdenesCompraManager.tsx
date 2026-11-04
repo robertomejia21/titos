@@ -358,6 +358,7 @@ function OrdenModal({
   const [rechazos, setRechazos] = useState<Record<string, string>>({});
   const [motivos, setMotivos] = useState<Record<string, MotivoRechazo | "">>({});
   const [avisarProveedor, setAvisarProveedor] = useState(true);
+  const [dejarAbiertoFaltante, setDejarAbiertoFaltante] = useState(true);
   const [resultadoRecepcion, setResultadoRecepcion] = useState<string | null>(null);
   const [moneda, setMoneda] = useState("MXN");
   const [tipoCambioProveedor, setTipoCambioProveedor] = useState("1");
@@ -455,7 +456,7 @@ function OrdenModal({
       if (sinMotivo) throw new Error(`Indica por qué se rechaza ${sinMotivo.nombreProducto}.`);
       const res = await fetch(`/api/ordenes-compra/${orden._id}/recibir`, {
         method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({avisarProveedor,financiero:{moneda,tipoCambio:Number(tipoCambioProveedor),servicio:Number(servicio),descuento:Number(descuentoRecepcion),observaciones:observacionesRecepcion},items: items.map((i) => ({productoId: i.productoId,costoUnitario:i.precioUnitario,
+        body: JSON.stringify({avisarProveedor,dejarAbiertoFaltante,financiero:{moneda,tipoCambio:Number(tipoCambioProveedor),servicio:Number(servicio),descuento:Number(descuentoRecepcion),observaciones:observacionesRecepcion},items: items.map((i) => ({productoId: i.productoId,costoUnitario:i.precioUnitario,
           cantidadRecibida: Number(recepcion[i.productoId]), notaRecepcion: notas[i.productoId] ?? "",
           cantidadRechazada: Number(rechazos[i.productoId] || 0), motivoRechazo: motivos[i.productoId] || ""}))}),
       });
@@ -465,6 +466,7 @@ function OrdenModal({
       const avisos = [AVISO_LABEL[data.avisoRecepcion?.estado] ?? ""];
       const complementos: { folio: string; sucursalNombre: string }[] = data.segundaVuelta?.complementos ?? [];
       if (complementos.length) avisos.push(`Segunda vuelta lista para surtir: ${complementos.map((c) => `${c.folio} (${c.sucursalNombre})`).join(", ")}.`);
+      if (data.remanenteFolio) avisos.push(`Lo que faltó quedó abierto en la orden ${data.remanenteFolio}.`);
       setResultadoRecepcion(avisos.filter(Boolean).join(" "));
       onUpdated({...data, proveedorId: orden.proveedorId});
     } catch (error) { setError((error as Error).message); }
@@ -708,6 +710,12 @@ function OrdenModal({
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={avisarProveedor} onChange={(e) => setAvisarProveedor(e.target.checked)} />
           Si hay rechazos o faltantes, avisar también al proveedor por WhatsApp (a Compras se le avisa siempre)
+        </label>
+      ) : null}
+      {orden.estado === "solicitada" ? (
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={dejarAbiertoFaltante} onChange={(e) => setDejarAbiertoFaltante(e.target.checked)} />
+          Si llega incompleta, dejar abierto lo que faltó en una orden remanente (si se desmarca, lo faltante se cierra)
         </label>
       ) : null}
       {orden.estado === "solicitada" && <section className="mt-4 space-y-3 rounded border border-black/20 p-3">

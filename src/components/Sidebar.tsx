@@ -171,6 +171,7 @@ const SUCURSAL_NAV: NavItem[] = [
   { href: "/sucursal/nuevo-pedido", label: "Nuevo pedido", icon: PlusCircle },
   { href: "/sucursal/pedidos", label: "Mis pedidos", icon: ClipboardList },
   { href: "/sucursal/escanear", label: "Recibir cajas (QR)", icon: ScanLine },
+  { href: "/sucursal/solicitudes-ruta", label: "Solicitudes de ruta", icon: Route },
   { href: "/sucursal/usuarios", label: "Usuarios", icon: Users },
   { href: "/sucursal/ajustes", label: "Ajustes", icon: Settings },
   { href: "/sucursal/equipos-caja", label: "Equipos de caja", icon: Wrench },

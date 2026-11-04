@@ -38,6 +38,21 @@ const ProductoSchema = new Schema(
     // 4 a 7). 0 = no es perecedero o no se controla su rotación.
     vidaUtilDias: { type: Number, default: 0, min: 0 },
     proveedorPreferidoId: { type: Schema.Types.ObjectId, ref: "Proveedor", default: null },
+    // Producto de temporada (ver lib/temporadas): fuera de sus fechas y ya
+    // agotado en el CEDIS se bloquea; se reactiva solo al llegar `inicio`.
+    temporada: {
+      type: new Schema(
+        {
+          activa: { type: Boolean, default: false },
+          inicio: { type: String, default: "" }, // MM-DD
+          fin: { type: String, default: "" }, // MM-DD
+          /** Año en que ya se mandó el aviso de que arrancó la temporada. */
+          avisadoAnio: { type: Number, default: 0 },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
     activo: { type: Boolean, default: true },
   },
   { timestamps: true }

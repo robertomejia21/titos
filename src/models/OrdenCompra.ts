@@ -36,6 +36,11 @@ const OrdenCompraSchema = new Schema(
     fechaRecepcion: { type: Date, default: null },
     recepcionCostos: { type: Schema.Types.Mixed, default: null },
     fechaCancelacion: { type: Date, default: null },
+    // Recepción parcial: lo que faltó queda abierto en una orden "remanente"
+    // (folio-R) ya solicitada al mismo proveedor. La original se cierra con lo
+    // que sí llegó para no mezclar dos entregas en un mismo costo de recepción.
+    ordenOrigenId: { type: Schema.Types.ObjectId, ref: "OrdenCompra", default: null },
+    remanenteId: { type: Schema.Types.ObjectId, ref: "OrdenCompra", default: null },
     // Resultado del aviso automático de rechazos y faltantes a Compras y al
     // proveedor al confirmar la recepción.
     avisoRecepcion: {

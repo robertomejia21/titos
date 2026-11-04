@@ -149,6 +149,7 @@ export const PERMISO_POR_RUTA: Record<string, string> = {
   "/sucursal/nuevo-pedido": "pedidos.crear",
   "/sucursal/pedidos": "pedidos.recibir",
   "/sucursal/escanear": "pedidos.recibir",
+  "/sucursal/solicitudes-ruta": "pedidos.crear",
   "/sucursal/usuarios": "sucursal.usuarios",
   "/sucursal/ajustes": "sucursal.ajustes",
   "/sucursal/equipos-caja": "pos.vender",

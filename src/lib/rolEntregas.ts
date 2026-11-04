@@ -70,12 +70,22 @@ export function rutasDelDia(rutas: RutaPlan[], ymd: string) {
 type Ventana = { inicio: number; fin: number };
 const seEmpalma = (a: Ventana, b: Ventana) => a.inicio < b.fin && b.inicio < a.fin;
 
+/**
+ * Duración estimada de una ruta que no trae la suya: minutos por parada más
+ * una holgura. Si no hay tiempos capturados, la duración típica general.
+ */
+export function duracionEstimada(paradas: number, tiempos: { minutosPorParada?: number; holguraMin?: number } | undefined, duracionDefaultMin: number) {
+  const porParada = tiempos?.minutosPorParada ?? 0;
+  return porParada > 0 && paradas > 0 ? paradas * porParada + (tiempos?.holguraMin ?? 0) : duracionDefaultMin;
+}
+
 export function sugerirRol({
   rutas,
   vehiculos,
   choferes,
   fecha,
   duracionDefaultMin,
+  tiemposRuta,
   salidasRecientes = new Map(),
 }: {
   rutas: RutaPlan[];
@@ -83,6 +93,7 @@ export function sugerirRol({
   choferes: ChoferPlan[];
   fecha: string;
   duracionDefaultMin: number;
+  tiemposRuta?: { minutosPorParada?: number; holguraMin?: number };
   /** choferId → salidas en las últimas dos semanas, para rotar parejo. */
   salidasRecientes?: Map<Id, number>;
 }): SalidaSugerida[] {
@@ -97,7 +108,7 @@ export function sugerirRol({
   const nombreChofer = (id: Id) => activos.find((c) => c._id === id)?.nombre ?? "";
 
   return rutasDelDia(rutas, fecha).map((ruta) => {
-    const duracion = ruta.duracionMin || duracionDefaultMin;
+    const duracion = ruta.duracionMin || duracionEstimada(ruta.paradas.length, tiemposRuta, duracionDefaultMin);
     const ventana = { inicio: minutosDe(ruta.horaSalida), fin: minutosDe(ruta.horaSalida) + duracion };
     const motivos: string[] = [];
 

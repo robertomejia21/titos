@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Input, Select, Modal, FormField, EmptyState, Pagination } from "@/components/ui";
 import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { categoriaLabel } from "@/lib/categorias";
+import { estadoTemporada, textoMesDia, type Temporada } from "@/lib/temporadas";
+import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
+import { fechaEnZona } from "@/lib/zonasHorarias";
 
 const PAGE_SIZE = 20;
 
@@ -15,6 +18,8 @@ type Producto = {
   alias?: string[];
   categoria: string;
   unidad: "pieza" | "kg";
+  existenciaMatriz?: number;
+  temporada?: Temporada | null;
 };
 
 type InventarioProducto = { stockActual: number; stockMinimo: number; stockMaximo: number };
@@ -116,9 +121,17 @@ export function NuevoPedidoForm() {
       });
   }, []);
 
+  // Fuera de temporada y agotados en el CEDIS no se pueden pedir: el servidor
+  // también los rechaza, pero aquí ni se ofrecen.
+  const zona = useZonaHoraria();
+  const hoy = fechaEnZona(new Date(), zona);
+  const bloqueados = useMemo(
+    () => new Map(productos.filter((p) => estadoTemporada(p.temporada, hoy, p.existenciaMatriz ?? 0) === "bloqueado").map((p) => [p._id, p])),
+    [productos, hoy]
+  );
   const productosDisponibles = useMemo(
-    () => productos.filter((p) => !lineas.some((l) => l.productoId === p._id)),
-    [productos, lineas]
+    () => productos.filter((p) => !bloqueados.has(p._id) && !lineas.some((l) => l.productoId === p._id)),
+    [productos, lineas, bloqueados]
   );
 
   function agregarProducto(productoId: string) {
@@ -171,7 +184,7 @@ export function NuevoPedidoForm() {
     setLineas((prev) => {
       const yaEnPedido = new Set(prev.map((l) => l.productoId));
       const nuevas = sugerencias
-        .filter((s) => !yaEnPedido.has(s.productoId))
+        .filter((s) => !yaEnPedido.has(s.productoId) && !bloqueados.has(s.productoId))
         .map((s) => ({
           productoId: s.productoId,
           nombre: s.nombre,
@@ -241,6 +254,11 @@ export function NuevoPedidoForm() {
           </Button>
         </div>
         <ProductoCombobox productos={productosDisponibles} value={productoSeleccionado} onChange={agregarProducto} />
+        {bloqueados.size ? (
+          <p className="mt-1.5 text-xs text-black/50" title={[...bloqueados.values()].map((p) => `${p.nombre}: vuelve el ${textoMesDia(p.temporada?.inicio)}`).join("\n")}>
+            {bloqueados.size} producto(s) de temporada no se pueden pedir hasta que vuelva su temporada.
+          </p>
+        ) : null}
         {mensajeResurtido ? <p className="mt-2 text-sm text-titos-green-700">{mensajeResurtido}</p> : null}
 
         <div className="mt-4">
