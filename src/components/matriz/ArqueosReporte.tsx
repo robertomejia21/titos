@@ -5,6 +5,7 @@ import { ExportarExcelButton } from "@/components/ExportarExcelButton";
 import { excelArqueos } from "@/lib/exportacionesFinancieras";
 import { fechaEnZona, formatFechaHora } from "@/lib/zonasHorarias";
 import { importeConSigno, resumenArqueos, type FilaArqueo } from "@/lib/reporteArqueos";
+import { SkeletonTabla } from "@/components/Skeleton";
 type Datos = { filas: FilaArqueo[]; resumen: ReturnType<typeof resumenArqueos>; limitado: boolean; zona: string; sucursales: { _id: string; nombre: string }[] };
 const input = "min-h-11 rounded-lg border border-black/50 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-green-800";
 export function ArqueosReporte() {
@@ -40,7 +41,7 @@ export function ArqueosReporte() {
       <label className="flex flex-col gap-1 text-sm">Sucursal<select className={input} value={sucursal} onChange={(e) => setSucursal(e.target.value)}><option value="">Todas las sucursales</option>{datos?.sucursales.map((s) => <option key={s._id} value={s._id}>{s.nombre}</option>)}</select></label>
       <Button className="min-h-11 self-end" onClick={() => setConsulta((v) => v + 1)}>Actualizar arqueos</Button>
     </div>
-    {error ? <p role="alert" className="text-red-800">{error}</p> : cargando ? <p role="status">Cargando arqueos...</p> : <>
+    {error ? <p role="alert" className="text-red-800">{error}</p> : cargando ? <SkeletonTabla etiqueta="Cargando arqueos…" /> : <>
       {r && <div className="mb-4 grid gap-4 rounded-lg bg-titos-green-50 p-4 sm:grid-cols-3">
         <div><p className="text-sm">Turnos con diferencias</p><strong className="text-2xl">{r.cajasConDiferencia}</strong></div>
         <div><p className="text-sm">Faltantes</p><strong>{importeConSigno(r.faltantes)} MXN</strong><p>{importeConSigno(r.faltantesUsd, "USD")} USD</p></div>

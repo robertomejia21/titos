@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2, Tv } from "lucide-react";
 import { Button, Card, FormField, Input } from "@/components/ui";
 import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
+import { SkeletonTarjetas } from "@/components/Skeleton";
 
 type Config = {
   criterioProrrateo: CriterioProrrateo;
@@ -82,7 +83,7 @@ export function ReglasSurtidoManager() {
       .catch(() => setCategorias([]));
   }, []);
 
-  if (!config) return <p className="text-sm text-black/50">{mensaje?.texto ?? "Cargando..."}</p>;
+  if (!config) return mensaje?.texto ? <p className="text-sm text-black/50">{mensaje.texto}</p> : <SkeletonTarjetas cantidad={6} />;
 
   const set = (cambios: Partial<Config>) => setConfig({ ...config, ...cambios });
   const nombre = (id: string) => config.sucursales.find((s) => s._id === id)?.nombre ?? "Tienda";

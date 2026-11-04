@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button, Card, Input, EmptyState, Modal, FormField, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { Tag } from "lucide-react";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type CategoriaProducto = {
   _id: string;
@@ -193,7 +194,7 @@ export function CategoriasManager() {
           <Button onClick={() => setCreando(true)}>+ Nueva categoría</Button>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : categorias.length === 0 ? (
           <EmptyState message="Todavía no hay categorías registradas." />
         ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button, Input, Select, Modal, EmptyState, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { Truck } from "lucide-react";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Proveedor = { _id: string; nombre: string };
 
@@ -125,7 +126,7 @@ export function ProductoProveedoresModal({
     <Modal open onClose={onClose} title={`Proveedores de ${productoNombre}`} icon={Truck} size="lg">
       <div className="space-y-4">
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : enlaces.length === 0 ? (
           <EmptyState message="Este producto no tiene proveedores registrados todavía." />
         ) : (

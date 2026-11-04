@@ -6,6 +6,7 @@ import { Send } from "lucide-react";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Datos = {
   fecha: string;
@@ -59,7 +60,7 @@ export function FaltantesManager() {
     cargar();
   }
 
-  if (!datos) return <p className="text-sm text-black/50">{mensaje?.texto ?? "Cargando..."}</p>;
+  if (!datos) return mensaje?.texto ? <p className="text-sm text-black/50">{mensaje.texto}</p> : <SkeletonTabla />;
 
   return (
     <div className="space-y-4">

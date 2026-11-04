@@ -5,6 +5,7 @@ import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField, Pa
 import { usePaginacion } from "@/components/usePaginacion";
 import { Store, MapPin, MessageCircle, User, Mail, Lock, TriangleAlert, Clock } from "lucide-react";
 import { ZONAS_HORARIAS, ZONA_HORARIA_DEFAULT, zonaHorariaLabel } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Sucursal = {
   _id: string;
@@ -378,7 +379,7 @@ export function SucursalesManager() {
           <Button onClick={() => setCreando(true)}>+ Nueva sucursal</Button>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : sucursales.length === 0 ? (
           <EmptyState message="Todavía no hay sucursales registradas." />
         ) : (

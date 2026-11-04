@@ -35,6 +35,7 @@ import {
   type ClienteConCredito,
   type ResumenCredito,
 } from "@/lib/creditoCliente";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Cuenta = {
   _id: string;
@@ -597,7 +598,7 @@ function EstadoCuentaModal({
             Ventas a crédito ({pendientes.length} abiertas)
           </p>
           {cargando ? (
-            <p className="text-sm text-black/50">Cargando...</p>
+            <SkeletonTabla />
           ) : cuentas.length === 0 ? (
             <EmptyState message="Este cliente todavía no tiene ventas a crédito." />
           ) : (
@@ -772,7 +773,7 @@ export function ClientesManager() {
         </div>
 
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : filtrados.length === 0 ? (
           <EmptyState
             message={busqueda ? "Ningún cliente coincide con la búsqueda." : "Todavía no has dado de alta clientes."}

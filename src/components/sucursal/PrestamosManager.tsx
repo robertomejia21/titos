@@ -5,6 +5,7 @@ import { Search, ArrowLeftRight, PackageSearch, Store, Check, X, Truck, Undo2 } 
 import { Button, Card, EmptyState, FormField, Input, Modal } from "@/components/ui";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type StockSucursal = { sucursalId: string; nombre: string; stockActual: number };
 type ProductoStock = {
@@ -521,7 +522,7 @@ export function PrestamosManager({ sucursalId }: { sucursalId: string }) {
       <Card>
         <h2 className="mb-3 font-semibold text-titos-green-900">Lo que pedí prestado ({mios.length})</h2>
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : mios.length === 0 ? (
           <EmptyState message="Todavía no has pedido prestado a otra sucursal." />
         ) : (

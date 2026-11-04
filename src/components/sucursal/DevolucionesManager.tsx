@@ -9,6 +9,7 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { imprimirTicketDevolucion } from "@/lib/ticketDevolucion";
 import { operarTerminal } from "@/lib/cobroBanorte";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type PagoBusqueda = { metodoPago: string; monto: number; terminalId?: string | null; banorte?: { transaccionId?: string; ultimos4?: string } | null };
 
@@ -440,7 +441,7 @@ export function DevolucionesManager({ sucursalNombre = "" }: { sucursalNombre?: 
       <Card>
         <h2 className="mb-3 font-semibold text-titos-green-900">Devoluciones ({devoluciones.length})</h2>
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : devoluciones.length === 0 ? (
           <EmptyState message="Todavía no se han registrado devoluciones." />
         ) : (

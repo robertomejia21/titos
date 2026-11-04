@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Card, Select, formatMoney } from "@/components/ui";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Punto = { label: string; total: number };
 type Datos = {
@@ -72,7 +73,7 @@ export function VentasChart() {
       </div>
 
       {loading || !datos ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : datos.actual.every((p) => p.total === 0) && datos.anterior.every((p) => p.total === 0) ? (
         <p className="rounded-xl border border-dashed border-black/10 bg-black/2 p-8 text-center text-sm text-black/50">
           Todavía no hay ventas registradas (pedidos surtidos o recibidos) en este rango.

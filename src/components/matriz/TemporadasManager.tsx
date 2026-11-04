@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Card, EmptyState, FormField, Input } from "@/components/ui";
 import { ESTADO_TEMPORADA_LABEL, textoMesDia, type EstadoTemporada } from "@/lib/temporadas";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Fila = { _id: string; sku: string; nombre: string; existenciaMatriz: number; inicio: string; fin: string; estado: EstadoTemporada };
 type Opcion = { _id: string; nombre: string; sku: string };
@@ -114,7 +115,7 @@ export function TemporadasManager({ editable }: { editable: boolean }) {
       ) : null}
 
       {filas === null ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : filas.length === 0 ? (
         <EmptyState message="Ningún producto está marcado como de temporada." />
       ) : (

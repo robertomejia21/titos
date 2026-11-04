@@ -28,6 +28,7 @@ import { DIAS_SEMANA, DIA_LABEL } from "@/lib/dias";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
 import { MotivosPosManager } from "@/components/matriz/MotivosPosManager";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 /**
  * Encabezado de tarjeta. El `id` es el ancla a la que salta el buscador global
@@ -540,7 +541,7 @@ export function ConfiguracionManager() {
                 </TituloSeccion>
 
                 {cargandoConfig ? (
-                  <p className="text-sm text-black/50">Cargando...</p>
+                  <SkeletonTabla />
                 ) : (
                   <>
                     <div className="space-y-3.5">
@@ -574,7 +575,7 @@ export function ConfiguracionManager() {
                 </TituloSeccion>
 
                 {cargandoConfig ? (
-                  <p className="text-sm text-black/50">Cargando...</p>
+                  <SkeletonTabla />
                 ) : (
                   <>
                     <div className="space-y-3.5">
@@ -630,7 +631,7 @@ export function ConfiguracionManager() {
               </TituloSeccion>
 
               {cargandoConfig ? (
-                <p className="text-sm text-black/50">Cargando...</p>
+                <SkeletonTabla />
               ) : (
                 <>
                   <div className="space-y-3.5">
@@ -749,7 +750,7 @@ export function ConfiguracionManager() {
               </TituloSeccion>
 
               {cargandoConfig ? (
-                <p className="text-sm text-black/50">Cargando...</p>
+                <SkeletonTabla />
               ) : (
                 <>
                   <FormGrid>
@@ -814,7 +815,7 @@ export function ConfiguracionManager() {
               </TituloSeccion>
 
               {cargandoConfig ? (
-                <p className="text-sm text-black/50">Cargando...</p>
+                <SkeletonTabla />
               ) : (
                 <>
                   {!emisorCompleto(emisorFiscal) && (

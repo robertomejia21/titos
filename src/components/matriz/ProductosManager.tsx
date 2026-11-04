@@ -6,6 +6,7 @@ import { Package, Barcode, Tag, Tags, Scale, DollarSign, Boxes, AlertTriangle, A
 import { ProductoProveedoresModal } from "@/components/matriz/ProductoProveedoresModal";
 
 import { FISCAL_INICIAL, type FiscalProducto } from "@/lib/fiscalProducto";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 const PAGE_SIZE = 20;
 
@@ -382,7 +383,7 @@ export function ProductosManager({ initialQuery = "", initialCreate = false }: {
           </div>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : total === 0 ? (
           <EmptyState
             message={

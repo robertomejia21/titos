@@ -15,6 +15,7 @@ import { montoLineaPedido } from "@/lib/montoPedido";
 import { CRITERIO_LABEL, type CriterioProrrateo } from "@/lib/prorrateo";
 import { ESTADO_CAJA_LABEL, ETAPA_CARGA_LABEL, estadoCaja, etapaDe, impedimentosPrecarga, puedeEditarCajas, type EstadoCaja, type EtapaCarga } from "@/lib/logistica";
 import { AccionesCarga } from "@/components/matriz/AccionesCarga";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 // Frutas y verduras y carnicería se surten directo, sin empacar en cajas selladas.
 const CATEGORIAS_SIN_CAJAS = ["frutas_verduras", "carniceria"];
@@ -147,7 +148,7 @@ function SegundaVueltaPanel({ onArmada }: { onArmada: () => void }) {
     onArmada();
   }
 
-  if (!pedidos) return <p className="text-sm text-black/50">Cargando...</p>;
+  if (!pedidos) return <SkeletonTabla />;
 
   const conExistencia = pedidos.some((p) => p.items.some((i) => i.existenciaMatriz > 0));
 
@@ -1007,7 +1008,7 @@ function MatrizPorProducto({ onClose }: { onClose: () => void }) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : !data || data.productos.length === 0 ? (
         <EmptyState message="No hay pedidos nivelados en esta fecha. Ejecuta el Nivelador para generar esta vista." />
       ) : (
@@ -1252,7 +1253,7 @@ export function PedidosManager({ verMontos }: { verMontos: boolean }) {
       {tab === "segunda-vuelta" ? (
         <SegundaVueltaPanel onArmada={cargar} />
       ) : loading ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : visibles.length === 0 ? (
         <EmptyState message="No hay pedidos en esta vista." />
       ) : (

@@ -11,6 +11,7 @@ import { expandirPermisosPuesto } from "@/lib/permisosIndividuales";
 import { permisosLegado } from "@/lib/permisos";
 import { requiereNipCaja } from "@/lib/nipCaja";
 import { telefonoLocal } from "@/lib/whatsapp";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Rol = {
   _id: string;
@@ -1072,7 +1073,7 @@ export function UsuariosRolesManager() {
             </div>
           </div>
           {cargando ? (
-            <p className="text-sm text-black/50">Cargando...</p>
+            <SkeletonTabla />
           ) : usuarios.length === 0 ? (
             <EmptyState message="Todavía no hay usuarios." />
           ) : usuariosVisibles.length === 0 ? (
@@ -1157,7 +1158,7 @@ export function UsuariosRolesManager() {
             <div className="flex flex-wrap items-center justify-between gap-2"><p role="status" className="text-sm text-black/70">{cargando ? "Cargando roles…" : `${rolesVisibles.length} de ${roles.length} roles`}</p><Button variant="ghost" onClick={limpiarRoles} disabled={!filtroDepartamento && !busquedaRol && !ambitoRol && estadoRol === "todos" && ordenRol === "nombre-asc"}>Limpiar filtros</Button></div>
           </div>
           {cargando ? (
-            <p className="text-sm text-black/50">Cargando...</p>
+            <SkeletonTabla />
           ) : rolesVisibles.length === 0 ? (
             <EmptyState message="No hay roles que coincidan. Cambia la búsqueda o limpia los filtros." />
           ) : (

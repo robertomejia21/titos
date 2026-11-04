@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Card, Input, EmptyState, Modal, FormGrid, FormField, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { Truck, User, MessageCircle, Mail, Pencil, Power, PowerOff, PauseCircle, PlayCircle, type LucideIcon } from "lucide-react";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Proveedor = {
   _id: string;
@@ -257,7 +258,7 @@ export function ProveedoresManager() {
           <Button onClick={() => setCreando(true)}>+ Nuevo proveedor</Button>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : proveedores.length === 0 ? (
           <EmptyState message="Todavía no hay proveedores registrados." />
         ) : (

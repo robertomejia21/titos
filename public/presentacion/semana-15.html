@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DaVinci · Semana 15 · Avances Mercados Titos</title>
+    <link rel="icon" href="img/logo-davinci.png" />
+    <style>
+      /* ── Paleta tomada del logo DaVinci ─────────────────────────────── */
+      :root {
+        --naranja: #f58634;
+        --naranja-claro: #ffa365;
+        --naranja-suave: #fff1e6;
+        --carbon: #373435;
+        --carbon-medio: #575253;
+        --carbon-suave: #f4f2f2;
+        --blanco: #ffffff;
+        --gris-linea: rgba(55, 52, 53, 0.12);
+        --gris-texto: rgba(55, 52, 53, 0.62);
+        --verde: #2f9e5f;
+        --sombra: 0 18px 50px rgba(55, 52, 53, 0.16);
+        --radio: 18px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        color: var(--carbon);
+        background: var(--blanco);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+      p { margin: 0; }
+
+      /* ── Barra de progreso de lectura ───────────────────────────────── */
+      .progreso {
+        position: fixed;
+        inset: 0 auto auto 0;
+        height: 4px;
+        width: 0;
+        background: linear-gradient(90deg, var(--naranja), var(--naranja-claro));
+        z-index: 100;
+        transition: width 0.1s linear;
+      }
+
+      /* ── Navegación superior ────────────────────────────────────────── */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 32px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .nav img { height: 34px; width: auto; display: block; }
+      .nav-marca { display: flex; align-items: center; gap: 12px; }
+      .nav-marca span {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .nav-marca small {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--gris-texto);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      /* ── Selector de semana ─────────────────────────────────────────── */
+      .semanas {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--carbon-suave);
+        border: 1px solid var(--gris-linea);
+      }
+      .semanas a {
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .semanas a.actual { background: var(--carbon); color: #fff; }
+      .semanas .indice {
+        display: grid;
+        place-items: center;
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+      }
+      .semanas .indice:hover { background: var(--naranja); color: #fff; }
+
+      .nav-links { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+      .nav-links a {
+        padding: 7px 13px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--carbon-medio);
+        text-decoration: none;
+        transition: background 0.18s, color 0.18s;
+        white-space: nowrap;
+      }
+      .nav-links a:hover { background: var(--naranja-suave); color: var(--naranja); }
+      .nav-links a.activo { background: var(--naranja); color: #fff; }
+
+      /* ── Portada ────────────────────────────────────────────────────── */
+      .portada {
+        position: relative;
+        overflow: hidden;
+        padding: 90px 32px 80px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .portada::before,
+      .portada::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .portada::before {
+        width: 460px; height: 460px;
+        top: -220px; right: -140px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.42), transparent 68%);
+      }
+      .portada::after {
+        width: 380px; height: 380px;
+        bottom: -200px; left: -120px;
+        background: radial-gradient(circle, rgba(245, 134, 52, 0.26), transparent 68%);
+      }
+      .portada > * { position: relative; z-index: 1; }
+      .portada .escudo {
+        display: inline-grid;
+        place-items: center;
+        width: 96px; height: 96px;
+        border-radius: 26px;
+        background: #fff;
+        box-shadow: var(--sombra);
+        margin-bottom: 26px;
+      }
+      .portada .escudo img { width: 60px; height: auto; display: block; }
+      .portada h1 { font-size: clamp(32px, 5.2vw, 54px); font-weight: 800; }
+      .portada h1 em { font-style: normal; color: var(--naranja-claro); }
+      .portada .bajada {
+        max-width: 640px;
+        margin: 18px auto 0;
+        font-size: 17px;
+        color: rgba(255, 255, 255, 0.76);
+      }
+      .etiqueta {
+        display: inline-block;
+        padding: 6px 15px;
+        border-radius: 999px;
+        background: rgba(245, 134, 52, 0.18);
+        border: 1px solid rgba(245, 134, 52, 0.42);
+        color: var(--naranja-claro);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 22px;
+      }
+
+      .metricas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        max-width: 880px;
+        margin: 44px auto 0;
+      }
+      .metrica {
+        padding: 20px 16px;
+        border-radius: var(--radio);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .metrica strong {
+        display: block;
+        font-size: 30px;
+        font-weight: 800;
+        color: var(--naranja-claro);
+        line-height: 1.1;
+      }
+      .metrica span {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.66);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Secciones ──────────────────────────────────────────────────── */
+      .seccion { padding: 76px 32px; max-width: 1180px; margin: 0 auto; }
+      .seccion.alterna { background: var(--carbon-suave); max-width: none; }
+      .seccion.alterna > .interior { max-width: 1180px; margin: 0 auto; }
+
+      .encabezado { margin-bottom: 38px; max-width: 720px; }
+      .numero {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        color: var(--naranja);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .encabezado h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
+      .encabezado p { margin-top: 12px; font-size: 16px; color: var(--gris-texto); }
+
+      /* ── Tarjetas de funcionalidad ──────────────────────────────────── */
+      .tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+        margin-bottom: 36px;
+      }
+      .tarjeta {
+        padding: 24px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      }
+      .tarjeta:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--sombra);
+        border-color: rgba(245, 134, 52, 0.4);
+      }
+      .tarjeta .icono {
+        display: grid;
+        place-items: center;
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        background: var(--naranja-suave);
+        color: var(--naranja);
+        margin-bottom: 14px;
+      }
+      .tarjeta h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+      .tarjeta p { font-size: 14.5px; color: var(--gris-texto); }
+
+      /* ── Visor de capturas ──────────────────────────────────────────── */
+      .visor {
+        border-radius: var(--radio);
+        overflow: hidden;
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+        box-shadow: var(--sombra);
+      }
+      .pestanas {
+        display: flex;
+        gap: 4px;
+        padding: 10px 12px;
+        background: var(--carbon);
+        overflow-x: auto;
+      }
+      .pestanas button {
+        flex: 0 0 auto;
+        padding: 8px 15px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.68);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+      }
+      .pestanas button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+      .pestanas button[aria-selected="true"] { background: var(--naranja); color: #fff; }
+
+      .lamina { display: none; }
+      .lamina.visible { display: block; }
+      .lamina figure { margin: 0; }
+      .lamina img {
+        display: block;
+        width: 100%;
+        height: auto;
+        cursor: zoom-in;
+        border-bottom: 1px solid var(--gris-linea);
+      }
+      .lamina figcaption {
+        padding: 16px 22px;
+        font-size: 14.5px;
+        color: var(--gris-texto);
+        background: #fff;
+      }
+      .lamina figcaption strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Flujo de préstamos ─────────────────────────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+
+      /* ── Reglas destacadas ──────────────────────────────────────────── */
+      .reglas { display: grid; gap: 12px; margin-top: 28px; }
+      .regla {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 17px 20px;
+        border-radius: 14px;
+        background: var(--naranja-suave);
+        border-left: 4px solid var(--naranja);
+      }
+      .regla svg { flex: 0 0 auto; margin-top: 2px; color: var(--naranja); }
+      .regla p { font-size: 14.5px; }
+      .regla strong { font-weight: 700; }
+
+      /* ── Lightbox ───────────────────────────────────────────────────── */
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        background: rgba(55, 52, 53, 0.93);
+        cursor: zoom-out;
+      }
+      .lightbox.abierto { display: flex; }
+      .lightbox img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+      }
+      .lightbox .cerrar {
+        position: absolute;
+        top: 20px; right: 26px;
+        width: 42px; height: 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+      }
+      .lightbox .cerrar:hover { background: var(--naranja); }
+
+      /* ── Cierre ─────────────────────────────────────────────────────── */
+      .cierre {
+        padding: 70px 32px;
+        background: var(--carbon);
+        color: #fff;
+        text-align: center;
+      }
+      .cierre h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; }
+      .cierre p { margin-top: 14px; color: rgba(255, 255, 255, 0.7); }
+      .cierre img { height: 44px; width: auto; margin-bottom: 24px; filter: brightness(0) invert(1); }
+      .pie {
+        padding: 22px 32px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--gris-texto);
+        border-top: 1px solid var(--gris-linea);
+      }
+
+      .revelar {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+      .revelar.visible { opacity: 1; transform: none; }
+
+      @media (max-width: 720px) {
+        /* La barra se apila y cada grupo de enlaces se desliza por su cuenta:
+           con varias semanas ya no cabe todo en el ancho de un teléfono. */
+        .nav { padding: 12px 18px; flex-wrap: wrap; gap: 12px; }
+        .semanas,
+        .nav-links {
+          max-width: 100%;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .semanas::-webkit-scrollbar,
+        .nav-links::-webkit-scrollbar { display: none; }
+        .semanas a,
+        .nav-links a { white-space: nowrap; }
+        .nav-links { width: 100%; margin-left: 0; }
+        .seccion { padding: 52px 18px; }
+        .portada { padding: 60px 18px 56px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .revelar { opacity: 1; transform: none; transition: none; }
+      }
+    </style>
+    <style>
+      /* ── Comparativa antes / ahora ──────────────────────────────────── */
+      .comparativa {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        margin-top: 26px;
+      }
+      .caso {
+        padding: 26px 28px;
+        border-radius: var(--radio);
+        border: 1px solid var(--gris-linea);
+        background: #fff;
+      }
+      .caso.antes { background: var(--carbon-suave); }
+      .caso.despues { border-color: rgba(245, 134, 52, 0.4); }
+      .caso .rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--gris-texto);
+      }
+      .caso.despues .rotulo { color: var(--naranja); }
+      .caso .detalle { margin-top: 16px; font-size: 14.5px; color: var(--gris-texto); }
+      .caso .detalle strong { color: var(--carbon); font-weight: 700; }
+
+      /* ── Bloque oscuro de notas ─────────────────────────────────────── */
+      .pendientes {
+        display: grid;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 22px 24px;
+        border-radius: var(--radio);
+        background: var(--carbon);
+        color: #fff;
+      }
+      .pendientes h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--naranja-claro);
+      }
+      .pendientes ul { margin: 0; padding-left: 20px; }
+      .pendientes li {
+        font-size: 14.5px;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 7px;
+      }
+      .pendientes li:last-child { margin-bottom: 0; }
+      .pendientes li strong { color: #fff; font-weight: 700; }
+
+      .nota-pie {
+        margin-top: 18px;
+        font-size: 13.5px;
+        color: var(--gris-texto);
+        font-style: italic;
+      }
+
+      .boton-semana {
+        display: inline-block;
+        margin-top: 26px;
+        padding: 12px 26px;
+        border-radius: 999px;
+        background: var(--naranja);
+        color: #fff;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+      }
+      .boton-semana:hover { background: var(--naranja-claro); }
+
+      /* La barra superior es fija: sin este margen, el enlace del menú deja
+         el título de la sección escondido detrás de ella. */
+      .seccion { scroll-margin-top: 92px; }
+      .regla h4 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+      .regla { flex-direction: column; gap: 2px; }
+
+      /* ── Flujo de la conexión con la terminal ───────────────────────── */
+      .flujo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+        margin-top: 30px;
+      }
+      .paso {
+        position: relative;
+        padding: 20px;
+        border-radius: var(--radio);
+        background: #fff;
+        border: 1px solid var(--gris-linea);
+      }
+      .paso .orden {
+        display: grid;
+        place-items: center;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        background: var(--naranja);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+      .paso h4 { margin: 0 0 5px; font-size: 15px; font-weight: 700; }
+      .paso p { font-size: 13.5px; color: var(--gris-texto); }
+    </style>
+  </head>
+  <body>
+    <div class="progreso" id="progreso"></div>
+
+    <nav class="nav">
+      <div class="nav-marca">
+        <img src="img/logo-davinci.png" alt="DaVinci" />
+        <span>DaVinci<small>Avances Mercados Titos</small></span>
+      </div>
+      <div class="semanas">
+        <a class="indice" href="index.html" title="Todas las entregas" aria-label="Todas las entregas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </a>
+        <a href="semana-5.html">Semana 5</a>
+        <a href="semana-6.html">Semana 6</a>
+        <a href="semana-7.html">Semana 7</a>
+        <a href="semana-8.html">Semana 8</a>
+        <a href="semana-9.html">Semana 9</a>
+        <a href="semana-10.html">Semana 10</a>
+        <a href="semana-11.html">Semana 11</a>
+        <a href="semana-12.html">Semana 12</a>
+        <a href="semana-13.html">Semana 13</a>
+        <a href="octubre.html">Octubre</a>
+        <a class="actual" href="semana-15.html">Semana 15</a>
+      </div>
+      <div class="nav-links">
+        <a href="#resumen">Resumen</a>
+        <a href="#carga">Carga</a>
+        <a href="#qr">QR</a>
+        <a href="#rutas">Rutas</a>
+        <a href="#temporadas">Temporadas</a>
+        <a href="#pendientes">Pendientes</a>
+      </div>
+    </nav>
+
+    <header class="portada">
+      <span class="escudo"><img src="img/logo-davinci.png" alt="DaVinci" /></span>
+      <div><span class="etiqueta">Semana 15 · 3 y 4 de noviembre de 2026</span></div>
+      <h1>Todo lo de la reunión del 28 de octubre ya está en el sistema, y <em>cada caja trae su QR</em></h1>
+      <p class="bajada">
+        En dos días quedaron aplicados los cuatro bloques de la reunión: surtido y carga sin "bajar y
+        recargar", una tarjeta digital por folio, QR para rastrear cada caja hasta la tienda,
+        incidencias y bitácora de rutas, productos de temporada, solicitudes de ruta de Progreso y un
+        nivelador que ya mira lo que vende cada tienda. Además, el sistema ahora muestra cuándo está
+        cargando.
+      </p>
+
+      <div class="metricas">
+        <div class="metrica"><strong>4 de 4</strong><span>Bloques de la reunión del 28 de octubre</span></div>
+        <div class="metrica"><strong>6</strong><span>Pantallas nuevas (tarjeta, etiquetas, escáner, recepción, incidencias, solicitudes)</span></div>
+        <div class="metrica"><strong>3</strong><span>Puntos donde se escanea cada caja: carga, acomodo y tienda</span></div>
+        <div class="metrica"><strong>51</strong><span>Lugares que ahora muestran que están cargando</span></div>
+      </div>
+    </header>
+
+    <!-- ── Resumen ──────────────────────────────────────────────────── -->
+    <section class="seccion" id="resumen">
+      <div class="encabezado revelar">
+        <span class="numero">01 · Resumen</span>
+        <h2>Lo que se construyó estos dos días</h2>
+        <p>
+          Todo sale de la minuta del 28 de octubre. Casi todo vive en <strong>Pedidos</strong> y en
+          <strong>Operación CEDIS</strong>; la tienda tiene dos opciones nuevas en su menú:
+          <strong>Recibir cajas (QR)</strong> y <strong>Solicitudes de ruta</strong>.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><path d="M3 3l18 18"/></svg></span>
+          <h3>Traspasos sin montos</h3>
+          <p>Los pedidos a tiendas ya no muestran ni imprimen precios ni totales. Solo los ve quien tenga el permiso, o todos si se prende en Reglas de surtido.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M16 3.1a4 4 0 0 1 0 7.8M21 21v-2a4 4 0 0 0-3-3.9"/></svg></span>
+          <h3>Surtidor, cargador y chofer</h3>
+          <p>"Repartidor asignado" pasó a "Surtidor asignado". Cada folio guarda quién capturó, surtió, cargó y manejó, con su hora.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg></span>
+          <h3>Pre-carga sin amarrar chofer</h3>
+          <p>El folio se sube a la unidad el día anterior. Armado, caja cerrada, sellado, vehículo cargado; el chofer se confirma hasta que la salida arranca.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/></svg></span>
+          <h3>Tarjeta digital por folio</h3>
+          <p>Una sola vista con responsables, salida, unidad, hora, contenido de cada caja, escaneos, incidencias e historial completo. Reemplaza al ticket impreso.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 14v7h-7"/></svg></span>
+          <h3>QR por caja</h3>
+          <p>El sistema genera la etiqueta de cada caja. Se escanea con la tablet al cargar, al acomodar y al llegar; si llega a la tienda equivocada, el sistema lo avisa.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+          <h3>Incidencias y bitácora de rutas</h3>
+          <p>Cajas en otra tienda, faltantes, dañadas, folios devueltos y mermas, con comentarios. Cada salida guarda su bitácora para auditoría.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span>
+          <h3>Productos de temporada</h3>
+          <p>Fuera de su temporada y agotados se bloquean para pedido y compra. El día que arranca su temporada se reactivan solos y se avisa por WhatsApp.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span>
+          <h3>Solicitudes de ruta de Progreso</h3>
+          <p>La tienda pide una entrega con dirección, zona, horario y si lleva frío. El CEDIS la confirma en una salida o propone otro horario.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
+          <h3>Nivelador que mira las ventas</h3>
+          <p>Sugiere cuánto mandar a cada tienda según lo que vendió en el último mes o bimestre. Las prioridades de tienda se ordenan arrastrando.</p>
+        </article>
+        <article class="tarjeta revelar">
+          <span class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg></span>
+          <h3>Se nota cuando está cargando</h3>
+          <p>Las pantallas muestran un esqueleto mientras llegan los datos y el inicio de sesión tiene su indicador. Ya no parece que el sistema se detuvo.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Pedidos y carga ──────────────────────────────────────────── -->
+    <section class="seccion alterna" id="carga">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">02 · Surtido y carga</span>
+          <h2>Se carga un día antes y nadie tiene que bajar y volver a subir</h2>
+          <p>
+            Cada caja pasa por armada, cerrada y sellada. Cuando el folio está completo se pre-carga en
+            una salida del rol, sin amarrar al chofer. Si a última hora cambia el chofer o hay que
+            rearmar una caja, el folio sigue en su unidad y el cambio queda registrado.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="carga" aria-selected="true">Carga y salida</button>
+            <button role="tab" data-tab="detalle" aria-selected="false">Surtidor y cajas</button>
+            <button role="tab" data-tab="precarga" aria-selected="false">Pre-carga</button>
+          </div>
+          <div class="lamina visible" data-panel="carga">
+            <figure>
+              <img src="img/s15-pedidos-carga.png" alt="Pestaña Carga y salida con el folio de Progreso pre-cargado y su surtidor" />
+              <figcaption><strong>Carga y salida.</strong> Pestaña nueva en Pedidos con lo surtido que falta por salir: surtidor y etapa de carga. Ya no aparecen totales en pesos.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="detalle">
+            <figure>
+              <img src="img/s15-pedido-detalle.png" alt="Detalle del pedido de Junior con surtidor asignado y una caja armada sin sellar" />
+              <figcaption><strong>Surtidor y cajas.</strong> Se elige al surtidor del personal del CEDIS. La caja de Junior está armada: se cierra y se sella con dos cinchos cuando esté lista. Mientras no se selle, el folio no se puede pre-cargar.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="precarga">
+            <figure>
+              <img src="img/s15-tarjeta-precarga.png" alt="Folio de Progreso pre-cargado en la Ruta Progreso con su unidad refrigerada" />
+              <figcaption><strong>Pre-carga.</strong> El folio de Progreso ya va en la Ruta Progreso de las 9:30 (Estaquita 2, refrigerada). Falta confirmar "vehículo cargado" y quién cargó. El chofer aparece como programado: se confirma al salir.</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <div class="reglas revelar">
+          <div class="regla">
+            <h4>Montos ocultos por default</h4>
+            <p>Ni en pantalla, ni impresos, ni en el PDF de WhatsApp. Se dan a quien los necesite con el permiso "Ver e imprimir los montos de los traspasos".</p>
+          </div>
+          <div class="regla">
+            <h4>El chofer se amarra al salir</h4>
+            <p>En el rol se puede cambiar de chofer sin tocar la carga. Al marcar la salida "en ruta" queda asignado a cada folio, y no deja salir sin chofer ni con cajas abiertas.</p>
+          </div>
+          <div class="regla">
+            <h4>Cambios de último momento</h4>
+            <p>Reabrir una caja para meter otra prioridad no saca al folio de la unidad. Queda constancia de los cinchos que se rompieron y por qué.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Tarjeta digital ──────────────────────────────────────────── -->
+    <section class="seccion" id="tarjeta">
+      <div class="encabezado revelar">
+        <span class="numero">03 · Tarjeta digital</span>
+        <h2>Todo lo de un folio en una sola pantalla</h2>
+        <p>
+          Quién lo capturó, quién lo surtió, quién lo cargó, con qué chofer salió, en qué unidad y a
+          qué hora; qué lleva cada caja, dónde se escaneó y qué incidencias tuvo. Los jefes la abren
+          desde Pedidos y la tienda la ve en el detalle de su pedido.
+        </p>
+      </div>
+      <div class="visor revelar" data-visor>
+        <div class="lamina visible" data-panel="tarjeta">
+          <figure>
+            <img src="img/s15-tarjeta-folio.png" alt="Tarjeta digital del folio de Alcalá con responsables, cajas escaneadas, incidencia e historial" />
+            <figcaption><strong>Tarjeta del folio de Alcalá.</strong> Salió en el Troque Grande a las 7:00 con Luis Hernández en el Forte. Las dos cajas se escanearon en carga, acomodo y tienda. La tienda reportó que una llegó con una esquina abierta. Más abajo, el historial con cada paso desde la captura.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── QR ───────────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="qr">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">04 · QR y trazabilidad</span>
+          <h2>Cada caja se lee al subir, al acomodar y al llegar</h2>
+          <p>
+            El QR lo genera el sistema y se imprime en hoja normal; no hay que comprar etiquetas. Se
+            lee con la cámara de la tablet. Si una caja llega a la sucursal equivocada, la tienda ve a
+            dónde iba y se abre la incidencia para el CEDIS sin que nadie la capture.
+          </p>
+        </div>
+
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="etiquetas" aria-selected="true">Etiquetas</button>
+            <button role="tab" data-tab="escaner" aria-selected="false">Escaneo en CEDIS</button>
+            <button role="tab" data-tab="equivocada" aria-selected="false">Tienda equivocada</button>
+            <button role="tab" data-tab="incidencias" aria-selected="false">Incidencias</button>
+          </div>
+          <div class="lamina visible" data-panel="etiquetas">
+            <figure>
+              <img src="img/s15-etiquetas.png" alt="Hoja de etiquetas QR del folio de Progreso, una por caja" />
+              <figcaption><strong>Etiquetas QR.</strong> Una por caja, con la tienda en grande, el folio, "caja 1 de 2", el contenido y la salida. Al imprimir se quita el menú y salen solo las etiquetas.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="escaner">
+            <figure>
+              <img src="img/s15-escaner.png" alt="Escáner del CEDIS registrando la caja 2 de Progreso en carga" />
+              <figcaption><strong>Escaneo en el CEDIS.</strong> Se elige si es carga o acomodo por chofer y se apunta la cámara. Dice a qué tienda va, qué lleva, en qué salida y cuántas cajas del folio ya se leyeron. Si la cámara no enfoca, se teclea el código.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="equivocada">
+            <figure>
+              <img src="img/s15-tienda-equivocada.png" alt="Alcalá escanea una caja de San Marcos y el sistema avisa que no la reciba" />
+              <figcaption><strong>Caja en la tienda equivocada.</strong> Alcalá escaneó una caja de San Marcos. El sistema le dice que no la reciba y que la aparte, y la incidencia ya quedó abierta para el CEDIS.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="incidencias">
+            <figure>
+              <img src="img/s15-incidencias.png" alt="Incidencias de entrega abiertas con su conversación" />
+              <figcaption><strong>Incidencias de entrega.</strong> La tienda comenta y el CEDIS la resuelve escribiendo qué hizo; por ejemplo, "se reenvía a San Marcos en la segunda vuelta". Los comentarios nunca se borran.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Rutas ────────────────────────────────────────────────────── -->
+    <section class="seccion" id="rutas">
+      <div class="encabezado revelar">
+        <span class="numero">05 · Rutas</span>
+        <h2>El rol, la tele y la bitácora ya saben cómo va cada caja</h2>
+        <p>
+          El rol muestra en qué etapa va cada folio. La pantalla de la tele dice cuántas cajas de cada
+          folio ya subieron (por ejemplo 2/2) y lo último que pasó en ruta. La bitácora guarda todo para
+          auditorías y para rastrear mermas o irregularidades.
+        </p>
+      </div>
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="tv" aria-selected="true">Pantalla de la tele</button>
+          <button role="tab" data-tab="rol" aria-selected="false">Rol con etapas</button>
+          <button role="tab" data-tab="bitacora" aria-selected="false">Bitácora de rutas</button>
+        </div>
+        <div class="lamina visible" data-panel="tv">
+          <figure>
+            <img src="img/s15-pantalla-tv.png" alt="Pantalla de la televisión con cajas escaneadas por folio y la bitácora del día" />
+            <figcaption><strong>Pantalla de la tele.</strong> Cada folio trae cuántas cajas ya se escanearon al subir (en verde cuando van todas). Abajo, lo último de la bitácora y cuántas incidencias siguen abiertas.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="rol">
+          <figure>
+            <img src="img/s15-rol-etapas.png" alt="Rol de entregas con la etapa de cada folio: en ruta o pre-cargado" />
+            <figcaption><strong>Rol con etapas.</strong> El Troque Grande va en ruta con Alcalá y San Marcos; la Ruta Progreso tiene su folio pre-cargado. Cada folio abre su tarjeta digital.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="bitacora">
+          <figure>
+            <img src="img/s15-bitacora-rutas.png" alt="Bitácora de rutas con salida, escaneos, llegada, parada extraordinaria e incidencias" />
+            <figcaption><strong>Bitácora de rutas.</strong> El sistema anota solo las salidas, los escaneos y las incidencias. A mano se registran llegadas, paradas extraordinarias, folios devueltos y mermas. Se consulta por día, por rango o por folio.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Nivelador ────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="nivelador">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">06 · Nivelador y reglas</span>
+          <h2>El nivelador ya mira lo que vende cada tienda</h2>
+          <p>
+            Además de lo que pidió cada tienda, la vista por producto muestra cuánto tiene y cuánto le
+            conviene recibir según lo que vendió. Las reglas de surtido sumaron el patrón de consumo,
+            los tiempos de ruta, los grupos de faltantes y el interruptor de montos.
+          </p>
+        </div>
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="vista" aria-selected="true">Vista por producto</button>
+            <button role="tab" data-tab="reglas" aria-selected="false">Prioridades y consumo</button>
+            <button role="tab" data-tab="grupos" aria-selected="false">Grupos y montos</button>
+            <button role="tab" data-tab="faltantes" aria-selected="false">Faltantes por grupo</button>
+          </div>
+          <div class="lamina visible" data-panel="vista">
+            <figure>
+              <img src="img/s15-vista-producto.png" alt="Vista por producto con lo que tiene cada tienda y lo que se le sugiere" />
+              <figcaption><strong>Vista por producto.</strong> Debajo de pedido / surtido viene lo que tiene la tienda y lo que se le sugiere para dos días. En ámbar, tiendas que no lo pidieron pero lo venden; por ejemplo, San Marcos con el aceite y Junior con el jabón Zote.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="reglas">
+            <figure>
+              <img src="img/s15-reglas.png" alt="Reglas de surtido con prioridad de tiendas arrastrable y patrón de consumo" />
+              <figcaption><strong>Prioridades y consumo.</strong> Las tiendas se reordenan arrastrando. El patrón de consumo puede ser mensual o bimestral, con los días que debe cubrir lo que se manda.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="grupos">
+            <figure>
+              <img src="img/s15-reglas-grupos-montos.png" alt="Grupo de faltantes de frutas y verduras, interruptor de montos y tiempos de ruta" />
+              <figcaption><strong>Grupos, montos y tiempos.</strong> El grupo "Frutas y verduras" le llega a Alonso y lo demás a Compras. Abajo, el interruptor de montos en traspasos y los minutos por parada con la holgura para estimar cada ruta.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="faltantes">
+            <figure>
+              <img src="img/s15-faltantes-grupo.png" alt="Lista de faltantes del día separada para Compras y para el grupo de frutas y verduras" />
+              <figcaption><strong>Faltantes por grupo.</strong> Así llega la lista del día a cada quien. A Compras y al almacén, lo que no es de frutas y verduras: el aceite que llegó incompleto. Al grupo de frutas y verduras, solo lo suyo: el tomate bajo mínimo.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Temporadas y compras ─────────────────────────────────────── -->
+    <section class="seccion" id="temporadas">
+      <div class="encabezado revelar">
+        <span class="numero">07 · Temporadas y compras</span>
+        <h2>Lo de temporada se bloquea solo, y lo que no llegó queda abierto</h2>
+        <p>
+          Un producto de temporada se maneja normal dentro de sus fechas. Fuera de ellas se vende lo
+          que queda y, en cuanto se agota en el CEDIS, las tiendas ya no lo pueden pedir ni se vuelve
+          a comprar. Cuando una orden de compra llega incompleta, quien recibe decide si lo que faltó
+          queda abierto.
+        </p>
+      </div>
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="temporadas" aria-selected="true">Productos de temporada</button>
+          <button role="tab" data-tab="pedido" aria-selected="false">En la tienda</button>
+          <button role="tab" data-tab="oc" aria-selected="false">Orden remanente</button>
+        </div>
+        <div class="lamina visible" data-panel="temporadas">
+          <figure>
+            <img src="img/s15-temporadas.png" alt="Productos de temporada: calabaza fuera de temporada, ponche en temporada y rosca bloqueada" />
+            <figcaption><strong>Productos de temporada.</strong> El ponche está en temporada. La calabaza ya salió de temporada pero todavía hay 15, que se venden. La rosca está agotada fuera de temporada: bloqueada hasta el 15 de diciembre, cuando se reactiva sola y se avisa por WhatsApp.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="pedido">
+          <figure>
+            <img src="img/s15-pedido-temporada.png" alt="Nuevo pedido de la tienda que avisa que un producto de temporada no se puede pedir" />
+            <figcaption><strong>En la tienda.</strong> Al levantar el pedido, lo bloqueado ya no aparece y se avisa cuántos productos esperan su temporada. Si alguien lo intenta de otra forma, el sistema lo rechaza.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="oc">
+          <figure>
+            <img src="img/s15-oc-remanente.png" alt="Orden de compra recibida y su orden remanente con lo que faltó" />
+            <figcaption><strong>Orden remanente.</strong> De 48 aceites llegaron 30. La orden se cerró con lo que llegó y los 18 que faltaron quedaron solicitados al mismo proveedor en la OC-2611-0418-R. Si se prefiere cerrar lo faltante, se desmarca al recibir.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Progreso ─────────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="progreso">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">08 · Solicitudes de ruta</span>
+          <h2>Progreso pide sus entregas y el CEDIS responde en el mismo lugar</h2>
+          <p>
+            La tienda captura la entrega con pedido, dirección, zona, horario y si va refrigerada o
+            congelada. El CEDIS ve la salida sugerida y confirma, o propone otro horario; la tienda
+            acepta o cancela. A la tienda le llega el aviso por WhatsApp.
+          </p>
+        </div>
+        <div class="visor revelar" data-visor>
+          <div class="pestanas" role="tablist">
+            <button role="tab" data-tab="tienda" aria-selected="true">Desde Progreso</button>
+            <button role="tab" data-tab="cedis" aria-selected="false">Desde el CEDIS</button>
+          </div>
+          <div class="lamina visible" data-panel="tienda">
+            <figure>
+              <img src="img/s15-solicitud-tienda.png" alt="Pantalla de solicitudes de ruta de la Sucursal Progreso" />
+              <figcaption><strong>Desde Progreso.</strong> Formulario de entrega y la lista de sus solicitudes: por confirmar, y una donde el CEDIS propuso otro horario que se acepta con un clic.</figcaption>
+            </figure>
+          </div>
+          <div class="lamina" data-panel="cedis">
+            <figure>
+              <img src="img/s15-solicitudes-cedis.png" alt="Solicitudes de ruta en el rol de entregas con la salida sugerida marcada con estrella" />
+              <figcaption><strong>Desde el CEDIS.</strong> Debajo del rol de entregas. La ★ marca la salida sugerida: la que sale más cerca del horario pedido, ya tiene chofer y trae unidad refrigerada si la entrega va con frío. Una entrega con frío no se puede confirmar en una unidad sin refrigeración.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Carga visible ────────────────────────────────────────────── -->
+    <section class="seccion" id="carga-visible">
+      <div class="encabezado revelar">
+        <span class="numero">09 · Hoy</span>
+        <h2>El sistema avisa cuándo está trabajando</h2>
+        <p>
+          Antes, al abrir una pantalla con muchos datos se veía un "Cargando…" chiquito o nada, y
+          parecía que se había detenido. Ahora aparece el esqueleto de la pantalla mientras llegan los
+          datos, y el inicio de sesión muestra su avance hasta que abre el panel.
+        </p>
+      </div>
+      <div class="visor revelar" data-visor>
+        <div class="pestanas" role="tablist">
+          <button role="tab" data-tab="esqueleto" aria-selected="true">Pantallas cargando</button>
+          <button role="tab" data-tab="login" aria-selected="false">Inicio de sesión</button>
+        </div>
+        <div class="lamina visible" data-panel="esqueleto">
+          <figure>
+            <img src="img/s15-skeleton.png" alt="Catálogo de productos mostrando renglones grises mientras carga" />
+            <figcaption><strong>Pantallas cargando.</strong> En lugar del texto, renglones grises que laten donde van a aparecer los datos. Está en todas las listas y tablas, y al cambiar de pantalla desde el menú.</figcaption>
+          </figure>
+        </div>
+        <div class="lamina" data-panel="login">
+          <figure>
+            <img src="img/s15-login-spinner.png" alt="Inicio de sesión con indicador girando y el texto Verificando tus datos" />
+            <figcaption><strong>Inicio de sesión.</strong> Al entrar, el botón gira y dice "Verificando tus datos…" y luego "Abriendo tu panel…". Se queda así hasta que el panel abre, y los campos se bloquean para no mandarlo dos veces.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Pendientes ───────────────────────────────────────────────── -->
+    <section class="seccion alterna" id="pendientes">
+      <div class="interior">
+        <div class="encabezado revelar">
+          <span class="numero">10 · Lo que sigue</span>
+          <h2>Lo que necesitamos de ustedes para usarlo al 100%</h2>
+          <p>
+            Todo está en el sistema. Lo que falta son datos de configuración que solo el equipo conoce
+            y la prueba con las tablets en el CEDIS. Las capturas de esta entrega se tomaron con datos
+            de prueba, no con la operación real.
+          </p>
+        </div>
+
+        <div class="pendientes revelar">
+          <h4>Configuración</h4>
+          <ul>
+            <li><strong>Quién ve montos.</strong> Dar el permiso "Ver e imprimir los montos de los traspasos" en Usuarios y roles a quien lo necesite. De fábrica nadie lo trae.</li>
+            <li><strong>Grupo de Alonso.</strong> En Reglas de surtido, crear el grupo "Frutas y verduras" con su WhatsApp.</li>
+            <li><strong>Surtidores y cargadores.</strong> En Personal, poner el puesto Surtidor o Cargador a quien corresponda para que aparezcan primero.</li>
+            <li><strong>Productos de temporada.</strong> Marcar con sus fechas la rosca, el ponche, la calabaza y los demás.</li>
+            <li><strong>Tiempos de ruta.</strong> Capturar los minutos por parada y la holgura para estimar la duración de cada ruta. En 0, todo sigue como hoy.</li>
+          </ul>
+        </div>
+
+        <div class="pendientes revelar">
+          <h4>En el CEDIS y fuera del sistema</h4>
+          <ul>
+            <li><strong>Prueba con tablets.</strong> Imprimir las etiquetas de un folio y escanearlas con la tablet en carga y en una tienda. La cámara pide dar permiso la primera vez.</li>
+            <li><strong>Piloto en Junior.</strong> Definir la fecha del mes de prueba y quién reporta lo que se encuentre.</li>
+            <li><strong>Comparativa de terminales.</strong> Comisiones de Banorte/Bancomer contra Mercado Pago, para decidir el respaldo cuando falle la terminal.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="cierre">
+      <img src="img/logo-davinci.png" alt="DaVinci" />
+      <h2>Cuatro de cuatro, y cada caja con su QR</h2>
+      <p>
+        Lo que se acordó el 28 de octubre ya está en el sistema.<br />
+        Con la configuración y la prueba en tablets, queda listo para el piloto.
+      </p>
+      <p><a class="boton-semana" href="octubre.html">← Repasar octubre</a></p>
+    </section>
+
+    <footer class="pie">
+      DaVinci · Presentación de avances para Mercados Titos · Semana 15 · Noviembre 2026
+      <span id="fecha"></span>
+    </footer>
+
+
+    <div class="lightbox" id="lightbox">
+      <button class="cerrar" id="cerrarLightbox" aria-label="Cerrar">×</button>
+      <img id="lightboxImg" alt="" />
+    </div>
+
+    <script>
+      // ── Pestañas de cada visor ────────────────────────────────────────
+      document.querySelectorAll("[data-visor]").forEach((visor) => {
+        const botones = visor.querySelectorAll("[data-tab]");
+        const paneles = visor.querySelectorAll("[data-panel]");
+
+        botones.forEach((boton) => {
+          boton.addEventListener("click", () => {
+            botones.forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
+            paneles.forEach((p) =>
+              p.classList.toggle("visible", p.dataset.panel === boton.dataset.tab)
+            );
+          });
+        });
+      });
+
+      // ── Lightbox para ver la captura en grande ────────────────────────
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightboxImg");
+
+      function abrirLightbox(src, alt) {
+        lightboxImg.src = src;
+        lightboxImg.alt = alt;
+        lightbox.classList.add("abierto");
+        document.body.style.overflow = "hidden";
+      }
+      function cerrarLightbox() {
+        lightbox.classList.remove("abierto");
+        document.body.style.overflow = "";
+      }
+
+      document.querySelectorAll(".lamina img").forEach((img) => {
+        img.addEventListener("click", () => abrirLightbox(img.src, img.alt));
+      });
+      lightbox.addEventListener("click", cerrarLightbox);
+      document.getElementById("cerrarLightbox").addEventListener("click", cerrarLightbox);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") cerrarLightbox();
+      });
+
+      // ── Barra de progreso ─────────────────────────────────────────────
+      const progreso = document.getElementById("progreso");
+      function actualizarProgreso() {
+        const alto = document.documentElement.scrollHeight - window.innerHeight;
+        const avance = alto > 0 ? (window.scrollY / alto) * 100 : 0;
+        progreso.style.width = avance + "%";
+      }
+      window.addEventListener("scroll", actualizarProgreso, { passive: true });
+      actualizarProgreso();
+
+      // ── Resaltado del enlace de la sección visible ────────────────────
+      const enlaces = [...document.querySelectorAll(".nav-links a")];
+      const secciones = enlaces
+        .map((a) => document.querySelector(a.getAttribute("href")))
+        .filter(Boolean);
+
+      const observadorNav = new IntersectionObserver(
+        (entradas) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            enlaces.forEach((a) =>
+              a.classList.toggle("activo", a.getAttribute("href") === "#" + entrada.target.id)
+            );
+          });
+        },
+        { rootMargin: "-45% 0px -50% 0px" }
+      );
+      secciones.forEach((s) => observadorNav.observe(s));
+
+      // ── Aparición progresiva al hacer scroll ──────────────────────────
+      const observadorRevelar = new IntersectionObserver(
+        (entradas, obs) => {
+          entradas.forEach((entrada) => {
+            if (!entrada.isIntersecting) return;
+            entrada.target.classList.add("visible");
+            obs.unobserve(entrada.target);
+          });
+        },
+        { threshold: 0.12 }
+      );
+      document.querySelectorAll(".revelar").forEach((el, i) => {
+        el.style.transitionDelay = (i % 4) * 60 + "ms";
+        observadorRevelar.observe(el);
+      });
+
+      // ── Navegación con flechas entre secciones ────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if (lightbox.classList.contains("abierto")) return;
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+
+        const actual = secciones.findIndex((s) => s.getBoundingClientRect().top > -80);
+        const destino = e.key === "ArrowDown" ? actual : actual - 2;
+        if (secciones[destino]) {
+          e.preventDefault();
+          secciones[destino].scrollIntoView({ behavior: "smooth" });
+        }
+      });
+
+      document.getElementById("fecha").textContent =
+        " · " + new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    </script>
+  </body>
+</html>

@@ -5,6 +5,7 @@ import { CreditCard, Store } from "lucide-react";
 import { Button, Card, Input, Select, EmptyState, Modal, FormField, FormGrid, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { BitacoraBanorte, DiagnosticoTerminal } from "@/components/BanorteTerminal";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Sucursal = { _id: string; nombre: string };
 
@@ -265,7 +266,7 @@ export function TerminalesManager() {
         </p>
 
         {cargando ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : visibles.length === 0 ? (
           <EmptyState message="Todavía no hay terminales registradas." />
         ) : (

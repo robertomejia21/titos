@@ -5,6 +5,7 @@ import { PackageX, TriangleAlert } from "lucide-react";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { formatFechaHora } from "@/lib/zonasHorarias";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 // Faltantes que reportó el piso de venta: productos cuya última existencia se
 // acaba de vender. Compras también recibe el WhatsApp, pero esta lista es la que
@@ -60,7 +61,7 @@ export function AgotadosEnPisoCard() {
       </p>
 
       {cargando ? (
-        <p className="text-sm text-black/50">Cargando...</p>
+        <SkeletonTabla />
       ) : alertas.length === 0 ? (
         <EmptyState message="Ninguna tienda reportó agotados pendientes." />
       ) : (

@@ -5,6 +5,7 @@ import { Button, Card, Input, Select, EmptyState, Modal, FormGrid, FormField, Pa
 import { usePaginacion } from "@/components/usePaginacion";
 import { Users, User, Briefcase, MessageCircle } from "lucide-react";
 import { PUESTOS_BASE } from "@/lib/puestos";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Empleado = {
   _id: string;
@@ -316,7 +317,7 @@ export function PersonalManager() {
           </div>
         </div>
         {loading ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : visibles.length === 0 ? (
           <EmptyState message="No hay personal que coincida con la búsqueda." />
         ) : (

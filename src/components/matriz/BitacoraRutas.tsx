@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, FormField, Input, Select } from "@/components
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { fechaEnZona, formatFechaHora } from "@/lib/zonasHorarias";
 import { TIPO_EVENTO_RUTA_LABEL, type TipoEventoRuta } from "@/lib/logistica";
+import { SkeletonTabla } from "@/components/Skeleton";
 
 type Evento = { _id: string; fecha: string; salidaNombre: string; tipo: TipoEventoRuta; detalle: string; folio: string; porNombre: string; en: string };
 type Salida = { _id: string; nombre: string; horaSalida: string };
@@ -132,7 +133,7 @@ export function BitacoraRutas() {
           </p>
         ) : null}
         {eventos === null ? (
-          <p className="text-sm text-black/50">Cargando...</p>
+          <SkeletonTabla />
         ) : eventos.length === 0 ? (
           <EmptyState message="Sin movimientos en este rango." />
         ) : (
