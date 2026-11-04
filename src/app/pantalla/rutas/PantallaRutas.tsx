@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { useHoraActual } from "@/components/RelojZona";
 import { formatFechaLarga, horaEnZona } from "@/lib/zonasHorarias";
+import { TIPO_EVENTO_RUTA_LABEL, type TipoEventoRuta } from "@/lib/logistica";
 import type { RolVista } from "@/lib/rolDelDia";
 
 // La TV está lejos y con poca luz por la mañana: letra muy grande, alto
@@ -23,7 +24,9 @@ const ESTADO: Record<string, { texto: string; clase: string }> = {
   completada: { texto: "Completada", clase: "bg-emerald-500 text-black" },
 };
 
-export function PantallaRutas({ rol }: { rol: RolVista }) {
+type EventoPantalla = { _id: string; tipo: TipoEventoRuta; salidaNombre: string; detalle: string; en: string };
+
+export function PantallaRutas({ rol, eventos = [], incidenciasAbiertas = 0 }: { rol: RolVista; eventos?: EventoPantalla[]; incidenciasAbiertas?: number }) {
   const router = useRouter();
   const zona = useZonaHoraria();
   const hora = useHoraActual();
@@ -103,6 +106,10 @@ export function PantallaRutas({ rol }: { rol: RolVista }) {
                       <span key={p._id} className="rounded-xl bg-white px-4 py-2 font-mono text-2xl font-bold text-black">
                         {p.folio}
                         <span className="ml-2 font-sans text-lg font-semibold text-black/60">{p.sucursalNombre.replace(/^Sucursal /, "")}</span>
+                        {/* Cajas escaneadas al subir a la unidad: verde cuando ya van todas. */}
+                        <span className={`ml-2 rounded-lg px-2 font-sans text-lg ${p.bultosEnCarga >= p.bultos ? "bg-emerald-500 text-black" : "bg-amber-300 text-black"}`}>
+                          {p.bultosEnCarga}/{p.bultos}
+                        </span>
                       </span>
                     ))}
                   </div>
@@ -116,6 +123,24 @@ export function PantallaRutas({ rol }: { rol: RolVista }) {
           })}
         </div>
       )}
+
+      {eventos.length || incidenciasAbiertas ? (
+        <section className="mt-8 rounded-3xl border-4 border-white/15 bg-white/5 p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <p className="text-2xl font-bold uppercase tracking-widest text-emerald-400">Bitácora de hoy</p>
+            {incidenciasAbiertas ? <p className="rounded-full bg-red-600 px-4 py-1 text-2xl font-bold">{incidenciasAbiertas} incidencia(s) abierta(s)</p> : null}
+          </div>
+          <ul className="mt-4 space-y-2 text-2xl">
+            {eventos.map((e) => (
+              <li key={e._id}>
+                <span className="font-mono text-white/50">{horaEnZona(new Date(e.en), zona)}</span> <span className="font-bold">{TIPO_EVENTO_RUTA_LABEL[e.tipo] ?? e.tipo}</span>
+                <span className="text-white/60"> · {e.salidaNombre}</span>
+                {e.detalle ? <span className="text-white/80"> · {e.detalle}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {rol.pedidosSinSalida.length ? (
         <p className="mt-8 rounded-2xl bg-red-600 p-5 text-3xl font-bold">

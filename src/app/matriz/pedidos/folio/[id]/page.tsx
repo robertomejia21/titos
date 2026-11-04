@@ -31,9 +31,14 @@ export default async function TarjetaFolioPage({ params }: { params: Promise<{ i
         description="Quién capturó, surtió y cargó; contenido de cada caja, salida, chofer y hora."
         icon={IdCard}
         action={
-          <Link href="/matriz/pedidos" className="text-sm font-medium text-titos-green-700 hover:underline">
-            ← Pedidos
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href={`/matriz/pedidos/folio/${id}/etiquetas`} className="text-sm font-medium text-titos-green-700 hover:underline">
+              Etiquetas QR
+            </Link>
+            <Link href="/matriz/pedidos" className="text-sm font-medium text-titos-green-700 hover:underline">
+              ← Pedidos
+            </Link>
+          </div>
         }
       />
       <TarjetaFolioVista

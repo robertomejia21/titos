@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Check, IdCard } from "lucide-react";
+import { Check, IdCard, QrCode } from "lucide-react";
 import { Button, Card, EstadoBadge, EmptyState, Input, Select, Modal, formatMoney, Pagination } from "@/components/ui";
 import { usePaginacion } from "@/components/usePaginacion";
 import { EnviarWhatsAppControl } from "@/components/EnviarWhatsAppControl";
@@ -694,6 +694,15 @@ function PedidoModal({
               </span>
             </Button>
           </Link>
+          {pedido.estado !== "pendiente" ? (
+            <Link href={`/matriz/pedidos/folio/${pedido._id}/etiquetas`}>
+              <Button variant="ghost">
+                <span className="inline-flex items-center gap-1.5">
+                  <QrCode className="h-4 w-4" aria-hidden="true" /> Etiquetas QR
+                </span>
+              </Button>
+            </Link>
+          ) : null}
           <Button variant="ghost" onClick={() => imprimirHTML(`Pedido ${pedido.folio}`, htmlImprimiblePedido(pedido, verMontos))}>
             Imprimir
           </Button>

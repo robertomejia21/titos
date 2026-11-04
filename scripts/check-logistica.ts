@@ -70,7 +70,7 @@ async function integracion() {
     const comoTienda = llamarCon(tokenTienda);
 
     const fabuloso = await Producto.create({ sku: "FAB", nombre: "Fabuloso 1L", categoria: "Abarrotes", unidad: "pieza", existenciaMatriz: 50, precioVenta: 32, stockMinimo: 60 });
-    const tomate = await Producto.create({ sku: "TOM", nombre: "Tomate saladette", categoria: "Frutas y verduras", unidad: "pieza", existenciaMatriz: 2, precioVenta: 10, stockMinimo: 20 });
+    await Producto.create({ sku: "TOM", nombre: "Tomate saladette", categoria: "Frutas y verduras", unidad: "pieza", existenciaMatriz: 2, precioVenta: 10, stockMinimo: 20 });
     const [surtidor, cargador, chofer, otroChofer] = await Empleado.create([
       { nombre: "Pedro Surtidor", puesto: "Surtidor", whatsapp: "0" },
       { nombre: "Raúl Cargador", puesto: "Cargador", whatsapp: "0" },
@@ -208,6 +208,73 @@ async function integracion() {
     assert.ok(faltantes.resumenInterno.includes("Fabuloso") && faltantes.resumenInterno.includes("Tomate"), "la lista completa sigue disponible");
 
     console.log("OK   integración (captura → montos → surtido → cajas → pre-carga → rearmado → carga → ruta → tarjeta → faltantes)");
+
+    // ================= Fase 3: QR, incidencias y bitácora de rutas =================
+    const escaneosApi = await import("../src/app/api/escaneos/route");
+    const incidenciasApi = await import("../src/app/api/incidencias/route");
+    const incidenciaApi = await import("../src/app/api/incidencias/[id]/route");
+    const bitacoraApi = await import("../src/app/api/operacion/bitacora-rutas/route");
+    const { llaveDeCodigo } = await import("../src/lib/trazabilidad");
+    const Incidencia = (await import("../src/models/Incidencia")).default;
+    const progreso = await Sucursal.create({ nombre: "Sucursal Progreso" });
+    const userProgreso = await User.create({ nombre: "Gerente Progreso", email: "progreso@titos.local", passwordHash: "x", role: "sucursal", sucursalId: progreso._id });
+    const comoProgreso = llamarCon(await signSession({ userId: String(userProgreso._id), email: userProgreso.email, nombre: userProgreso.nombre, role: "sucursal", sucursalId: String(progreso._id) }));
+
+    const qrCaja = (await Pedido.findById(id).lean())!.cajas[0].qr as string;
+    assert.ok(qrCaja && qrCaja.length >= 10, "la caja armada trae su QR");
+    assert.equal(llaveDeCodigo(`https://titos.da-vinci.ai/q/${qrCaja}?x=1`), qrCaja, "se acepta la dirección completa del QR");
+    const escanear = (quien: typeof llamar, codigo: string, punto: string) => quien(escaneosApi, "POST", "/api/escaneos", { codigo, punto });
+
+    assert.equal((await escanear(llamar, "nada-que-ver", "carga")).status, 404);
+    assert.equal((await escanear(llamar, qrCaja, "recepcion")).status, 400, "el CEDIS no escanea recepción");
+    assert.equal((await escanear(comoTienda, qrCaja, "carga")).status, 400, "la tienda no escanea carga");
+    const carga = await (await escanear(llamar, qrCaja, "carga")).json();
+    assert.equal(carga.ok, true);
+    assert.equal(carga.alerta, null);
+    assert.deepEqual(carga.avance, { escaneadas: 1, total: 1 });
+    assert.equal(carga.sucursalDestino, "Sucursal Alcalá");
+
+    // Llega a Progreso por error: aviso e incidencia, una sola aunque la escaneen dos veces.
+    const equivocada = await (await escanear(comoProgreso, qrCaja, "recepcion")).json();
+    assert.equal(equivocada.ok, false);
+    assert.ok(equivocada.alerta.includes("Sucursal Alcalá"), "la tienda ve a dónde iba la caja");
+    await escanear(comoProgreso, `/q/${qrCaja}`, "recepcion");
+    assert.equal(await Incidencia.countDocuments({ tipo: "sucursal_incorrecta" }), 1);
+    const correcta = await (await escanear(comoTienda, qrCaja, "recepcion")).json();
+    assert.equal(correcta.ok, true);
+
+    const deProgreso = await (await comoProgreso(incidenciasApi, "GET", "/api/incidencias")).json();
+    assert.equal(deProgreso.length, 1, "Progreso ve la incidencia que detectó");
+    assert.equal((await (await comoTienda(incidenciasApi, "GET", "/api/incidencias")).json()).length, 1, "Alcalá ve la de su folio");
+    const incId = deProgreso[0]._id;
+    const ip = { id: incId };
+    assert.equal((await comoProgreso(incidenciaApi, "PATCH", `/api/incidencias/${incId}`, { comentario: "La apartamos en bodega" }, ip)).status, 200);
+    assert.equal((await comoProgreso(incidenciaApi, "PATCH", `/api/incidencias/${incId}`, { comentario: "x", resolver: true }, ip)).status, 403, "solo el CEDIS resuelve");
+    assert.equal((await llamar(incidenciaApi, "PATCH", `/api/incidencias/${incId}`, { resolver: true }, ip)).status, 400, "resolver pide decir cómo");
+    const resuelta = await (await llamar(incidenciaApi, "PATCH", `/api/incidencias/${incId}`, { resolver: true, comentario: "Reenvío a Alcalá en la segunda vuelta" }, ip)).json();
+    assert.equal(resuelta.estado, "resuelta");
+    assert.equal(resuelta.comentarios.length, 3, "los comentarios se conservan");
+    assert.equal((await comoProgreso(incidenciasApi, "POST", "/api/incidencias", { tipo: "caja_danada", folio: nuevo.folio, comentario: "x" })).status, 400, "una tienda no abre incidencias de folios ajenos");
+    assert.equal((await comoTienda(incidenciasApi, "POST", "/api/incidencias", { tipo: "caja_danada", folio: nuevo.folio, cajaNumero: "1", comentario: "Llegó abierta" })).status, 201);
+
+    // Bitácora: la salida y los escaneos se registraron solos; la parada extra y el folio devuelto, a mano.
+    const salidaId = rolVista.salidas[0]._id;
+    assert.equal((await llamar(bitacoraApi, "POST", "/api/operacion/bitacora-rutas", { fecha: hoy, salidaId, tipo: "salida", detalle: "x" })).status, 400, "la salida la registra el sistema");
+    assert.equal((await llamar(bitacoraApi, "POST", "/api/operacion/bitacora-rutas", { fecha: hoy, salidaId, tipo: "parada_extra", detalle: "Gasolinera 15 min" })).status, 201);
+    assert.equal((await llamar(bitacoraApi, "POST", "/api/operacion/bitacora-rutas", { fecha: hoy, salidaId, tipo: "folio_devuelto", folio: nuevo.folio, detalle: "Tienda cerrada" })).status, 201);
+    assert.equal(await Incidencia.countDocuments({ tipo: "folio_devuelto" }), 1, "el folio devuelto abre incidencia");
+    const bitacora = await (await llamar(bitacoraApi, "GET", `/api/operacion/bitacora-rutas?fecha=${hoy}`)).json();
+    const tiposRuta = bitacora.map((e: { tipo: string }) => e.tipo);
+    for (const t of ["salida", "escaneo", "incidencia", "parada_extra", "folio_devuelto"]) assert.ok(tiposRuta.includes(t), `bitácora con ${t}`);
+    assert.equal((await llamar(bitacoraApi, "GET", "/api/operacion/bitacora-rutas?desde=2026-01-01&hasta=2026-03-01")).status, 400, "máximo 31 días");
+
+    const conQr = (await armarTarjetaFolio(id, false))!;
+    assert.deepEqual(conQr.cajas[0].escaneos.filter((e) => e.resultado === "ok").map((e) => e.punto), ["carga", "recepcion"]);
+    assert.equal(conQr.incidencias.length, 3);
+    const rolConAvance = await (await llamar(rolApi, "GET", `/api/operacion/rol?fecha=${hoy}`)).json();
+    assert.equal(rolConAvance.salidas[0].pedidos[0].bultosEnCarga, 1, "la pantalla ve las cajas escaneadas en carga");
+
+    console.log("OK   fase 3 (QR → carga → sucursal equivocada → incidencia → resolución → bitácora de rutas)");
   } finally {
     await mongoose.disconnect();
     await mongo.stop();

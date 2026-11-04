@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Route } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { RolEntregasManager } from "@/components/matriz/RolEntregasManager";
+import { BitacoraRutas } from "@/components/matriz/BitacoraRutas";
 
 export default function RutasPage() {
   return (
@@ -14,6 +15,10 @@ export default function RutasPage() {
       <Suspense>
         <RolEntregasManager />
       </Suspense>
+      <section className="mt-10">
+        <h2 className="mb-3 text-lg font-semibold text-titos-green-900">Bitácora de rutas</h2>
+        <BitacoraRutas />
+      </section>
     </div>
   );
 }

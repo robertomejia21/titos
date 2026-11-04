@@ -5,6 +5,8 @@ import { obtenerConfiguracionOperacion, zonaCedis } from "@/lib/operacion";
 import { cargarRol } from "@/lib/rolDelDia";
 import { fechaEnZona } from "@/lib/zonasHorarias";
 import { ZonaHorariaProvider } from "@/components/ZonaHorariaProvider";
+import EventoRuta from "@/models/EventoRuta";
+import Incidencia from "@/models/Incidencia";
 import { PantallaRutas } from "./PantallaRutas";
 
 // Pantalla del área operativa: la TV del CEDIS muestra el rol de entregas del
@@ -36,10 +38,16 @@ export default async function PantallaRutasPage({ searchParams }: { searchParams
     );
   }
   const zona = await zonaCedis();
-  const rol = await cargarRol(fechaEnZona(new Date(), zona));
+  const fecha = fechaEnZona(new Date(), zona);
+  const [rol, eventos, incidenciasAbiertas] = await Promise.all([
+    cargarRol(fecha),
+    // Los escaneos son muchos: en la TV solo va lo que el almacén tiene que ver.
+    EventoRuta.find({ fecha, tipo: { $ne: "escaneo" } }).sort({ en: -1 }).limit(6).select("tipo salidaNombre detalle en").lean(),
+    Incidencia.countDocuments({ estado: "abierta" }),
+  ]);
   return (
     <ZonaHorariaProvider zona={zona}>
-      <PantallaRutas rol={JSON.parse(JSON.stringify(rol))} />
+      <PantallaRutas rol={JSON.parse(JSON.stringify(rol))} eventos={JSON.parse(JSON.stringify(eventos))} incidenciasAbiertas={incidenciasAbiertas} />
     </ZonaHorariaProvider>
   );
 }

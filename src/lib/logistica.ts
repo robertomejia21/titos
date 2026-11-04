@@ -17,6 +17,45 @@ export type EstadoCaja = (typeof ESTADOS_CAJA)[number];
 export const ETAPAS_CARGA = ["sin_cargar", "precargado", "cargado", "en_ruta"] as const;
 export type EtapaCarga = (typeof ETAPAS_CARGA)[number];
 
+/** Dónde se lee el QR: al subir a la unidad, al acomodar por chofer y al llegar a tienda. */
+export const PUNTOS_ESCANEO = ["carga", "acomodo", "recepcion"] as const;
+export type PuntoEscaneo = (typeof PUNTOS_ESCANEO)[number];
+
+export const PUNTO_ESCANEO_LABEL: Record<PuntoEscaneo, string> = {
+  carga: "Carga en CEDIS",
+  acomodo: "Acomodo por chofer",
+  recepcion: "Recepción en tienda",
+};
+
+/** Lo que puede salir mal con una caja o un folio en el camino. */
+export const TIPOS_INCIDENCIA = ["sucursal_incorrecta", "caja_faltante", "caja_danada", "folio_devuelto", "merma", "otro"] as const;
+export type TipoIncidencia = (typeof TIPOS_INCIDENCIA)[number];
+
+export const TIPO_INCIDENCIA_LABEL: Record<TipoIncidencia, string> = {
+  sucursal_incorrecta: "Llegó a otra sucursal",
+  caja_faltante: "Caja faltante",
+  caja_danada: "Caja dañada o abierta",
+  folio_devuelto: "Folio devuelto",
+  merma: "Merma",
+  otro: "Otro",
+};
+
+/** Renglones de la bitácora de rutas: lo que pasa con una salida después de la carga. */
+export const TIPOS_EVENTO_RUTA = ["salida", "llegada", "parada_extra", "folio_devuelto", "merma", "incidencia", "escaneo", "regreso", "nota"] as const;
+export type TipoEventoRuta = (typeof TIPOS_EVENTO_RUTA)[number];
+
+export const TIPO_EVENTO_RUTA_LABEL: Record<TipoEventoRuta, string> = {
+  salida: "Salió",
+  llegada: "Llegó a parada",
+  parada_extra: "Parada extraordinaria",
+  folio_devuelto: "Folio devuelto",
+  merma: "Merma o irregularidad",
+  incidencia: "Incidencia",
+  escaneo: "Escaneo",
+  regreso: "Regresó al CEDIS",
+  nota: "Nota",
+};
+
 export const ESTADO_CAJA_LABEL: Record<EstadoCaja, string> = {
   armada: "Armada",
   cerrada: "Caja cerrada",
@@ -47,6 +86,8 @@ export const TIPO_EVENTO_LABEL: Record<string, string> = {
   carga_deshecha: "Se bajó de la unidad",
   en_ruta: "Salió a ruta",
   recibido: "Recibido en tienda",
+  escaneo: "Escaneo",
+  incidencia: "Incidencia",
 };
 
 export type EventoPedido = { tipo: string; en: Date; porId: string | null; porNombre: string; detalle: string };

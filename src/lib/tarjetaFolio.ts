@@ -6,11 +6,14 @@ import Sucursal from "@/models/Sucursal";
 import "@/models/User"; // necesario para que populate("surtidoPorId"/"recibidoPorId") funcione
 import { montoLineaPedido } from "@/lib/montoPedido";
 import { estadoCaja, etapaDe, impedimentosPrecarga, type EstadoCaja, type EtapaCarga } from "@/lib/logistica";
+import { incidenciasDePedido, type IncidenciaVista } from "@/lib/incidencias";
 
 // Tarjeta digital del folio: en una sola vista quién capturó, surtió y cargó,
 // a qué tienda va, qué lleva cada caja, en qué salida, con qué chofer y a qué
 // hora. Reemplaza al ticket impreso para jefes y recepciones (minuta del 28 de
 // octubre).
+
+export type EscaneoVista = { punto: string; en: string; porNombre: string; resultado: string };
 
 export type Responsable = { rol: string; nombre: string; en: string | null; nota?: string };
 
@@ -37,11 +40,18 @@ export type TarjetaFolio = {
     choferProgramado: string;
     paradas: string[];
   } | null;
-  cajas: { numero: string; estado: EstadoCaja; categoria: string; cinchos: string; contenido: string }[];
+  cajas: { numero: string; estado: EstadoCaja; categoria: string; cinchos: string; contenido: string; escaneos: EscaneoVista[] }[];
+  /** Escaneos del QR del folio (lo que va sin cajas). */
+  escaneosFolio: EscaneoVista[];
+  incidencias: IncidenciaVista[];
   items: { nombre: string; unidad: string; pedido: number; surtido: number | null; peso: number | null; recibido: number | null; precio: number | null; subtotal: number | null }[];
   historial: { tipo: string; en: string; porNombre: string; detalle: string }[];
   impedimentosPrecarga: string[];
 };
+
+type EscaneoDoc = { punto: string; en: Date; porNombre?: string | null; resultado?: string | null };
+const escaneosVista = (lista: EscaneoDoc[] | null | undefined): EscaneoVista[] =>
+  (lista ?? []).map((e) => ({ punto: e.punto, en: new Date(e.en).toISOString(), porNombre: e.porNombre ?? "", resultado: e.resultado ?? "ok" }));
 
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
 const nombreDe = (v: unknown) => (v && typeof v === "object" && "nombre" in v ? String((v as { nombre: unknown }).nombre ?? "") : "");
@@ -58,7 +68,7 @@ type SalidaDoc = {
 };
 
 /** La salida de la pre-carga o, si no hay, la del rol más reciente que lleva el folio. */
-async function salidaDelFolio(pedidoId: string, carga: { fechaSalida?: string | null; salidaId?: unknown } | null | undefined) {
+export async function salidaDelFolio(pedidoId: string, carga: { fechaSalida?: string | null; salidaId?: unknown } | null | undefined) {
   if (carga?.fechaSalida) {
     const rol = await RolEntrega.findOne({ fecha: carga.fechaSalida }).lean();
     const salida = (rol?.salidas as SalidaDoc[] | undefined)?.find((s) => String(s._id) === String(carga.salidaId));
@@ -146,7 +156,10 @@ export async function armarTarjetaFolio(pedidoId: string, verMontos: boolean): P
       categoria: c.categoria ?? "",
       cinchos: c.cincho1 ? `${c.cincho1} / ${c.cincho2}` : "",
       contenido: c.items.map((i: { nombreProducto: string; cantidad: number }) => `${i.nombreProducto} (${i.cantidad})`).join(", "),
+      escaneos: escaneosVista(c.escaneos as EscaneoDoc[]),
     })),
+    escaneosFolio: escaneosVista(pedido.escaneos as EscaneoDoc[]),
+    incidencias: await incidenciasDePedido(String(pedido._id)),
     items,
     historial: [...(pedido.historial ?? [])]
       .sort((a, b) => new Date(b.en).getTime() - new Date(a.en).getTime())
