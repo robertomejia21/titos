@@ -60,8 +60,9 @@ type TablaPDFOpciones = {
   titulo: string;
   subtitulo: string[];
   tabla: Tabla;
-  totalLabel: string;
-  totalValor: string;
+  /** Sin total, la caja del total no se dibuja (traspasos sin montos). */
+  totalLabel?: string;
+  totalValor?: string;
   tablaExtra?: Tabla;
   selloFiscal?: SelloFiscal;
 };
@@ -238,27 +239,29 @@ export async function generarTablaPDF(opciones: TablaPDFOpciones): Promise<Uint8
 
   linea(VERDE_OSCURO, 1);
   y -= 20;
-  const anchoCajaTotal = 190;
-  page.drawRectangle({
-    x: PAGE_WIDTH - MARGIN - anchoCajaTotal,
-    y: y - 8,
-    width: anchoCajaTotal,
-    height: 24,
-    color: rgb(...VERDE_CLARO),
-  });
-  escribir(opciones.totalLabel, {
-    size: 11,
-    font: fontBold,
-    x: PAGE_WIDTH - MARGIN - anchoCajaTotal + 12,
-    color: VERDE_OSCURO,
-  });
-  const anchoTotalValor = fontBold.widthOfTextAtSize(opciones.totalValor, 11);
-  escribir(opciones.totalValor, {
-    size: 11,
-    font: fontBold,
-    x: PAGE_WIDTH - MARGIN - 12 - anchoTotalValor,
-    color: VERDE_OSCURO,
-  });
+  if (opciones.totalLabel && opciones.totalValor) {
+    const anchoCajaTotal = 190;
+    page.drawRectangle({
+      x: PAGE_WIDTH - MARGIN - anchoCajaTotal,
+      y: y - 8,
+      width: anchoCajaTotal,
+      height: 24,
+      color: rgb(...VERDE_CLARO),
+    });
+    escribir(opciones.totalLabel, {
+      size: 11,
+      font: fontBold,
+      x: PAGE_WIDTH - MARGIN - anchoCajaTotal + 12,
+      color: VERDE_OSCURO,
+    });
+    const anchoTotalValor = fontBold.widthOfTextAtSize(opciones.totalValor, 11);
+    escribir(opciones.totalValor, {
+      size: 11,
+      font: fontBold,
+      x: PAGE_WIDTH - MARGIN - 12 - anchoTotalValor,
+      color: VERDE_OSCURO,
+    });
+  }
   y -= 28;
 
   if (opciones.tablaExtra && opciones.tablaExtra.filas.length > 0) {
@@ -386,9 +389,12 @@ export async function generarPdfPedido(pedido: {
   corte: string;
   estado: string;
   sucursalNombre: string;
-  repartidorNombre?: string | null;
+  surtidorNombre?: string | null;
+  choferNombre?: string | null;
   items: PedidoItemPDF[];
   cajas: CajaPDF[];
+  /** Los traspasos salen sin precios ni total salvo con permiso. */
+  verMontos: boolean;
 }): Promise<Uint8Array> {
   const total = pedido.items.reduce((s, i) => s + montoLineaPedido(i), 0);
 
@@ -397,15 +403,14 @@ export async function generarPdfPedido(pedido: {
     `${i.cantidadPedida} ${i.unidad}`,
     i.cantidadAsignada != null ? String(i.cantidadAsignada) : "—",
     i.cantidadSurtida != null ? `${i.cantidadSurtida}${i.pesoSurtidoKg ? ` (${i.pesoSurtidoKg}kg)` : ""}` : "—",
-    formatMoney(i.precioVenta),
-    formatMoney(montoLineaPedido(i)),
+    ...(pedido.verMontos ? [formatMoney(i.precioVenta), formatMoney(montoLineaPedido(i))] : []),
   ]);
 
   const filasCajas = pedido.cajas.map((c) => [
     `Caja ${c.numero}`,
     c.categoria,
     c.items.map((i) => `${i.nombreProducto} (${i.cantidad})`).join(", "),
-    `${c.cincho1} / ${c.cincho2}`,
+    c.cincho1 ? `${c.cincho1} / ${c.cincho2}` : "Sin sellar",
   ]);
 
   return generarTablaPDF({
@@ -413,25 +418,32 @@ export async function generarPdfPedido(pedido: {
     subtitulo: [
       `Sucursal: ${pedido.sucursalNombre}`,
       `Corte: ${pedido.corte}  ·  Estado: ${pedido.estado}`,
-      ...(pedido.repartidorNombre ? [`Repartidor: ${pedido.repartidorNombre}`] : []),
+      ...(pedido.surtidorNombre ? [`Surtidor: ${pedido.surtidorNombre}`] : []),
+      ...(pedido.choferNombre ? [`Chofer: ${pedido.choferNombre}`] : []),
     ],
     tabla: {
-      columnas: [
-        { header: "Producto", width: 175 },
-        { header: "Pedido", width: 65 },
-        { header: "Nivelado", width: 60 },
-        { header: "Surtido", width: 80 },
-        { header: "P. venta", width: 65, align: "right" },
-        { header: "Subtotal", width: 70, align: "right" },
-      ],
+      columnas: pedido.verMontos
+        ? [
+            { header: "Producto", width: 175 },
+            { header: "Pedido", width: 65 },
+            { header: "Nivelado", width: 60 },
+            { header: "Surtido", width: 80 },
+            { header: "P. venta", width: 65, align: "right" },
+            { header: "Subtotal", width: 70, align: "right" },
+          ]
+        : [
+            { header: "Producto", width: 265 },
+            { header: "Pedido", width: 80 },
+            { header: "Nivelado", width: 80 },
+            { header: "Surtido", width: 90 },
+          ],
       filas,
     },
-    totalLabel: "Total:",
-    totalValor: formatMoney(total),
+    ...(pedido.verMontos ? { totalLabel: "Total:", totalValor: formatMoney(total) } : {}),
     tablaExtra:
       filasCajas.length > 0
         ? {
-            titulo: "Cajas selladas",
+            titulo: "Cajas",
             columnas: [
               { header: "Caja", width: 60 },
               { header: "Categoría", width: 90 },

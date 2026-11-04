@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType } from "mongoose";
+import { ESTADOS_CAJA, ETAPAS_CARGA } from "@/lib/logistica";
 
 export const ESTADOS_PEDIDO = ["pendiente", "nivelado", "surtido", "recibido"] as const;
 
@@ -43,11 +44,13 @@ const PedidoItemSchema = new Schema(
 // Una caja física en la que se empaca y sella (con dos cinchos numerados)
 // parte del surtido. Es información de trazabilidad adicional: no
 // reemplaza la cantidad surtida por producto.
+// Las cajas que ya existían se capturaban selladas, por eso el default.
 const CajaSchema = new Schema(
   {
     numero: { type: String, required: true },
-    cincho1: { type: String, required: true },
-    cincho2: { type: String, required: true },
+    estado: { type: String, enum: ESTADOS_CAJA, default: "sellada" },
+    cincho1: { type: String, default: "" },
+    cincho2: { type: String, default: "" },
     categoria: { type: String, default: "" },
     items: [
       {
@@ -61,6 +64,32 @@ const CajaSchema = new Schema(
   { _id: false, timestamps: true }
 );
 
+// Renglón de la tarjeta digital del folio: quién hizo qué y cuándo, incluidos
+// los cambios de último momento (rearmar una caja, cambiar de salida).
+const EventoPedidoSchema = new Schema(
+  {
+    tipo: { type: String, required: true },
+    en: { type: Date, default: Date.now },
+    porId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    porNombre: { type: String, default: "" },
+    detalle: { type: String, default: "", maxlength: 500 },
+  },
+  { _id: false }
+);
+
+const CargaSchema = new Schema(
+  {
+    etapa: { type: String, enum: ETAPAS_CARGA, default: "sin_cargar" },
+    /** Día del rol (YYYY-MM-DD) y salida en la que va el folio. */
+    fechaSalida: { type: String, default: null },
+    salidaId: { type: Schema.Types.ObjectId, default: null },
+    precargadoEn: { type: Date, default: null },
+    cargadoEn: { type: Date, default: null },
+    salioEn: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const PedidoSchema = new Schema(
   {
     folio: { type: String, required: true, unique: true },
@@ -68,7 +97,15 @@ const PedidoSchema = new Schema(
     fecha: { type: Date, required: true, default: Date.now },
     corte: { type: String, required: true }, // YYYY-MM-DD del corte de las 4pm al que pertenece
     estado: { type: String, enum: ESTADOS_PEDIDO, default: "pendiente" },
+    // El chofer con el que salió. Se llena al pasar la salida a "en ruta"; antes
+    // solo hay chofer programado en el rol. Conserva su nombre de campo porque
+    // así lo guardan los pedidos que ya existían.
     repartidorId: { type: Schema.Types.ObjectId, ref: "Empleado", default: null },
+    // Responsables operativos (personal del CEDIS, no usuarios del sistema).
+    surtidorId: { type: Schema.Types.ObjectId, ref: "Empleado", default: null },
+    cargadorId: { type: Schema.Types.ObjectId, ref: "Empleado", default: null },
+    capturadoPorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    capturadoPorNombre: { type: String, default: "" },
     // 1 = el pedido que levantó la tienda. 2 = el complemento que sale en la
     // segunda vuelta con lo que faltó; apunta al original, que se conserva
     // intacto como referencia de lo que se pidió.
@@ -85,6 +122,9 @@ const PedidoSchema = new Schema(
     surtidoEn: { type: Date, default: null },
     recibidoPorId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     recibidoEn: { type: Date, default: null },
+
+    carga: { type: CargaSchema, default: () => ({}) },
+    historial: { type: [EventoPedidoSchema], default: [] },
 
     alertas: { type: [AlertaPedidoSchema], default: [] },
   },

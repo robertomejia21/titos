@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest } from "@/lib/apiAuth";
 import { hoyCedis } from "@/lib/operacion";
 import { HORA, idONull, sesionOperacion, texto } from "@/lib/operacionApi";
-import { cargarRol, guardarRolDelDia, type SalidaEditada } from "@/lib/rolDelDia";
+import { cargarRol, guardarRolDelDia, impedimentosDelRol, type SalidaEditada } from "@/lib/rolDelDia";
 import { TIPOS_PARADA, TIPOS_RUTA } from "@/models/Ruta";
 import { ESTADOS_SALIDA } from "@/models/RolEntrega";
 
@@ -68,5 +68,7 @@ export async function PUT(req: NextRequest) {
   }
   const todos = salidas.flatMap((s) => s.pedidoIds);
   if (new Set(todos).size !== todos.length) return badRequest("Un folio no puede ir en dos salidas");
+  const impedimentos = await impedimentosDelRol(salidas);
+  if (impedimentos.length) return badRequest(impedimentos.join(". "));
   return NextResponse.json(await guardarRolDelDia(body.fecha, salidas, session));
 }

@@ -24,6 +24,7 @@ const LIMITE_RENGLONES = 40;
 export type RenglonProveedor = {
   folio: string;
   producto: string;
+  categoria: string;
   ordenado: number;
   recibido: number;
   rechazado: number;
@@ -33,11 +34,56 @@ export type RenglonProveedor = {
 export type FaltantesDelDia = {
   fecha: string;
   porProveedor: { proveedorId: string; nombre: string; whatsapp: string; renglones: RenglonProveedor[]; mensaje: string }[];
-  bajoMinimo: { nombre: string; existencia: string; minimo: string }[];
+  bajoMinimo: { nombre: string; categoria: string; existencia: string; minimo: string }[];
   necesidadesPendientes: number;
-  perecederos: { nombre: string; estado: string; recomendacion: string }[];
+  perecederos: { nombre: string; categoria: string; estado: string; recomendacion: string }[];
   resumenInterno: string;
+  /** Lista de cada grupo configurado (solo sus categorías) y la de lo que no cae en ninguno. */
+  segmentos: { nombre: string; destinatarios: string[]; mensaje: string; renglones: number }[];
+  /** Lo que reciben Compras y el almacén: el resto si hay grupos, o la lista completa. */
+  resumenGeneral: string;
 };
+
+type Segmento = { nombre: string; categorias?: string[] | null; destinatarios?: string[] | null };
+
+/** Las categorías se comparan sin mayúsculas ni guiones bajos ("Frutas_verduras" = "frutas verduras"). */
+const normalizar = (c: string) => c.toLowerCase().replaceAll("_", " ").trim();
+
+function resumenFiltrado(
+  datos: Pick<FaltantesDelDia, "fecha" | "porProveedor" | "bajoMinimo" | "perecederos" | "necesidadesPendientes">,
+  incluye: (categoria: string) => boolean,
+  titulo: string
+) {
+  const proveedores = datos.porProveedor
+    .map((p) => ({ ...p, renglones: p.renglones.filter((r) => incluye(r.categoria)) }))
+    .filter((p) => p.renglones.length);
+  const bajoMinimo = datos.bajoMinimo.filter((b) => incluye(b.categoria));
+  const perecederos = datos.perecederos.filter((p) => incluye(p.categoria));
+
+  const resumen: string[] = [`*${titulo} ${datos.fecha} — CEDIS*`, ""];
+  if (proveedores.length) {
+    resumen.push("Recepciones con diferencia:");
+    for (const p of proveedores) {
+      resumen.push(`_${p.nombre}_`);
+      resumen.push(...p.renglones.map(renglonTexto));
+    }
+    resumen.push("");
+  } else resumen.push("Todas las recepciones de hoy llegaron completas.", "");
+  if (bajoMinimo.length) {
+    resumen.push(`Bajo mínimo (${bajoMinimo.length}):`);
+    resumen.push(...bajoMinimo.slice(0, LIMITE_RENGLONES).map((b) => `• ${b.nombre}: hay ${b.existencia}, mínimo ${b.minimo}`));
+    if (bajoMinimo.length > LIMITE_RENGLONES) resumen.push(`…y ${bajoMinimo.length - LIMITE_RENGLONES} más en Mínimos y productos clave.`);
+    resumen.push("");
+  }
+  if (perecederos.length) {
+    resumen.push("Perecederos por mover primero:");
+    resumen.push(...perecederos.slice(0, LIMITE_RENGLONES).map((p) => `• ${p.nombre}: ${p.estado}. ${p.recomendacion}`));
+    resumen.push("");
+  }
+  resumen.push(`Necesidades de compra pendientes de ordenar: ${datos.necesidadesPendientes}.`);
+  const renglones = proveedores.reduce((n, p) => n + p.renglones.length, 0) + bajoMinimo.length + perecederos.length;
+  return { mensaje: resumen.join("\n"), renglones };
+}
 
 function renglonTexto(r: RenglonProveedor) {
   const partes = [`• ${r.producto}: ${fmt(r.recibido)} recibidas vs ${fmt(r.ordenado)} pedidas`];
@@ -55,6 +101,11 @@ export async function armarFaltantesDelDia(fecha?: string): Promise<FaltantesDel
     estado: "recibida",
     fechaRecepcion: { $gte: inicioDelDiaEnZona(dia, zona), $lte: finDelDiaEnZona(dia, zona) },
   }).lean();
+  // La categoría de cada producto decide a qué grupo de la lista le toca.
+  const idsRecibidos = ordenes.flatMap((o) => o.items.map((i: { productoId: unknown }) => i.productoId));
+  const categoriaDe = new Map(
+    (await Producto.find({ _id: { $in: idsRecibidos } }).select("categoria").lean()).map((p) => [String(p._id), String(p.categoria ?? "")])
+  );
 
   const porProveedorMap = new Map<string, RenglonProveedor[]>();
   for (const orden of ordenes) {
@@ -68,6 +119,7 @@ export async function armarFaltantesDelDia(fecha?: string): Promise<FaltantesDel
         {
           folio: orden.folio,
           producto: item.nombreProducto,
+          categoria: categoriaDe.get(String(item.productoId)) ?? "",
           ordenado: item.cantidadOrdenada,
           recibido,
           rechazado,
@@ -88,13 +140,13 @@ export async function armarFaltantesDelDia(fecha?: string): Promise<FaltantesDel
 
   // Bajo mínimo del CEDIS con el mínimo vigente (incluye temporada alta).
   const productos = await Producto.find({ activo: true, $or: [{ stockMinimo: { $gt: 0 } }, { minimoTemporadaAlta: { $gt: 0 } }] })
-    .select("nombre unidad existenciaMatriz stockMinimo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave")
+    .select("nombre categoria unidad existenciaMatriz stockMinimo minimoTemporadaAlta piezasPorCaja cajasPorTarima esClave")
     .lean();
   const bajoMinimo = productos
     .map((p) => ({ p, minimo: minimoVigente(p, dia, operacion.temporadaAlta) }))
     .filter(({ p, minimo }) => minimo > 0 && p.existenciaMatriz <= minimo)
     .sort((a, b) => Number(!!b.p.esClave) - Number(!!a.p.esClave) || a.p.existenciaMatriz / a.minimo - b.p.existenciaMatriz / b.minimo)
-    .map(({ p, minimo }) => ({ nombre: p.nombre, existencia: enPresentacion(p.existenciaMatriz, p), minimo: enPresentacion(minimo, p) }));
+    .map(({ p, minimo }) => ({ nombre: p.nombre, categoria: String(p.categoria ?? ""), existencia: enPresentacion(p.existenciaMatriz, p), minimo: enPresentacion(minimo, p) }));
 
   const [necesidadesPendientes, rotacion] = await Promise.all([
     NecesidadCompra.countDocuments({ estado: "pendiente" }),
@@ -103,33 +155,43 @@ export async function armarFaltantesDelDia(fecha?: string): Promise<FaltantesDel
   // Al mensaje solo va lo que hay que mover ya. Lo "sin fecha" (existencia más
   // vieja que el historial) se revisa en la pantalla de rotación: el primer mes
   // serían casi todos los perecederos y taparía lo urgente.
-  const perecederos = rotacion
-    .filter((r) => r.estado === "urgente" || r.estado === "vencido" || (r.estado === "madurando" && r.excedente > 0))
-    .map((r) => ({ nombre: r.nombre, estado: ESTADO_ROTACION_LABEL[r.estado], recomendacion: r.recomendacion }));
+  const urgentes = rotacion.filter((r) => r.estado === "urgente" || r.estado === "vencido" || (r.estado === "madurando" && r.excedente > 0));
+  const categoriaPerecedero = new Map(
+    (await Producto.find({ _id: { $in: urgentes.map((r) => r.productoId) } }).select("categoria").lean()).map((p) => [String(p._id), String(p.categoria ?? "")])
+  );
+  const perecederos = urgentes.map((r) => ({
+    nombre: r.nombre,
+    categoria: categoriaPerecedero.get(r.productoId) ?? "",
+    estado: ESTADO_ROTACION_LABEL[r.estado],
+    recomendacion: r.recomendacion,
+  }));
 
-  const resumen: string[] = [`*Faltantes del día ${dia} — CEDIS*`, ""];
-  if (porProveedor.length) {
-    resumen.push("Recepciones con diferencia:");
-    for (const p of porProveedor) {
-      resumen.push(`_${p.nombre}_`);
-      resumen.push(...p.renglones.map(renglonTexto));
-    }
-    resumen.push("");
-  } else resumen.push("Todas las recepciones de hoy llegaron completas.", "");
-  if (bajoMinimo.length) {
-    resumen.push(`Bajo mínimo (${bajoMinimo.length}):`);
-    resumen.push(...bajoMinimo.slice(0, LIMITE_RENGLONES).map((b) => `• ${b.nombre}: hay ${b.existencia}, mínimo ${b.minimo}`));
-    if (bajoMinimo.length > LIMITE_RENGLONES) resumen.push(`…y ${bajoMinimo.length - LIMITE_RENGLONES} más en Mínimos y productos clave.`);
-    resumen.push("");
-  }
-  if (perecederos.length) {
-    resumen.push("Perecederos por mover primero:");
-    resumen.push(...perecederos.slice(0, LIMITE_RENGLONES).map((p) => `• ${p.nombre}: ${p.estado}. ${p.recomendacion}`));
-    resumen.push("");
-  }
-  resumen.push(`Necesidades de compra pendientes de ordenar: ${necesidadesPendientes}.`);
+  const datos = { fecha: dia, porProveedor, bajoMinimo, necesidadesPendientes, perecederos };
 
-  return { fecha: dia, porProveedor, bajoMinimo, necesidadesPendientes, perecederos, resumenInterno: resumen.join("\n") };
+  // Cada grupo recibe solo sus categorías; lo que no cae en ninguno es "el resto".
+  const grupos = ((operacion.faltantesDiarios?.segmentos ?? []) as Segmento[]).map((g) => ({
+    nombre: g.nombre,
+    destinatarios: (g.destinatarios ?? []).filter((d) => d.trim()),
+    categorias: new Set((g.categorias ?? []).map(normalizar)),
+  }));
+  const segmentos = grupos.map((g) => ({
+    nombre: g.nombre,
+    destinatarios: g.destinatarios,
+    ...resumenFiltrado(datos, (c) => g.categorias.has(normalizar(c)), `Faltantes de ${g.nombre} del día`),
+  }));
+  const enAlgunGrupo = (c: string) => grupos.some((g) => g.categorias.has(normalizar(c)));
+  const resumenInterno = resumenFiltrado(datos, () => true, "Faltantes del día").mensaje;
+  // Con grupos (frutas y verduras para Alonso, abarrotes para Compras), Compras
+  // y el almacén reciben solo lo que no es de ningún grupo, salvo que se pida la
+  // lista completa.
+  const soloResto = grupos.some((g) => g.destinatarios.length) && operacion.faltantesDiarios?.generalSoloResto !== false;
+
+  return {
+    ...datos,
+    resumenInterno,
+    segmentos,
+    resumenGeneral: soloResto ? resumenFiltrado(datos, (c) => !enAlgunGrupo(c), "Faltantes del día (sin grupos)").mensaje : resumenInterno,
+  };
 }
 
 export type ResultadoEnvioFaltantes = {
@@ -152,7 +214,8 @@ export async function enviarFaltantesDelDia({ origen, forzar = false }: { origen
 
   const [config, operacion] = await Promise.all([obtenerConfiguracion(), obtenerConfiguracionOperacion()]);
   const internos = [...new Set([...(config.alertas?.destinatariosCompras ?? []), ...(operacion.faltantesDiarios?.destinatariosAlmacen ?? [])].filter((d: string) => d.trim()))];
-  const envios: { numero: string; mensaje: string }[] = internos.map((numero) => ({ numero, mensaje: datos.resumenInterno }));
+  const envios: { numero: string; mensaje: string }[] = internos.map((numero) => ({ numero, mensaje: datos.resumenGeneral }));
+  for (const g of datos.segmentos) for (const numero of g.destinatarios) envios.push({ numero, mensaje: g.mensaje });
   if (operacion.faltantesDiarios?.enviarAProveedores === true) {
     for (const p of datos.porProveedor) if (p.whatsapp) envios.push({ numero: p.whatsapp, mensaje: p.mensaje });
   }

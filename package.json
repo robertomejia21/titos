@@ -29,6 +29,7 @@
     "check:impuestos": "tsx scripts/check-impuestos.ts",
     "check:whatsapp": "tsx scripts/check-whatsapp-contactos.ts",
     "check:operacion": "tsx scripts/check-operacion-cedis.ts",
+    "check:logistica": "tsx scripts/check-logistica.ts",
     "seed:operacion": "tsx --env-file=.env.local scripts/seed-operacion-cedis.ts"
   },
   "dependencies": {

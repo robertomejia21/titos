@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import { Card, PageHeader, Button, EstadoBadge, EmptyState, formatMoney } from "@/components/ui";
 import { montoLineaPedido } from "@/lib/montoPedido";
+import { puedeVerMontosTraspasos } from "@/lib/montosTraspasos";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function MisPedidosPage() {
   await connectDB();
 
   const pedidos = await Pedido.find({ sucursalId: session?.sucursalId }).sort({ createdAt: -1 }).lean();
+  const verMontos = await puedeVerMontosTraspasos(session);
   const activos = pedidos.filter((p) => p.estado !== "recibido");
 
   const enProceso = activos.filter((p) => p.estado === "pendiente" || p.estado === "nivelado").length;
@@ -33,7 +35,7 @@ export default async function MisPedidosPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className={`mb-6 grid grid-cols-2 gap-4 ${verMontos ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <Card>
           <p className="text-sm text-black/50">Pedidos activos</p>
           <p className="mt-1 text-2xl font-bold text-titos-green-900">{activos.length}</p>
@@ -46,10 +48,12 @@ export default async function MisPedidosPage() {
           <p className="text-sm text-black/50">Listos para recibir</p>
           <p className="mt-1 text-2xl font-bold text-titos-orange-600">{listosParaRecibir}</p>
         </Card>
-        <Card>
-          <p className="text-sm text-black/50">Monto en pedidos activos</p>
-          <p className="mt-1 text-2xl font-bold text-titos-green-900">{formatMoney(montoActivo)}</p>
-        </Card>
+        {verMontos ? (
+          <Card>
+            <p className="text-sm text-black/50">Monto en pedidos activos</p>
+            <p className="mt-1 text-2xl font-bold text-titos-green-900">{formatMoney(montoActivo)}</p>
+          </Card>
+        ) : null}
       </div>
 
       <Card>
@@ -68,9 +72,11 @@ export default async function MisPedidosPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-medium text-titos-green-900">
-                    {formatMoney(p.items.reduce((sum: number, i: (typeof p.items)[number]) => sum + montoLineaPedido(i), 0))}
-                  </span>
+                  {verMontos ? (
+                    <span className="font-medium text-titos-green-900">
+                      {formatMoney(p.items.reduce((sum: number, i: (typeof p.items)[number]) => sum + montoLineaPedido(i), 0))}
+                    </span>
+                  ) : null}
                   <EstadoBadge estado={p.estado} />
                 </div>
               </li>

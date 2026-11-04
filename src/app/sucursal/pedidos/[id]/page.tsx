@@ -6,6 +6,9 @@ import { Card, PageHeader, EstadoBadge, formatMoney } from "@/components/ui";
 import { RecepcionForm } from "@/components/sucursal/RecepcionForm";
 import { DiferenciaRecepcion } from "@/components/DiferenciaRecepcion";
 import { montoLineaPedido } from "@/lib/montoPedido";
+import { puedeVerMontosTraspasos } from "@/lib/montosTraspasos";
+import { armarTarjetaFolio } from "@/lib/tarjetaFolio";
+import { TarjetaFolioVista } from "@/components/TarjetaFolioVista";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +20,8 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
   await connectDB();
   const pedido = await Pedido.findById(id).lean();
   if (!pedido || String(pedido.sucursalId) !== session.sucursalId) notFound();
+  const verMontos = await puedeVerMontosTraspasos(session);
+  const tarjeta = await armarTarjetaFolio(id, verMontos);
 
   const total = pedido.items.reduce((sum: number, i: (typeof pedido.items)[number]) => sum + montoLineaPedido(i), 0);
 
@@ -39,8 +44,8 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
                 <th className="px-2 py-1.5 text-xs font-medium text-right">Surtido</th>
                 <th className="px-2 py-1.5 text-xs font-medium text-right">Recibido</th>
                 <th className="px-2 py-1.5 text-xs font-medium">Diferencia</th>
-                <th className="px-2 py-1.5 text-xs font-medium text-right">Precio venta</th>
-                <th className="px-2 py-1.5 text-xs font-medium text-right">Subtotal</th>
+                {verMontos ? <th className="px-2 py-1.5 text-xs font-medium text-right">Precio venta</th> : null}
+                {verMontos ? <th className="px-2 py-1.5 text-xs font-medium text-right">Subtotal</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -72,18 +77,20 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
                   <td className="whitespace-nowrap px-2 py-1.5 [&>p]:mt-0">
                     <DiferenciaRecepcion esperado={item.cantidadSurtida ?? 0} recibido={item.cantidadRecibida} referencia="lo surtido" />
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-right">{formatMoney(item.precioVenta ?? 0)}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-right font-medium">{formatMoney(montoLineaPedido(item))}</td>
+                  {verMontos ? <td className="whitespace-nowrap px-2 py-1.5 text-right">{formatMoney(item.precioVenta ?? 0)}</td> : null}
+                  {verMontos ? <td className="whitespace-nowrap px-2 py-1.5 text-right font-medium">{formatMoney(montoLineaPedido(item))}</td> : null}
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={6} />
-                <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
-                <td className="whitespace-nowrap px-2 pt-2 text-right font-semibold text-titos-green-900">{formatMoney(total)}</td>
-              </tr>
-            </tfoot>
+            {verMontos ? (
+              <tfoot>
+                <tr>
+                  <td colSpan={6} />
+                  <td className="whitespace-nowrap px-2 pt-2 text-right text-xs font-semibold uppercase text-black/40">Total</td>
+                  <td className="whitespace-nowrap px-2 pt-2 text-right font-semibold text-titos-green-900">{formatMoney(total)}</td>
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
 
@@ -100,6 +107,12 @@ export default async function DetallePedidoPage({ params }: { params: Promise<{ 
           />
         ) : null}
       </Card>
+
+      {tarjeta ? (
+        <div className="mt-6">
+          <TarjetaFolioVista tarjeta={tarjeta} sinContenido />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -62,6 +62,13 @@ export const PERMISOS: Permiso[] = [
   { clave: "catalogos.administrar", etiqueta: "Administrar sucursales, proveedores, personal y terminales", grupo: "Catálogos", ambito: "matriz" },
   { clave: "inventario.administrar", etiqueta: "Registrar entradas al inventario central", grupo: "Inventario", ambito: "matriz" },
   { clave: "pedidos.surtir", etiqueta: "Nivelar y surtir pedidos de sucursales", grupo: "Inventario", ambito: "matriz" },
+  {
+    clave: "pedidos.ver_montos",
+    etiqueta: "Ver e imprimir los montos de los traspasos",
+    grupo: "Inventario",
+    ambito: "ambos",
+    ayuda: "Los traspasos se muestran sin precios ni totales. Este permiso los enseña en pantalla, impresiones y PDF.",
+  },
   { clave: "compras.administrar", etiqueta: "Administrar órdenes de compra", grupo: "Compras", ambito: "matriz" },
   { clave: "facturas.administrar", etiqueta: "Emitir y administrar facturas", grupo: "Facturación", ambito: "matriz" },
   { clave: "configuracion.editar", etiqueta: "Editar la configuración del sistema", grupo: "Administración", ambito: "matriz" },
@@ -159,9 +166,18 @@ export function permisoDeRuta(pathname: string): string | null {
 // los roles configurables. Sirven como semilla de los roles del sistema y como
 // respaldo para los usuarios que todavía no tienen rol asignado.
 
-const PERMISOS_MATRIZ_COMPLETO = permisosDeAmbito("matriz").map((p) => p.clave);
+/**
+ * Permisos que ningún perfil trae de fábrica: se dan a mano a quien los
+ * necesite. Ver montos de traspasos quedó oculto por default (minuta del 28 de
+ * octubre).
+ */
+const PERMISOS_SOLO_A_MANO = ["pedidos.ver_montos"];
 
-const PERMISOS_SUCURSAL_ADMIN = permisosDeAmbito("sucursal").filter((p) => p.clave !== "reportes.globales").map((p) => p.clave);
+const PERMISOS_MATRIZ_COMPLETO = permisosDeAmbito("matriz").map((p) => p.clave).filter((c) => !PERMISOS_SOLO_A_MANO.includes(c));
+
+const PERMISOS_SUCURSAL_ADMIN = permisosDeAmbito("sucursal")
+  .filter((p) => p.clave !== "reportes.globales" && !PERMISOS_SOLO_A_MANO.includes(p.clave))
+  .map((p) => p.clave);
 
 /** El perfil "ventas" solo veía el punto de venta y el historial. */
 const PERMISOS_SUCURSAL_VENTAS = ["pos.vender", "pos.cancelar", "caja.retirar", "ventas.historial"];

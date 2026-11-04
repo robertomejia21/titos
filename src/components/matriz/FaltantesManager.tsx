@@ -20,6 +20,8 @@ type Datos = {
   necesidadesPendientes: number;
   perecederos: { nombre: string; estado: string; recomendacion: string }[];
   resumenInterno: string;
+  segmentos?: { nombre: string; destinatarios: string[]; mensaje: string; renglones: number }[];
+  resumenGeneral?: string;
   envio: { enviadoEn: string; origen: string; mensajesEnviados: number; mensajesFallidos: number; errores: string[] } | null;
 };
 
@@ -133,8 +135,20 @@ export function FaltantesManager() {
         <div className="space-y-4">
           <h2 className="font-semibold text-titos-green-900">Resumen para Compras y almacén</h2>
           <Card className="p-4">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-black/80">{datos.resumenInterno}</pre>
+            <pre className="whitespace-pre-wrap font-sans text-sm text-black/80">
+              {datos.resumenGeneral ?? datos.resumenInterno}
+            </pre>
           </Card>
+          {(datos.segmentos ?? []).map((g) => (
+            <div key={g.nombre} className="space-y-2">
+              <h2 className="font-semibold text-titos-green-900">
+                Grupo {g.nombre} <span className="text-sm font-normal text-black/45">· {g.destinatarios.length ? g.destinatarios.join(", ") : "sin WhatsApp capturado"}</span>
+              </h2>
+              <Card className="p-4">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-black/80">{g.mensaje}</pre>
+              </Card>
+            </div>
+          ))}
         </div>
       </div>
     </div>

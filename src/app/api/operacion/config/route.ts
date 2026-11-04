@@ -57,12 +57,28 @@ export async function PATCH(req: NextRequest) {
   if ("faltantesDiarios" in body) {
     const f = body.faltantesDiarios ?? {};
     if (f.hora !== undefined && !HORA.test(f.hora)) return badRequest("Hora de envío inválida (usa HH:MM)");
+    const lista = (v: unknown) => (Array.isArray(v) ? v.map((d: unknown) => String(d).trim()).filter(Boolean) : []);
+    const segmentos = Array.isArray(f.segmentos) ? f.segmentos : (config.faltantesDiarios?.segmentos ?? []);
+    if (segmentos.length > 10) return badRequest("Máximo 10 grupos de faltantes");
+    const limpios = [];
+    for (const g of segmentos as { nombre?: unknown; categorias?: unknown; destinatarios?: unknown }[]) {
+      const nombre = String(g?.nombre ?? "").trim().slice(0, 60);
+      if (!nombre) return badRequest("Cada grupo de faltantes necesita nombre");
+      const categorias = lista(g.categorias);
+      if (!categorias.length) return badRequest(`Elige al menos una categoría para el grupo "${nombre}"`);
+      limpios.push({ nombre, categorias, destinatarios: lista(g.destinatarios) });
+    }
     config.faltantesDiarios = {
       activo: f.activo !== false,
       hora: f.hora ?? config.faltantesDiarios?.hora ?? "13:00",
-      destinatariosAlmacen: Array.isArray(f.destinatariosAlmacen) ? f.destinatariosAlmacen.map((d: unknown) => String(d).trim()).filter(Boolean) : [],
+      destinatariosAlmacen: lista(f.destinatariosAlmacen),
       enviarAProveedores: f.enviarAProveedores === true,
+      segmentos: limpios,
+      generalSoloResto: f.generalSoloResto !== false,
     };
+  }
+  if ("traspasos" in body) {
+    config.traspasos = { mostrarMontos: body.traspasos?.mostrarMontos === true };
   }
   if ("duracionRutaMin" in body) {
     const minutos = Number(body.duracionRutaMin);

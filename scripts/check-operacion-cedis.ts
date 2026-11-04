@@ -269,7 +269,8 @@ async function integracion() {
     assert.deepEqual(rol.salidas[0].pedidos.map((p: { folio: string }) => p.folio).sort(), ["P-GLOR", "P-XOCHI"]);
     assert.deepEqual(rol.salidas[1].pedidos.map((p: { folio: string }) => p.folio).sort(), ["P-GLOR-V2", "P-JR", "P-JR-V2", "P-XOCHI-V2"], "complementos a la segunda vuelta; JR no tiene primera vuelta y cae en la única ruta que pasa por ahí");
     assert.equal(rol.pedidosSinSalida.length, 0);
-    assert.equal(String((await Pedido.findOne({ folio: "P-XOCHI" }).lean())!.repartidorId), String(luis._id), "el chofer queda como repartidor del pedido");
+    // Desde la minuta del 28 de octubre el chofer se amarra al folio hasta que la salida arranca.
+    assert.equal((await Pedido.findOne({ folio: "P-XOCHI" }).lean())!.repartidorId, null, "el chofer programado no se amarra al folio antes de salir");
     // Ajuste manual: P-JR sale de la ruta y queda suelto; Ana también en la primera (empalme).
     const editado = rol.salidas.map((s: Record<string, unknown>) => ({ ...s, pedidoIds: (s.pedidos as { _id: string; folio: string }[]).filter((p) => p.folio !== "P-JR").map((p) => p._id) }));
     editado[0].choferId = String(ana._id);

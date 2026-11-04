@@ -21,6 +21,7 @@ import { Button, Card, EmptyState, FormField, FormGrid, Input, Modal, Select } f
 import { DIAS_SEMANA, DIA_LABEL } from "@/lib/dias";
 import { fechaEnZona, sumarDias } from "@/lib/zonasHorarias";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
+import { ETAPA_CARGA_LABEL, type EtapaCarga } from "@/lib/logistica";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -29,7 +30,7 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 type TipoRuta = "primera_vuelta" | "segunda_vuelta" | "especial";
 type TipoParada = "sucursal" | "recoleccion" | "basura" | "otro";
 type Parada = { tipo: TipoParada; sucursalId: string | null; descripcion: string; nombre?: string };
-type PedidoRol = { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string };
+type PedidoRol = { _id: string; folio: string; sucursalNombre: string; vuelta: number; estado: string; etapaCarga?: EtapaCarga };
 
 type Salida = {
   _id?: string;
@@ -286,9 +287,14 @@ function SalidaCard({
           <ul className="flex flex-wrap gap-1.5">
             {salida.pedidos.map((p) => (
               <li key={p._id} className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-black/2 py-0.5 pl-2 pr-1 text-xs">
-                <span className="font-semibold">{p.folio}</span>
+                <Link href={`/matriz/pedidos/folio/${p._id}`} className="font-semibold hover:underline">
+                  {p.folio}
+                </Link>
                 <span className="text-black/50">· {p.sucursalNombre}</span>
                 {p.vuelta === 2 ? <span className="rounded bg-titos-orange-100 px-1 font-semibold text-titos-orange-700">V2</span> : null}
+                {p.etapaCarga && p.etapaCarga !== "sin_cargar" ? (
+                  <span className="rounded bg-titos-green-100 px-1 font-semibold text-titos-green-700">{ETAPA_CARGA_LABEL[p.etapaCarga]}</span>
+                ) : null}
                 <select
                   value={indice}
                   onChange={(e) => onMoverPedido(p._id, Number(e.target.value))}

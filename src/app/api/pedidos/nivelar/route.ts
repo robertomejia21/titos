@@ -3,9 +3,10 @@ import { connectDB } from "@/lib/db";
 import Pedido from "@/models/Pedido";
 import Producto from "@/models/Producto";
 import NecesidadCompra from "@/models/NecesidadCompra";
-import { prorratear, type CriterioProrrateo } from "@/lib/prorrateo";
+import { CRITERIO_LABEL, prorratear, type CriterioProrrateo } from "@/lib/prorrateo";
 import { mapaPrioridades, obtenerConfiguracionOperacion } from "@/lib/operacion";
 import { requireSession, unauthorized, forbidden, puede, sinPermiso } from "@/lib/apiAuth";
+import { evento } from "@/lib/logistica";
 
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest) {
   for (const pedido of pedidos) {
     pedido.estado = "nivelado";
     pedido.niveladoEn = niveladoEn;
+    pedido.historial.push(evento(session, "nivelado", `Criterio: ${CRITERIO_LABEL[criterio]}`));
     await pedido.save();
   }
 
