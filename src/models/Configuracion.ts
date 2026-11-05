@@ -85,6 +85,10 @@ const ConfiguracionSchema = new Schema(
     // Tasa de IVA con la que se generan las facturas del sistema. La mayoría del
     // abarrote es tasa 0%, por eso el default no es 16.
     tasaIvaFactura: { type: Number, default: 0, min: 0, max: 100 },
+    // Carpeta privada (Google Drive) con PuenteCaja.exe y la librería de
+    // Banorte, para instalar el puente en cada caja. Vive aquí y no en el código
+    // porque el repositorio es público.
+    enlaceProgramaCaja: { type: String, default: "", trim: true },
     // Datos fiscales de la empresa emisora. Solo hacen falta para timbrar: la
     // factura del sistema se genera sin ellos, el CFDI no. Tienen que coincidir
     // con el CSD cargado en el PAC o el SAT rechaza el comprobante.

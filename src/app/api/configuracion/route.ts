@@ -144,6 +144,13 @@ export async function PATCH(req: NextRequest) {
     if (!Number.isFinite(tasa) || tasa < 0 || tasa > 100) return badRequest("La tasa de IVA debe ir de 0 a 100");
     update.tasaIvaFactura = tasa;
   }
+  if ("enlaceProgramaCaja" in body) {
+    const enlace = String(body.enlaceProgramaCaja ?? "").trim();
+    if (enlace && (!/^https:\/\/\S+$/.test(enlace) || enlace.length > 500)) {
+      return badRequest("El enlace del programa de caja debe empezar con https://");
+    }
+    update.enlaceProgramaCaja = enlace;
+  }
   if ("emisorFiscal" in body) {
     try { update.emisorFiscal = validarEmisorFiscal(body.emisorFiscal); }
     catch (error) { return badRequest((error as Error).message); }
