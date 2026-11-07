@@ -2069,8 +2069,10 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         )}
 
         {/* Búsqueda */}
+        {/* Código y nombre van juntos a la izquierda: son dos formas de lo
+            mismo (agregar un producto) y el cajero no debe cruzar la pantalla. */}
         <div className="flex flex-col gap-2 border-b border-black/5 px-3 py-3 md:flex-row md:items-center">
-          <div className="flex flex-1 items-center gap-3">
+          <div className="flex flex-1 items-center gap-3 md:max-w-xl">
             <ShoppingCart className="hidden h-7 w-7 shrink-0 text-black/50 sm:block" />
             <form onSubmit={procesarCodigo} className="flex flex-1">
               <Input
@@ -2092,7 +2094,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
               </button>
             </form>
           </div>
-          <div className="w-full md:w-72">
+          <div className="w-full md:w-80">
             <ProductoCombobox
               productos={productosDisponibles}
               value={busquedaId}
