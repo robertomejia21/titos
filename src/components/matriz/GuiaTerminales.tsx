@@ -306,9 +306,10 @@ export function GuiaTerminales() {
     <div className="max-w-4xl">
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p>
-          <b>Mientras no llegue la librería de Banorte</b> (<Codigo>PINPAD.TPV</Codigo>) y no se certifique, el cobro con
-          terminal funciona solo en modo prueba (<b>AUT</b>): la venta se registra, pero <b>no se le cobra nada al cliente</b>.
-          Hasta entonces, en caja se usa <b>“Cobrar manual”</b>.
+          La librería de Banorte (<Codigo>PINPAD.TPV</Codigo>) ya funciona: el cobro con terminal desde el punto de venta
+          está probado en <b>modo prueba (AUT)</b>, donde la venta se registra pero <b>no se le cobra nada al cliente</b>.
+          Falta la <b>certificación de Banorte</b> para pasar a cobros reales (<b>PRD</b>). Hasta entonces, para cobrar de
+          verdad en caja se usa <b>“Cobrar manual”</b> y la terminal por separado.
         </p>
       </div>
 
