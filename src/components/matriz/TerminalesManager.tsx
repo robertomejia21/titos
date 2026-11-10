@@ -59,7 +59,7 @@ function TerminalModal({
     setGuardando(true);
 
     const cuerpo = esEdicion
-      ? { alias, banco, marca, numeroSerie, activo, cobroIntegrado, afiliacion }
+      ? { sucursalId, alias, banco, marca, numeroSerie, activo, cobroIntegrado, afiliacion }
       : { sucursalId, alias, banco, marca, numeroSerie, cobroIntegrado, afiliacion };
 
     const res = await fetch(esEdicion ? `/api/terminales/${terminal!._id}` : "/api/terminales", {
@@ -121,7 +121,7 @@ function TerminalModal({
                 Eliminar
               </Button>
             ) : null}
-            <Button onClick={guardar} disabled={guardando || !alias || (!esEdicion && !sucursalId)}>
+            <Button onClick={guardar} disabled={guardando || !alias || !sucursalId}>
               {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Registrar terminal"}
             </Button>
           </>
@@ -129,17 +129,21 @@ function TerminalModal({
       }
     >
       <div className="space-y-3.5">
-        {!esEdicion ? (
-          <FormField label="Sucursal donde está la terminal">
-            <Select icon={Store} value={sucursalId} onChange={(e) => setSucursalId(e.target.value)}>
-              <option value="">Elige la sucursal</option>
-              {sucursales.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.nombre}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+        <FormField label="Sucursal donde está la terminal">
+          <Select icon={Store} value={sucursalId} onChange={(e) => setSucursalId(e.target.value)}>
+            <option value="">Elige la sucursal</option>
+            {sucursales.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.nombre}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        {esEdicion && sucursalId !== idSucursal(terminal!) ? (
+          <p className="-mt-2 text-xs text-amber-700">
+            La terminal se moverá a esta sucursal y dejará de aparecer en el punto de venta de la anterior. Los cobros
+            que ya hizo se quedan en los cortes de donde se cobraron.
+          </p>
         ) : null}
 
         <FormField label="Nombre con el que la conoce el cajero">

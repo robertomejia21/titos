@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import TerminalPago from "@/models/TerminalPago";
 import Venta from "@/models/Venta";
+import Sucursal from "@/models/Sucursal";
 import { requireSession, unauthorized, forbidden, notFound, conflict, badRequest, puede, sinPermiso } from "@/lib/apiAuth";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ("afiliacion" in body) update.afiliacion = String(body.afiliacion ?? "").replace(/\D/g, "");
   if ("cobroIntegrado" in body) update.cobroIntegrado = body.cobroIntegrado === true;
   if ("alias" in body && !update.alias) return badRequest("El nombre de la terminal no puede quedar vacío");
+
+  // Mover la terminal a otra sucursal (p. ej. se dio de alta en la equivocada).
+  // Las ventas ya cobradas guardan su propia sucursal, así que sus cortes no cambian.
+  if ("sucursalId" in body) {
+    const sucursalId = String(body.sucursalId ?? "").trim();
+    if (!sucursalId) return badRequest("Elige la sucursal donde está la terminal");
+    const sucursal = await Sucursal.findById(sucursalId).select("_id").lean();
+    if (!sucursal) return badRequest("La sucursal no existe");
+    update.sucursalId = sucursalId;
+  }
 
   if (update.cobroIntegrado === true || ("afiliacion" in update && !update.afiliacion)) {
     const actual = await TerminalPago.findById(id).select("afiliacion cobroIntegrado").lean<{ afiliacion?: string; cobroIntegrado?: boolean }>();
