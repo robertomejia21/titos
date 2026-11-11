@@ -10,12 +10,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>PuenteCaja</RootNamespace>
     <AssemblyName>PuenteCaja</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>Puente de caja Titos</Product>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <SatelliteResourceLanguages>es</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Lectura de la báscula y el escáner por puerto COM -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="puente-caja.ejemplo.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />

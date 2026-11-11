@@ -15,14 +15,18 @@ public static class Program
             Console.WriteLine("""
                 Puente de caja Titos
                 Uso: PuenteCaja [--config ruta\puente-caja.json] [--puerto N] [--probar]
+                       PuenteCaja --escuchar COM2 [baudios] [bits] [paridad] [parada] [comando]
                   --config   Archivo de configuración (por omisión: puente-caja.json junto al exe o en la carpeta actual)
                   --puerto   Sobrescribe el puerto HTTP de la configuración (útil para pruebas)
                   --probar   Autoprueba con el simulador (VENTA, VERIFICACION, CANCELACION) y termina
+                  --escuchar Muestra lo que llega por un puerto COM (báscula/escáner). Ej.:
+                             PuenteCaja --escuchar COM2 9600 7 odd 1 W
                 """);
             return 0;
         }
 
         if (args.Contains("--probar")) return await AutoPrueba.EjecutarAsync();
+        if (args.Contains("--escuchar")) return await Dispositivos.EscucharAsync(args);
 
         Configuracion cfg;
         var avisos = new List<string>();
@@ -44,7 +48,8 @@ public static class Program
 
         var carpetaConfig = cfg.RutaArchivo is null ? null : Path.GetDirectoryName(cfg.RutaArchivo);
         var servicio = new ServicioTransacciones(cfg.Banorte, Path.Combine(AppContext.BaseDirectory, "logs"), carpetaConfig);
-        var servidor = new ServidorHttp(cfg, servicio);
+        var dispositivos = new Dispositivos(cfg.Dispositivos);
+        var servidor = new ServidorHttp(cfg, servicio, dispositivos);
         try
         {
             servidor.Iniciar();
@@ -59,6 +64,7 @@ public static class Program
         Banner(cfg, servicio, servidor, avisos);
 
         using var cts = new CancellationTokenSource();
+        dispositivos.Iniciar(cts.Token);
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
@@ -99,6 +105,9 @@ public static class Program
         Console.WriteLine($"  Credenciales:       {(b.TieneCredenciales ? $"usuario {b.Usuario} (contraseña configurada)" : "FALTAN usuario y/o contraseña")}");
         Console.WriteLine($"  Orígenes permitidos: {string.Join(", ", cfg.OrigenesPermitidos)}");
         Console.WriteLine($"  Tiempo de espera:   {b.TimeoutSegundos} s");
+        var d = cfg.Dispositivos;
+        Console.WriteLine($"  Escáner (COM):      {(d.Escaner.Activo ? $"{d.Escaner.PuertoCom} {CanalSerial.Descripcion(d.Escaner)}" : "no activado")}");
+        Console.WriteLine($"  Báscula (COM):      {(d.Bascula.Activo ? $"{d.Bascula.PuertoCom} {CanalSerial.Descripcion(d.Bascula)} · protocolo {d.Bascula.Protocolo} · {d.Bascula.Unidad}" : "no activada")}");
         if (b.Modo == "PRD")
             Escribir("  ¡ATENCIÓN! Modo PRD (producción): las ventas aprobadas son cobros REALES.", ConsoleColor.Red);
         foreach (var a in avisos) Escribir("  Aviso: " + a, ConsoleColor.Yellow);
@@ -167,6 +176,33 @@ public static class AutoPrueba
         var json = Json.Serializar(venta);
         Verificar(!json.Contains("vigencia", StringComparison.OrdinalIgnoreCase) && !json.Contains("\"pan\"", StringComparison.OrdinalIgnoreCase),
             "La respuesta no trae PAN ni vigencia");
+
+        // Interpretación de tramas de báscula y escáner (sin puerto real).
+        ServicioTransacciones.Registrar("Autoprueba de báscula/escáner (tramas simuladas)", ConsoleColor.Cyan);
+        string Peso(Dispositivos d) => Json.Serializar(d.Peso().cuerpo);
+        var ncr = new Dispositivos(new ConfiguracionDispositivos
+        {
+            Escaner = new ConfiguracionSerial { Activo = true, PuertoCom = "COM1" },
+            Bascula = new ConfiguracionSerial { Activo = true, PuertoCom = "COM2", Protocolo = "ncr" },
+        });
+        ncr.InterpretarBascula("01.235", false);
+        Verificar(ncr.Peso().status == 200 && Peso(ncr).Contains("\"peso\":1.235"), "NCR: <02>01.235 → 1.235 kg");
+        ncr.InterpretarBascula("?A", false);
+        Verificar(ncr.Peso().status == 502, "NCR: \"?\" (en movimiento) → sin peso");
+        ncr.InterpretarEscaner("A7501234567890");
+        Verificar(Json.Serializar(ncr.Escaner().cuerpo).Contains("A7501234567890"), "Escáner: guarda el código leído");
+
+        var mag = new Dispositivos(new ConfiguracionDispositivos
+        {
+            Escaner = new ConfiguracionSerial { Activo = true, PuertoCom = "COM1" },
+            Bascula = new ConfiguracionSerial { Activo = true, PuertoCom = "COM1", Protocolo = "magellan", Unidad = "lb" },
+        });
+        mag.InterpretarBascula("S110250", true);
+        Verificar(Peso(mag).Contains("\"peso\":1.134"), "Magellan: S110250 (2.50 lb) → 1.134 kg");
+        mag.InterpretarBascula("S141", true);
+        Verificar(mag.Peso().status == 502, "Magellan: S141 (en movimiento) → sin peso");
+        mag.InterpretarBascula("S08F7501234567890", true);
+        Verificar(Json.Serializar(mag.Escaner().cuerpo).Contains("\"F7501234567890\""), "Magellan un cable: S08 + código → código (sin S08)");
 
         if (fallas == 0) ServicioTransacciones.Registrar("Autoprueba superada.", ConsoleColor.Green);
         else ServicioTransacciones.Registrar($"Autoprueba con {fallas} falla(s).", ConsoleColor.Red);

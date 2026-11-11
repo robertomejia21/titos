@@ -11,5 +11,31 @@
     "modo": "AUT",
     "timeoutSegundos": 90,
     "retardoSimuladorMs": 2000
+  },
+  "dispositivos": {
+    "puertoHttp": 8090,
+    "escaner": {
+      "activo": false,
+      "puertoCom": "COM1",
+      "baudios": 9600,
+      "bitsDatos": 7,
+      "paridad": "odd",
+      "bitsParada": 1,
+      "controlFlujo": "none",
+      "protocolo": "lineas"
+    },
+    "bascula": {
+      "activo": false,
+      "puertoCom": "COM2",
+      "baudios": 9600,
+      "bitsDatos": 7,
+      "paridad": "odd",
+      "bitsParada": 1,
+      "controlFlujo": "none",
+      "protocolo": "ncr",
+      "comandoPeso": "W",
+      "unidad": "kg",
+      "intervaloMs": 300
+    }
   }
 }

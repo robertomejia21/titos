@@ -205,3 +205,46 @@ administrador:
 ```powershell
 netsh http add urlacl url=http://127.0.0.1:8091/ user=%USERNAME%
 ```
+
+## 12. Báscula y escáner por puerto COM (PSC/Datalogic Magellan)
+
+Desde la versión 1.1.0 el puente también lee el **escáner** y la **báscula** conectados por puerto serie y se los entrega
+al punto de venta en `http://localhost:8090/escaner` y `http://localhost:8090/peso` (el punto de venta ya los consulta solo).
+
+Con un **Magellan 8200 a dos cables** (lo normal): el conector *POS Terminal* del equipo lleva los códigos y el conector
+*Scale Host* lleva el peso, cada uno a su COM de la PC.
+
+### Configuración (`puente-caja.json`)
+
+```json
+"dispositivos": {
+  "puertoHttp": 8090,
+  "escaner": { "activo": true, "puertoCom": "COM1", "baudios": 9600, "bitsDatos": 7, "paridad": "odd", "bitsParada": 1, "protocolo": "lineas" },
+  "bascula": { "activo": true, "puertoCom": "COM2", "baudios": 9600, "bitsDatos": 7, "paridad": "odd", "bitsParada": 1,
+               "protocolo": "ncr", "comandoPeso": "W", "unidad": "kg", "intervaloMs": 300 }
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `puertoHttp` | Puerto extra donde el punto de venta busca `/peso` y `/escaner`. Si está ocupado (otro programa de báscula), el puente avisa y arranca igual. |
+| `puertoCom` | `COM1`, `COM2`… (Administrador de dispositivos → Puertos COM y LPT). |
+| `baudios`, `bitsDatos`, `paridad`, `bitsParada`, `controlFlujo` | Deben coincidir con la programación del equipo (`paridad`: none/odd/even; `controlFlujo`: none/rtscts). |
+| `protocolo` (báscula) | `ncr`: el puente envía `comandoPeso` ("W") y la báscula responde el peso. `magellan`: un solo cable, se pide con `S11`. `continuo`: la báscula manda el peso sola. |
+| `unidad` | `kg` o `lb` (el punto de venta trabaja en kilos; si la báscula pesa en libras se convierte). |
+
+Si el escáner y la báscula comparten COM (un solo cable), ponga el mismo `puertoCom` en ambos y `"protocolo": "magellan"` en la báscula.
+
+### Averiguar la configuración en la caja
+
+1. Cierre el puente (el puerto COM solo lo puede usar un programa a la vez).
+2. Escáner: `PuenteCaja.exe --escuchar COM1 9600 7 odd 1` y escanee algo. Si salen letras raras pruebe `9600 8 none 1`.
+3. Báscula: `PuenteCaja.exe --escuchar COM2 9600 7 odd 1 W` con algo en el plato. Debe aparecer el peso; si no, pruebe
+   `8 none 1`, o el comando `S11\r` (protocolo magellan), o sin comando (continuo).
+4. Con lo que funcione, llene `puente-caja.json` y vuelva a abrir el puente.
+
+### Revisar que funcione
+
+- `http://localhost:8090/peso` → `{"ok":true,"peso":1.235,"unidad":"kg",...}`
+- `http://localhost:8090/escaner` → `{"ok":true,"codigo":"7501234567890","ts":...}` tras escanear algo.
+- `http://localhost:8091/dispositivos` → puertos COM de la PC, si cada uno abrió y las últimas tramas recibidas tal cual.

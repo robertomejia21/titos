@@ -10,20 +10,22 @@ namespace PuenteCaja;
 /// </summary>
 public sealed class ServidorHttp
 {
-    public const string Version = "1.0.0";
+    public const string Version = "1.1.0";
     private const int TamanoMaximoCuerpo = 16 * 1024;
 
     private readonly Configuracion _cfg;
     private readonly ServicioTransacciones _servicio;
+    private readonly Dispositivos _dispositivos;
     private readonly HashSet<string> _origenes;
     private HttpListener? _listener;
 
     public List<string> Prefijos { get; } = new();
 
-    public ServidorHttp(Configuracion cfg, ServicioTransacciones servicio)
+    public ServidorHttp(Configuracion cfg, ServicioTransacciones servicio, Dispositivos dispositivos)
     {
         _cfg = cfg;
         _servicio = servicio;
+        _dispositivos = dispositivos;
         _origenes = new HashSet<string>(cfg.OrigenesPermitidos, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -35,19 +37,44 @@ public sealed class ServidorHttp
     {
         var localhost = $"http://localhost:{_cfg.Puerto}/";
         var ip = $"http://127.0.0.1:{_cfg.Puerto}/";
+        // Puerto extra para la báscula y el escáner (el punto de venta los busca en 8090).
+        var extra = _dispositivos.HayAlguno && _cfg.Dispositivos.PuertoHttp > 0
+            ? new[] { $"http://localhost:{_cfg.Dispositivos.PuertoHttp}/" }
+            : Array.Empty<string>();
         try
         {
-            _listener = Crear(localhost, ip);
-            Prefijos.AddRange(new[] { localhost, ip });
+            _listener = CrearConExtra(new[] { localhost, ip }, extra);
         }
         catch (HttpListenerException ex) when (ex.ErrorCode == 5)
         {
             ServicioTransacciones.Registrar(
                 $"Aviso: Windows no permitió escuchar en {ip} sin permisos de administrador; solo se usará {localhost}. " +
                 $"Para habilitarlo ejecute como administrador: netsh http add urlacl url={ip} user=%USERNAME%", ConsoleColor.Yellow);
-            _listener = Crear(localhost);
-            Prefijos.Add(localhost);
+            _listener = CrearConExtra(new[] { localhost }, extra);
         }
+    }
+
+    /// <summary>Si el puerto extra está ocupado (otro programa de báscula), se arranca sin él y se avisa.</summary>
+    private HttpListener CrearConExtra(string[] principales, string[] extra)
+    {
+        if (extra.Length > 0)
+        {
+            try
+            {
+                var l = Crear(principales.Concat(extra).ToArray());
+                Prefijos.AddRange(principales.Concat(extra));
+                return l;
+            }
+            catch (HttpListenerException ex) when (ex.ErrorCode != 5)
+            {
+                ServicioTransacciones.Registrar(
+                    $"Aviso: no se pudo abrir {extra[0]} ({ex.Message}). ¿Hay otro programa de báscula abierto? " +
+                    $"/peso y /escaner quedan solo en el puerto {_cfg.Puerto}.", ConsoleColor.Yellow);
+            }
+        }
+        var principal = Crear(principales);
+        Prefijos.AddRange(principales);
+        return principal;
     }
 
     private static HttpListener Crear(params string[] prefijos)
@@ -131,6 +158,21 @@ public sealed class ServidorHttp
             {
                 if (metodo != "GET") { await MetodoNoPermitidoAsync(res, "GET"); return; }
                 await EscribirAsync(res, 200, Estado());
+                return;
+            }
+
+            if (ruta.Equals("/peso", StringComparison.OrdinalIgnoreCase) || ruta.Equals("/escaner", StringComparison.OrdinalIgnoreCase))
+            {
+                if (metodo != "GET") { await MetodoNoPermitidoAsync(res, "GET"); return; }
+                var (status, cuerpo) = ruta.Equals("/peso", StringComparison.OrdinalIgnoreCase) ? _dispositivos.Peso() : _dispositivos.Escaner();
+                await EscribirAsync(res, status, cuerpo);
+                return;
+            }
+
+            if (ruta.Equals("/dispositivos", StringComparison.OrdinalIgnoreCase))
+            {
+                if (metodo != "GET") { await MetodoNoPermitidoAsync(res, "GET"); return; }
+                await EscribirAsync(res, 200, _dispositivos.Diagnostico());
                 return;
             }
 
