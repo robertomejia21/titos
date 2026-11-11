@@ -43,11 +43,33 @@ export async function hashPassword(password: string) {
 // espacios) + "." + día y mes de nacimiento a dos dígitos. Ej: "Pérez" nacido el
 // 15/03 -> "Perez.1503". Es determinista a propósito: permite reenviar las
 // credenciales sin guardar la contraseña en claro.
-export function generarPasswordUsuario(apellidoPaterno: string, fechaNacimiento: string | Date): string {
-  const apellido = apellidoPaterno
+//
+// Si al usuario le falta el apellido o la fecha de nacimiento (son opcionales),
+// se usa la contraseña de respaldo: el nombre de usuario + ".Titos"
+// (ej. "jperez" -> "jperez.Titos"). También es determinista.
+export function generarPasswordUsuario(datos: {
+  usuario: string;
+  apellidoPaterno?: string | null;
+  fechaNacimiento?: string | Date | null;
+}): string {
+  const { usuario, apellidoPaterno, fechaNacimiento } = datos;
+  const fechaValida =
+    fechaNacimiento instanceof Date
+      ? !Number.isNaN(fechaNacimiento.getTime())
+      : !!fechaNacimiento && /^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento);
+  const apellido = sinAcentos(apellidoPaterno ?? "");
+  if (!apellido || !fechaValida) return `${usuario.trim()}.Titos`;
+  return passwordPorApellidoYFecha(apellido, fechaNacimiento!);
+}
+
+function sinAcentos(texto: string) {
+  return texto
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^A-Za-z0-9]/g, "");
+}
+
+function passwordPorApellidoYFecha(apellido: string, fechaNacimiento: string | Date): string {
   let dia: string, mes: string;
   if (fechaNacimiento instanceof Date) {
     dia = String(fechaNacimiento.getUTCDate()).padStart(2, "0");

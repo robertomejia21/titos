@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   await connectDB();
   const usuario = await UserModel.findById(id);
-  if (!usuario) return notFound("Usuario no encontrado");
+  if (!usuario || usuario.eliminado) return notFound("Usuario no encontrado");
 
   // Quien edita no puede quitarse a sí mismo el acceso: sería la forma más
   // fácil de dejar el sistema sin nadie que pueda administrarlo.
@@ -144,10 +144,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const codigoArea = String(body.codigoArea ?? usuario.codigoArea ?? "+52").trim();
     const telefono = String(body.telefono ?? usuario.telefono ?? "").trim();
     if (!["+52", "+1"].includes(codigoArea)) return badRequest("Código de área inválido");
-    if (!telefono) return badRequest("El teléfono es obligatorio");
-    if (!validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
-    const normalizado = normalizarWhatsApp(telefono, codigoArea as "+52" | "+1");
-    if (normalizado !== usuario.telefono) {
+    // El teléfono es opcional: vacío lo quita.
+    if (telefono && !validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
+    const normalizado = telefono ? normalizarWhatsApp(telefono, codigoArea as "+52" | "+1") : null;
+    if (normalizado !== (usuario.telefono ?? null)) {
       usuario.telefono = normalizado;
       usuario.telefonoVerificado = false;
     }
@@ -162,6 +162,42 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (esNipDuplicado(error)) return conflict("Ese NIP ya está asignado a otra persona");
     throw error;
   }
+
+  return NextResponse.json({ ok: true });
+}
+
+// Elimina un usuario. Muchas colecciones (ventas, cortes, traspasos…) guardan
+// referencias a él, así que no se borra el documento: se marca como eliminado,
+// se le quita el acceso y se liberan su usuario, correo, teléfono y NIP para
+// que puedan reutilizarse. El nombre se conserva para el historial.
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSession(req);
+  if (!session) return unauthorized();
+  if (session.role !== "matriz") return forbidden();
+  if (!puede(session, PERMISO)) return sinPermiso(PERMISO);
+
+  const { id } = await params;
+  if (id === session.userId) return badRequest("No puedes eliminar tu propio usuario");
+
+  await connectDB();
+  const usuario = await UserModel.findById(id);
+  if (!usuario || usuario.eliminado) return notFound("Usuario no encontrado");
+
+  await UserModel.updateOne(
+    { _id: usuario._id },
+    {
+      $set: {
+        eliminado: true,
+        eliminadoEn: new Date(),
+        eliminadoPor: session.userId,
+        activo: false,
+        nipOperacionHash: "",
+        telefono: null,
+        telefonoVerificado: false,
+      },
+      $unset: { usuario: 1, email: 1, nipOperacionHuella: 1, nipOperacionCifrado: 1, tokenVerificacion: 1, tokenVerificacionExpira: 1 },
+    }
+  );
 
   return NextResponse.json({ ok: true });
 }
