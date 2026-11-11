@@ -382,6 +382,8 @@ function UsuarioModal({
           </FormField>
         ) : null}
 
+        {esEdicion && usuario!.usuario ? <PasswordSistema usuarioId={usuario!._id} /> : null}
+
         {esEdicion ? (
           <FormField label="Nueva contraseña (opcional)">
             <Input
@@ -433,11 +435,100 @@ const formatearTelefono = (t: string) => {
   return `+${d.slice(0, -10)} ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
 };
 
+async function copiarTexto(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    // Sin permiso de portapapeles (o sin HTTPS): método clásico.
+    const area = document.createElement("textarea");
+    area.value = texto;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
+}
+
+// Contraseña del sistema: como se guarda hasheada, se muestra solo si sigue
+// siendo la autogenerada; si no, se ofrece regenerarla.
+function PasswordSistema({ usuarioId }: { usuarioId: string }) {
+  const [estado, setEstado] = useState<{ vigente: boolean; password?: string } | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmarRegenerar, setConfirmarRegenerar] = useState(false);
+
+  useEffect(() => {
+    let vigente = true;
+    fetch(`/api/usuarios/${usuarioId}/password`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((d) => { if (vigente) setEstado(d); })
+      .catch(() => { if (vigente) setAviso("No se pudo consultar la contraseña"); });
+    return () => { vigente = false; };
+  }, [usuarioId]);
+
+  async function copiar(password: string) {
+    setAviso((await copiarTexto(password)) ? "Contraseña copiada" : "No se pudo copiar; selecciónala y cópiala a mano");
+  }
+
+  async function regenerar() {
+    setOcupado(true);
+    setAviso(null);
+    const res = await fetch(`/api/usuarios/${usuarioId}/password`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setOcupado(false);
+    setConfirmarRegenerar(false);
+    if (!res.ok) { setAviso(data.error || "No se pudo regenerar la contraseña"); return; }
+    setEstado(data);
+    setVisible(true);
+    await copiar(data.password);
+  }
+
+  return (
+    <div className="rounded-lg border border-black/10 p-3 text-sm">
+      <p className="mb-2 flex items-center gap-1.5 font-medium text-titos-green-900"><KeyRound className="h-4 w-4" /> Contraseña en el sistema</p>
+      {!estado && !aviso ? <p className="text-black/50">Consultando…</p> : null}
+      {estado?.vigente && estado.password ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded bg-black/5 px-2 py-1 font-mono">{visible ? estado.password : "••••••••"}</code>
+          <Button variant="ghost" size="sm" onClick={() => setVisible((v) => !v)}>{visible ? "Ocultar" : "Ver"}</Button>
+          <Button size="sm" onClick={() => copiar(estado.password!)}>Copiar</Button>
+        </div>
+      ) : null}
+      {estado && !estado.vigente ? (
+        <p className="text-black/60">Este usuario cambió su contraseña o se la asignaron a mano, así que no se puede consultar. Regenérala para volver a la automática.</p>
+      ) : null}
+      {estado ? (
+        <div className="mt-2">
+          {confirmarRegenerar ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-amber-800">La contraseña actual dejará de servir.</span>
+              <Button variant="danger" size="sm" onClick={regenerar} disabled={ocupado}>{ocupado ? "Regenerando…" : "Sí, regenerar y copiar"}</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmarRegenerar(false)} disabled={ocupado}>Cancelar</Button>
+            </div>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setConfirmarRegenerar(true)}>Regenerar y copiar</Button>
+          )}
+          <p className="mt-1 text-xs text-black/50">Se regenera con los datos guardados: apellido + día/mes de nacimiento, o usuario + &quot;.Titos&quot; si faltan.</p>
+        </div>
+      ) : null}
+      {aviso ? <p className="mt-2 text-xs text-titos-green-700" role="status">{aviso}</p> : null}
+    </div>
+  );
+}
+
 function EliminarUsuarioModal({ usuario, onClose, onEliminado }: { usuario: Usuario; onClose: () => void; onEliminado: () => void }) {
   const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmacion, setConfirmacion] = useState("");
+  // Se pide escribir el usuario (o el nombre, si no tiene) para no borrar por error.
+  const palabra = (usuario.usuario || usuario.nombre).trim();
+  const coincide = confirmacion.trim().toLowerCase() === palabra.toLowerCase();
 
   async function eliminar() {
+    if (!coincide || eliminando) return;
     setError(null);
     setEliminando(true);
     const res = await fetch(`/api/usuarios/${usuario._id}`, { method: "DELETE" });
@@ -459,13 +550,25 @@ function EliminarUsuarioModal({ usuario, onClose, onEliminado }: { usuario: Usua
       footer={
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={eliminando}>Cancelar</Button>
-          <Button variant="danger" onClick={eliminar} disabled={eliminando}>{eliminando ? "Eliminando..." : "Eliminar"}</Button>
+          <Button variant="danger" onClick={eliminar} disabled={eliminando || !coincide}>{eliminando ? "Eliminando..." : "Eliminar"}</Button>
         </div>
       }
     >
       <div className="space-y-2 text-sm">
         <p>¿Eliminar a <strong>{usuario.nombre}</strong>{usuario.usuario ? <> (<em>{usuario.usuario}</em>)</> : null}?</p>
         <p className="text-black/60">Ya no podrá iniciar sesión y desaparecerá de esta lista. Su usuario, teléfono y NIP quedan libres para asignarse a alguien más. Sus ventas, cortes y movimientos se conservan con su nombre.</p>
+        <p>Para confirmar, escribe <strong>{palabra}</strong>:</p>
+        <FormField label="Confirmación">
+          <Input
+            value={confirmacion}
+            onChange={(e) => setConfirmacion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") eliminar(); }}
+            onPaste={(e) => e.preventDefault()}
+            autoComplete="off"
+            autoFocus
+            placeholder={palabra}
+          />
+        </FormField>
         {error ? <p role="alert" className="text-red-600">{error}</p> : null}
       </div>
     </Modal>
