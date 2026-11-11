@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { olvidarPaginasGuardadas } from "@/components/RegistrarServiceWorker";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -358,6 +359,7 @@ export function Sidebar({
   async function handleLogout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
+    olvidarPaginasGuardadas();
     router.push("/login");
     router.refresh();
   }

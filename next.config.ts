@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
   // lectura de la constancia fiscal truena con "Setting up fake worker failed".
   // Dejándolo externo, Node lo resuelve desde node_modules y sí encuentra el worker.
   serverExternalPackages: ["pdfjs-dist"],
+  // El service worker (modo sin internet / app instalable) no debe quedarse en
+  // caché del navegador: así cada despliegue llega a las cajas.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
