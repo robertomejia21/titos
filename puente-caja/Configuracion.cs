@@ -8,6 +8,7 @@ public sealed class Configuracion
     public int Puerto { get; set; } = 8091;
     public List<string> OrigenesPermitidos { get; set; } = new() { "https://titos.da-vinci.ai", "http://localhost:3000" };
     public ConfiguracionBanorte Banorte { get; set; } = new();
+    public ConfiguracionDispositivos Dispositivos { get; set; } = new();
 
     /// <summary>Ruta del archivo del que se leyó la configuración (null si se usaron valores por omisión).</summary>
     [JsonIgnore] public string? RutaArchivo { get; set; }
@@ -61,6 +62,7 @@ public sealed class Configuracion
         }
 
         cfg.Banorte ??= new ConfiguracionBanorte();
+        cfg.Dispositivos ??= new ConfiguracionDispositivos();
         cfg.OrigenesPermitidos ??= new List<string>();
         cfg.AplicarEntorno();
         cfg.Validar();
@@ -98,6 +100,7 @@ public sealed class Configuracion
         Banorte.Usuario ??= "";
         Banorte.Password ??= "";
         Banorte.RutaDll = string.IsNullOrWhiteSpace(Banorte.RutaDll) ? "PINPAD.TPV" : Banorte.RutaDll.Trim();
+        Dispositivos.Validar(Puerto);
         OrigenesPermitidos = OrigenesPermitidos
             .Where(o => !string.IsNullOrWhiteSpace(o))
             .Select(o => o.Trim().TrimEnd('/'))
@@ -124,6 +127,80 @@ public sealed class ConfiguracionBanorte
     public int RetardoSimuladorMs { get; set; } = 2000;
 
     [JsonIgnore] public bool TieneCredenciales => Usuario.Length > 0 && Password.Length > 0;
+}
+
+/// <summary>
+/// Escáner y báscula conectados por puerto COM (p. ej. PSC/Datalogic Magellan 8200 a dos cables:
+/// "POS Terminal" = códigos, "Scale Host" = peso). El punto de venta los lee en
+/// http://localhost:{puertoHttp}/escaner y /peso.
+/// </summary>
+public sealed class ConfiguracionDispositivos
+{
+    /// <summary>Puerto HTTP adicional donde el punto de venta busca /peso y /escaner (8090 por omisión).</summary>
+    public int PuertoHttp { get; set; } = 8090;
+    public ConfiguracionSerial Escaner { get; set; } = new();
+    public ConfiguracionSerial Bascula { get; set; } = new() { Protocolo = "ncr" };
+
+    public void Validar(int puertoPrincipal)
+    {
+        Escaner ??= new ConfiguracionSerial();
+        Bascula ??= new ConfiguracionSerial { Protocolo = "ncr" };
+        if (PuertoHttp is < 0 or > 65535) throw new InvalidOperationException($"dispositivos.puertoHttp {PuertoHttp} no es válido.");
+        if (PuertoHttp == puertoPrincipal) PuertoHttp = 0; // ya se atiende en el puerto principal
+        Escaner.Validar("escaner", new[] { "lineas" });
+        Bascula.Validar("bascula", new[] { "ncr", "magellan", "continuo" });
+        if (Escaner.Activo && Bascula.Activo && Escaner.PuertoCom.Equals(Bascula.PuertoCom, StringComparison.OrdinalIgnoreCase)
+            && Bascula.Protocolo != "magellan")
+            throw new InvalidOperationException("El escáner y la báscula usan el mismo puerto COM; eso solo es posible con protocolo \"magellan\" (un solo cable).");
+    }
+}
+
+public sealed class ConfiguracionSerial
+{
+    public bool Activo { get; set; }
+    /// <summary>COM1, COM2…</summary>
+    public string PuertoCom { get; set; } = "";
+    public int Baudios { get; set; } = 9600;
+    public int BitsDatos { get; set; } = 7;
+    /// <summary>"none", "odd", "even".</summary>
+    public string Paridad { get; set; } = "odd";
+    public int BitsParada { get; set; } = 1;
+    /// <summary>"none" o "rtscts".</summary>
+    public string ControlFlujo { get; set; } = "none";
+    /// <summary>
+    /// Escáner: "lineas" (cada código termina en CR/LF).
+    /// Báscula: "ncr" (se envía "W" y responde el peso), "magellan" (un solo cable: "S11"),
+    /// "continuo" (la báscula manda el peso sola, sin pedirlo).
+    /// </summary>
+    public string Protocolo { get; set; } = "lineas";
+    /// <summary>Báscula: cada cuánto se pide el peso.</summary>
+    public int IntervaloMs { get; set; } = 300;
+    /// <summary>Báscula: "kg" o "lb". El punto de venta trabaja en kilos; si la báscula pesa en libras se convierte.</summary>
+    public string Unidad { get; set; } = "kg";
+    /// <summary>Báscula NCR: comando que pide el peso (por omisión "W").</summary>
+    public string ComandoPeso { get; set; } = "W";
+
+    public void Validar(string nombre, string[] protocolos)
+    {
+        PuertoCom = (PuertoCom ?? "").Trim().ToUpperInvariant();
+        Protocolo = (Protocolo ?? "").Trim().ToLowerInvariant();
+        Paridad = (Paridad ?? "none").Trim().ToLowerInvariant();
+        ControlFlujo = (ControlFlujo ?? "none").Trim().ToLowerInvariant();
+        Unidad = (Unidad ?? "kg").Trim().ToLowerInvariant();
+        ComandoPeso = string.IsNullOrEmpty(ComandoPeso) ? "W" : ComandoPeso;
+        if (!Activo) return;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(PuertoCom, @"^COM\d{1,3}$"))
+            throw new InvalidOperationException($"{nombre}.puertoCom debe ser como COM1, COM2…");
+        if (!protocolos.Contains(Protocolo))
+            throw new InvalidOperationException($"{nombre}.protocolo debe ser uno de: {string.Join(", ", protocolos)}.");
+        if (Baudios is < 300 or > 115200) throw new InvalidOperationException($"{nombre}.baudios no es válido.");
+        if (BitsDatos is not (7 or 8)) throw new InvalidOperationException($"{nombre}.bitsDatos debe ser 7 u 8.");
+        if (BitsParada is not (1 or 2)) throw new InvalidOperationException($"{nombre}.bitsParada debe ser 1 o 2.");
+        if (Paridad is not ("none" or "odd" or "even")) throw new InvalidOperationException($"{nombre}.paridad debe ser none, odd o even.");
+        if (ControlFlujo is not ("none" or "rtscts")) throw new InvalidOperationException($"{nombre}.controlFlujo debe ser none o rtscts.");
+        if (Unidad is not ("kg" or "lb")) throw new InvalidOperationException($"{nombre}.unidad debe ser kg o lb.");
+        if (IntervaloMs is < 100 or > 5000) throw new InvalidOperationException($"{nombre}.intervaloMs debe estar entre 100 y 5000.");
+    }
 }
 
 /// <summary>Acepta "1818" o 1818 en el JSON.</summary>
