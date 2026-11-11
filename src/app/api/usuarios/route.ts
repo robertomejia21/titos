@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   await asegurarRolesSemilla();
 
   const [usuarios, roles, sucursales, departamentos] = await Promise.all([
-    UserModel.find({})
+    UserModel.find({ eliminado: { $ne: true } })
       .select("nombre usuario apellidoPaterno fechaNacimiento email role sucursalRol sucursalId rolId activo nipOperacionHash permisosIndividuales permisosSoloConsulta telefono codigoArea telefonoVerificado estadoVerificacion")
       .populate("rolId", "nombre ambito codigoSistema perfilDocumentoId departamentoId")
       .populate("sucursalId", "nombre")
@@ -109,14 +109,15 @@ export async function POST(req: NextRequest) {
 
   if (!nombre) return badRequest("El nombre es requerido");
   if (!usuario) return badRequest("El usuario es requerido");
-  if (!apellidoPaterno) return badRequest("El apellido paterno es requerido");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento)) return badRequest("La fecha de nacimiento es requerida");
+  // Apellido, fecha de nacimiento y teléfono son opcionales; si vienen, se validan.
+  if (fechaNacimiento && !/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento)) return badRequest("La fecha de nacimiento no es válida (AAAA-MM-DD)");
   if (!rolId) return badRequest("Elige el puesto del usuario");
   if (!["matriz", "sucursal"].includes(role)) return badRequest("Elige si el usuario es de matriz o de sucursal");
   if (role === "sucursal" && !sucursalId) return badRequest("Elige la sucursal del usuario");
-  if (!telefono) return badRequest("El teléfono es obligatorio");
-  if (!["+52", "+1"].includes(codigoArea)) return badRequest("Selecciona el código de área: +52 (México) o +1 (EUA)");
-  if (!validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
+  if (telefono) {
+    if (!["+52", "+1"].includes(codigoArea)) return badRequest("Selecciona el código de área: +52 (México) o +1 (EUA)");
+    if (!validarTelefono(telefono, codigoArea as "+52" | "+1")) return badRequest("El número de teléfono no es válido");
+  }
 
   await connectDB();
 
@@ -154,26 +155,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const telefonoNormalizado = normalizarWhatsApp(telefono, codigoArea as "+52" | "+1");
+  const telefonoNormalizado = telefono ? normalizarWhatsApp(telefono, codigoArea as "+52" | "+1") : null;
 
   try {
     const permisosUsuario = "permisosIndividuales" in body ? validarPermisosIndividuales(body, role as "matriz" | "sucursal") : {};
     const nipPersonal = nipOperacion ? await prepararNipPersonal(nipOperacion) : {};
-    // La contraseña se autogenera (apellido paterno + día/mes de nacimiento) y se
-    // envía al colaborador por WhatsApp junto con su usuario.
-    const passwordPlano = generarPasswordUsuario(apellidoPaterno, fechaNacimiento);
+    // La contraseña se autogenera (apellido paterno + día/mes de nacimiento, o
+    // usuario + ".Titos" si faltan) y se envía al colaborador por WhatsApp.
+    const passwordPlano = generarPasswordUsuario({ usuario, apellidoPaterno, fechaNacimiento });
     const nuevo = await UserModel.create({
       nombre,
       usuario,
-      apellidoPaterno,
-      fechaNacimiento: new Date(fechaNacimiento),
+      apellidoPaterno: apellidoPaterno || null,
+      fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null,
       email: email || undefined,
       passwordHash: await hashPassword(passwordPlano),
       role,
       sucursalId: role === "sucursal" ? sucursalId : null,
       rolId,
       telefono: telefonoNormalizado,
-      codigoArea,
+      codigoArea: telefonoNormalizado ? codigoArea : undefined,
       telefonoVerificado: false,
       estadoVerificacion: "verificado",
       ...nipPersonal,
@@ -183,15 +184,23 @@ export async function POST(req: NextRequest) {
 
     // El saludo + credenciales no deben tumbar el alta si WhatsApp falla: el
     // usuario ya quedó creado y las credenciales se pueden reenviar.
-    let whatsappEnviado = true;
-    try {
-      const nips = await nipsParaAcceso(nuevo.toObject(), nipOperacion);
-      await enviarBienvenida({ telefono: telefonoNormalizado, nombre, usuario, password: passwordPlano, ...nips });
-    } catch {
-      whatsappEnviado = false;
+    let whatsappEnviado = false;
+    if (telefonoNormalizado) {
+      try {
+        const nips = await nipsParaAcceso(nuevo.toObject(), nipOperacion);
+        await enviarBienvenida({ telefono: telefonoNormalizado, nombre, usuario, password: passwordPlano, ...nips });
+        whatsappEnviado = true;
+      } catch {
+        whatsappEnviado = false;
+      }
     }
 
-    return NextResponse.json({ _id: String(nuevo._id), whatsappEnviado }, { status: 201 });
+    // Si no salió el WhatsApp (sin teléfono o la instancia desconectada), se
+    // devuelve la contraseña para que matriz se la entregue en persona.
+    return NextResponse.json(
+      { _id: String(nuevo._id), whatsappEnviado, ...(whatsappEnviado ? {} : { usuario, password: passwordPlano }) },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof PermisosIndividualesError) return badRequest(error.message);
     if (error instanceof NipPersonalError) return badRequest(error.message);

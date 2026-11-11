@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
   const usuario = await UserModel.findById(usuarioId).select("nombre usuario telefono apellidoPaterno fechaNacimiento role sucursalRol rolId permisosIndividuales nipOperacionHash +nipOperacionCifrado");
   if (!usuario) return badRequest("El usuario no existe");
   if (!usuario.telefono) return badRequest("El usuario no tiene teléfono registrado");
-  if (!usuario.usuario || !usuario.apellidoPaterno || !usuario.fechaNacimiento) {
-    return badRequest("A este usuario le faltan datos (usuario, apellido paterno o fecha de nacimiento) para generar su contraseña");
+  if (!usuario.usuario) {
+    return badRequest("A este usuario le falta el nombre de usuario para generar su contraseña");
   }
 
   // Antes de tocar la contraseña se confirma que el mensaje puede salir: que
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   // La contraseña es determinista; se regenera y se re-sincroniza el hash para
   // garantizar que lo que se envía es lo que sirve para entrar.
-  const passwordPlano = generarPasswordUsuario(usuario.apellidoPaterno, usuario.fechaNacimiento);
+  const passwordPlano = generarPasswordUsuario({ usuario: usuario.usuario, apellidoPaterno: usuario.apellidoPaterno, fechaNacimiento: usuario.fechaNacimiento });
   await UserModel.updateOne({ _id: usuario._id }, { passwordHash: await hashPassword(passwordPlano) });
 
   const { avisos, ...nips } = await nipsParaAcceso(usuario.toObject());

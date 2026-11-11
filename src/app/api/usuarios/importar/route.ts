@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const role = rol.ambito as "matriz" | "sucursal";
 
     try {
-      const passwordPlano = generarPasswordUsuario(apellidoPaterno, fechaNacimiento);
+      const passwordPlano = generarPasswordUsuario({ usuario, apellidoPaterno, fechaNacimiento });
       const nuevo = await UserModel.create({
         nombre,
         usuario,

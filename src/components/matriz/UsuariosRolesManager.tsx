@@ -105,6 +105,7 @@ function UsuarioModal({
   const [activo, setActivo] = useState(usuario?.activo ?? true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [credenciales, setCredenciales] = useState<{ usuario: string; password: string } | null>(null);
 
   // Solo se ofrecen los roles del ámbito correcto: un rol de sucursal no tiene
   // sentido en un usuario de matriz.
@@ -157,25 +158,30 @@ function UsuarioModal({
 
     setGuardando(false);
 
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       setError(data.error || "No se pudo guardar el usuario");
+      return;
+    }
+    // Si al crear no salió el WhatsApp, se muestran las credenciales para
+    // entregarlas en persona.
+    if (!esEdicion && data.whatsappEnviado === false && data.password) {
+      setCredenciales({ usuario: data.usuario, password: data.password });
       return;
     }
     onGuardado();
   }
 
-  // Al editar, apellido y nacimiento solo son obligatorios si ya estaban
-  // capturados (no se pueden borrar); si faltan, se avisa porque sin ellos no
-  // se puede generar ni reenviar la contraseña.
-  const exigeApellido = !esEdicion || !!usuario!.apellidoPaterno;
-  const exigeNacimiento = !esEdicion || !!usuario!.fechaNacimiento;
+  // Apellido, nacimiento y teléfono son opcionales. Al editar, apellido y
+  // nacimiento no se pueden borrar si ya estaban capturados.
+  const exigeApellido = esEdicion && !!usuario!.apellidoPaterno;
+  const exigeNacimiento = esEdicion && !!usuario!.fechaNacimiento;
   const faltantes = [
     !nombre.trim() && "nombre",
     !nombreUsuario.trim() && "usuario",
     exigeApellido && !apellidoPaterno.trim() && "apellido paterno",
     exigeNacimiento && !fechaNacimiento && "fecha de nacimiento",
-    telefono.length !== 10 && "teléfono a 10 dígitos",
+    telefono.length > 0 && telefono.length !== 10 && "teléfono a 10 dígitos",
     !esEdicion && !rolId && "puesto",
     !esEdicion && role === "sucursal" && !sucursalId && "sucursal",
     pideNipSupervisor && nipSupervisor.length !== 6 && "NIP para crear supervisores",
@@ -183,6 +189,27 @@ function UsuarioModal({
   ].filter(Boolean) as string[];
   const faltaCampo = faltantes.length > 0;
   const sinDatosAcceso = esEdicion && (!apellidoPaterno.trim() || !fechaNacimiento);
+
+  if (credenciales) {
+    return (
+      <Modal
+        open
+        onClose={onGuardado}
+        title="Usuario creado"
+        icon={KeyRound}
+        footer={<Button onClick={onGuardado}>Listo</Button>}
+      >
+        <div className="space-y-3 text-sm">
+          <p className="text-amber-800">No se pudo enviar el WhatsApp (sin teléfono o la línea está desconectada). Entrégale estas credenciales en persona:</p>
+          <div className="rounded-lg bg-titos-green-100/50 p-3 font-mono">
+            <p>Usuario: <strong>{credenciales.usuario}</strong></p>
+            <p>Contraseña: <strong>{credenciales.password}</strong></p>
+          </div>
+          <p className="text-xs text-black/50">Cuando la línea vuelva, puedes reenviarle su acceso por WhatsApp desde la lista de usuarios.</p>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -202,7 +229,7 @@ function UsuarioModal({
           <FormField label="Nombre">
             <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
           </FormField>
-          <FormField label="Apellido paterno">
+          <FormField label="Apellido paterno (opcional)">
             <Input value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)} />
           </FormField>
         </FormGrid>
@@ -211,7 +238,7 @@ function UsuarioModal({
           <FormField label="Usuario (para iniciar sesión)">
             <Input icon={UserCog} value={nombreUsuario} onChange={(e) => setNombreUsuario(e.target.value)} placeholder="ej. jperez" autoComplete="off" />
           </FormField>
-          <FormField label="Fecha de nacimiento">
+          <FormField label="Fecha de nacimiento (opcional)">
             <Input type="date" value={fechaNacimiento ?? ""} onChange={(e) => setFechaNacimiento(e.target.value)} />
           </FormField>
         </FormGrid>
@@ -227,7 +254,7 @@ function UsuarioModal({
               <option value="+1">+1 EUA</option>
             </Select>
           </FormField>
-          <FormField label="Teléfono (WhatsApp)">
+          <FormField label="Teléfono WhatsApp (opcional)">
             <Input
               icon={Phone}
               type="tel"
@@ -369,7 +396,7 @@ function UsuarioModal({
         ) : (
           <div className="rounded-lg bg-titos-green-100/50 p-3 text-sm text-titos-green-900">
             <p className="font-medium">La contraseña se genera automáticamente</p>
-            <p className="mt-1 text-xs text-titos-green-700">Se forma con el <strong>apellido paterno</strong> y el <strong>día y mes de nacimiento</strong> (ej. <em>Perez.1503</em>) y se envía al colaborador por WhatsApp junto con su usuario.</p>
+            <p className="mt-1 text-xs text-titos-green-700">Se forma con el <strong>apellido paterno</strong> y el <strong>día y mes de nacimiento</strong> (ej. <em>Perez.1503</em>). Si no capturas alguno de los dos, será el <strong>usuario + &quot;.Titos&quot;</strong> (ej. <em>jperez.Titos</em>). Se envía por WhatsApp; si no se puede enviar, te la mostramos al crear.</p>
           </div>
         )}
 
@@ -381,7 +408,7 @@ function UsuarioModal({
         ) : null}
 
         <PermisosUsuarioEditor ambito={role} base={basePermisos} seleccion={permisosUsuario} consulta={soloConsulta} disabled={usuario?.propio} onChange={(permisos, consulta) => { setPermisosUsuario(permisos); setSoloConsulta(consulta); }} />
-        {sinDatosAcceso ? <p className="text-sm text-amber-800">Captura apellido paterno y fecha de nacimiento para poder reenviarle su acceso por WhatsApp (la contraseña se forma con ellos).</p> : null}
+        {sinDatosAcceso ? <p className="text-sm text-amber-800">Sin apellido paterno y fecha de nacimiento, su contraseña autogenerada es el usuario + &quot;.Titos&quot;.</p> : null}
         {faltaCampo ? <p className="text-sm text-black/70">Para guardar falta: {faltantes.join(", ")}.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
       </div>
@@ -405,6 +432,45 @@ const formatearTelefono = (t: string) => {
   const local = d.slice(-10);
   return `+${d.slice(0, -10)} ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
 };
+
+function EliminarUsuarioModal({ usuario, onClose, onEliminado }: { usuario: Usuario; onClose: () => void; onEliminado: () => void }) {
+  const [eliminando, setEliminando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function eliminar() {
+    setError(null);
+    setEliminando(true);
+    const res = await fetch(`/api/usuarios/${usuario._id}`, { method: "DELETE" });
+    setEliminando(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo eliminar el usuario");
+      return;
+    }
+    onEliminado();
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Eliminar usuario"
+      icon={TriangleAlert}
+      footer={
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={eliminando}>Cancelar</Button>
+          <Button variant="danger" onClick={eliminar} disabled={eliminando}>{eliminando ? "Eliminando..." : "Eliminar"}</Button>
+        </div>
+      }
+    >
+      <div className="space-y-2 text-sm">
+        <p>¿Eliminar a <strong>{usuario.nombre}</strong>{usuario.usuario ? <> (<em>{usuario.usuario}</em>)</> : null}?</p>
+        <p className="text-black/60">Ya no podrá iniciar sesión y desaparecerá de esta lista. Su usuario, teléfono y NIP quedan libres para asignarse a alguien más. Sus ventas, cortes y movimientos se conservan con su nombre.</p>
+        {error ? <p role="alert" className="text-red-600">{error}</p> : null}
+      </div>
+    </Modal>
+  );
+}
 
 function ReenviarAccesoModal({ usuario, onClose }: { usuario: Usuario; onClose: () => void }) {
   const [fase, setFase] = useState<"enviando" | "listo" | "error">("enviando");
@@ -1001,6 +1067,7 @@ export function UsuariosRolesManager() {
   const [creandoRol, setCreandoRol] = useState(false);
   const [importando, setImportando] = useState(false);
   const [reenviando, setReenviando] = useState<Usuario | null>(null);
+  const [eliminando, setEliminando] = useState<Usuario | null>(null);
   const { pagina: paginaUsuarios, paginacion: paginacionUsuarios } = usePaginacion(usuariosVisibles, [busqueda, estado, filtroRol, filtroSucursal, orden].join("|"));
 
   async function cargar() {
@@ -1126,6 +1193,11 @@ export function UsuariosRolesManager() {
                           <Button variant="ghost" size="sm" onClick={() => setUsuarioModal(u)}>
                             Editar
                           </Button>
+                          {!u.propio ? (
+                            <Button variant="ghost" size="sm" className="text-red-600! hover:bg-red-50!" onClick={() => setEliminando(u)}>
+                              Eliminar
+                            </Button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -1223,6 +1295,14 @@ export function UsuariosRolesManager() {
       ) : null}
 
       {reenviando ? <ReenviarAccesoModal key={reenviando._id} usuario={reenviando} onClose={() => setReenviando(null)} /> : null}
+      {eliminando ? (
+        <EliminarUsuarioModal
+          key={eliminando._id}
+          usuario={eliminando}
+          onClose={() => setEliminando(null)}
+          onEliminado={() => { setEliminando(null); cargar(); }}
+        />
+      ) : null}
 
       {importando ? (
         <ImportarModal

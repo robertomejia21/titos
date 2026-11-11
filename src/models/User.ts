@@ -43,6 +43,12 @@ const UserSchema = new Schema(
     // acceso. Nunca sale por la API.
     nipOperacionCifrado: { type: String, select: false },
     activo: { type: Boolean, default: true },
+    // Baja definitiva desde /matriz/usuarios. El documento se conserva para que
+    // ventas, cortes y bitácora sigan mostrando su nombre, pero ya no aparece en
+    // la lista ni puede iniciar sesión.
+    eliminado: { type: Boolean, default: false },
+    eliminadoEn: { type: Date, default: null },
+    eliminadoPor: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );
