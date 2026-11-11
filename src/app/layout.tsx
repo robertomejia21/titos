@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { RegistrarServiceWorker } from "@/components/RegistrarServiceWorker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,8 +27,9 @@ export const metadata: Metadata = {
   icons: {
     icon: "/media/favicon.png",
     shortcut: "/media/favicon.png",
-    apple: "/media/favicon.png",
+    apple: "/media/icon-192.png",
   },
+  applicationName: "Titos",
 };
 
 export default function RootLayout({
@@ -42,6 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <RegistrarServiceWorker />
         <Analytics />
         <Script id="davinci-capture-loader" strategy="afterInteractive">{`if(window.parent!==window){var s=document.createElement('script');s.src='/davinci-capture.v1.js';s.async=true;document.head.appendChild(s);}`}</Script>
       </body>
