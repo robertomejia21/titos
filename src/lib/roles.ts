@@ -1,4 +1,5 @@
 import RolModel from "@/models/Rol";
+import UserModel from "@/models/User";
 import { ROLES_SEMILLA, permisosLegado, esPermisoValido } from "@/lib/permisos";
 import { PUESTOS } from "@/lib/puestos";
 
@@ -42,6 +43,29 @@ export async function asegurarRolesSemilla() {
   }
 
   await RolModel.updateOne({ codigoSistema: "pos-cajero", descripcion: "Opera el punto de venta de su sucursal con NIP personal. No autoriza como supervisor." }, { $set: { descripcion: "Opera el punto de venta de su sucursal sin NIP personal. El gerente autoriza las operaciones que lo requieren." } });
+
+  await cajerosPuedenSolicitarCancelaciones();
+}
+
+/**
+ * Una sola vez: el cajero recibe "Cancelar ventas y quitar productos" (operar,
+ * no solo consulta). La cancelación sigue exigiendo el NIP del gerente, así que
+ * el cajero solo la solicita. Si matriz se lo quita después, no se vuelve a poner.
+ */
+async function cajerosPuedenSolicitarCancelaciones() {
+  const MIGRACION = "cajero-solicita-cancelaciones";
+  const rol = await RolModel.findOneAndUpdate(
+    { codigoSistema: "pos-cajero", migraciones: { $ne: MIGRACION } },
+    { $addToSet: { permisos: "pos.cancelar", migraciones: MIGRACION } },
+    { returnDocument: "after" }
+  ).select("_id").lean<{ _id: unknown }>();
+  if (!rol) return;
+  // Cajeros con permisos personalizados: los suyos mandan sobre los del puesto.
+  await UserModel.updateMany(
+    { rolId: rol._id, permisosIndividuales: { $type: "array" } },
+    { $addToSet: { permisosIndividuales: "pos.cancelar" } }
+  );
+  await UserModel.updateMany({ rolId: rol._id }, { $pull: { permisosSoloConsulta: "pos.cancelar" } });
 }
 
 type UsuarioParaPermisos = {

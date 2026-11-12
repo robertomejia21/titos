@@ -27,6 +27,9 @@ const RolSchema = new Schema(
     // con los que ya venía operando el sistema.
     esSistema: { type: Boolean, default: false },
     activo: { type: Boolean, default: true },
+    // Ajustes de una sola vez ya aplicados a este rol (ver lib/roles.ts), para
+    // no volver a imponerlos si matriz los cambia después a mano.
+    migraciones: { type: [String], default: [] },
   },
   { timestamps: true }
 );
