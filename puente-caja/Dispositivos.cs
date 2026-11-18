@@ -60,7 +60,7 @@ public sealed class CanalSerial : IDisposable
                     for (var i = 0; i < n; i++)
                     {
                         var b = buffer[i];
-                        if (b is 0x0D or 0x0A or 0x03)
+                        if ((b & 0x7F) is 0x0D or 0x0A or 0x03)
                         {
                             if (trama.Length > 0) Emitir(trama.ToString());
                             trama.Clear();
@@ -129,9 +129,13 @@ public sealed class CanalSerial : IDisposable
 /// </summary>
 public sealed class Dispositivos
 {
-    private readonly ConfiguracionDispositivos _cfg;
+    private ConfiguracionDispositivos _cfg;
     private CanalSerial? _canalEscaner;
     private CanalSerial? _canalBascula;
+    private CancellationToken _ctApp = CancellationToken.None;
+    private CancellationTokenSource? _cts;
+    private readonly List<Task> _tareas = new();
+    private readonly SemaphoreSlim _cambio = new(1, 1);
 
     private readonly object _candado = new();
     private string? _codigo;
@@ -143,35 +147,98 @@ public sealed class Dispositivos
 
     public Dispositivos(ConfiguracionDispositivos cfg) => _cfg = cfg;
 
+    public ConfiguracionDispositivos Configuracion => _cfg;
     public bool HayAlguno => _cfg.Escaner.Activo || _cfg.Bascula.Activo;
+    /// <summary>true mientras la página de configuración busca equipos (los puertos quedan libres).</summary>
+    public bool Pausado { get; private set; }
 
     public void Iniciar(CancellationToken ct)
     {
+        _ctApp = ct;
+        Arrancar();
+    }
+
+    private void Arrancar()
+    {
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(_ctApp);
+        var ct = _cts.Token;
         var unSoloCable = _cfg.Escaner.Activo && _cfg.Bascula.Activo
             && _cfg.Escaner.PuertoCom.Equals(_cfg.Bascula.PuertoCom, StringComparison.OrdinalIgnoreCase);
 
         if (_cfg.Bascula.Activo)
         {
-            _canalBascula = new CanalSerial("Báscula", _cfg.Bascula);
-            _canalBascula.Trama += t => InterpretarBascula(t, unSoloCable);
-            _ = _canalBascula.EjecutarAsync(ct);
-            if (_cfg.Bascula.Protocolo != "continuo") _ = PedirPesoAsync(ct);
+            var canal = new CanalSerial("Báscula", _cfg.Bascula);
+            canal.Trama += t => InterpretarBascula(t, unSoloCable);
+            _canalBascula = canal;
+            _tareas.Add(canal.EjecutarAsync(ct));
+            if (_cfg.Bascula.Protocolo != "continuo") _tareas.Add(PedirPesoAsync(canal, _cfg.Bascula, ct));
         }
         if (_cfg.Escaner.Activo && !unSoloCable)
         {
-            _canalEscaner = new CanalSerial("Escáner", _cfg.Escaner);
-            _canalEscaner.Trama += InterpretarEscaner;
-            _ = _canalEscaner.EjecutarAsync(ct);
+            var canal = new CanalSerial("Escáner", _cfg.Escaner);
+            canal.Trama += InterpretarEscaner;
+            _canalEscaner = canal;
+            _tareas.Add(canal.EjecutarAsync(ct));
         }
+        Pausado = false;
     }
 
-    private async Task PedirPesoAsync(CancellationToken ct)
+    private async Task DetenerInternoAsync()
     {
-        var comando = _cfg.Bascula.Protocolo == "magellan" ? "S11\r" : _cfg.Bascula.ComandoPeso;
+        _cts?.Cancel();
+        try { await Task.WhenAll(_tareas).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* ya se cerraron */ }
+        _tareas.Clear();
+        _cts?.Dispose();
+        _cts = null;
+        _canalBascula?.Dispose();
+        _canalEscaner?.Dispose();
+        _canalBascula = null;
+        _canalEscaner = null;
+    }
+
+    /// <summary>Cierra los puertos COM (para que la detección pueda usarlos) sin cerrar el puente.</summary>
+    public async Task DetenerAsync()
+    {
+        await _cambio.WaitAsync();
+        try
+        {
+            await DetenerInternoAsync();
+            Pausado = true;
+        }
+        finally { _cambio.Release(); }
+    }
+
+    /// <summary>Vuelve a abrir los puertos, con la configuración nueva si se indica.</summary>
+    public async Task ReiniciarAsync(ConfiguracionDispositivos? nueva = null)
+    {
+        await _cambio.WaitAsync();
+        try
+        {
+            await DetenerInternoAsync();
+            if (nueva is not null)
+            {
+                _cfg = nueva;
+                lock (_candado)
+                {
+                    _codigo = null;
+                    _peso = null;
+                    _pesoCrudo = null;
+                    _pesoEstado = null;
+                    _pesoHora = default;
+                }
+            }
+            Arrancar();
+        }
+        finally { _cambio.Release(); }
+    }
+
+    private static async Task PedirPesoAsync(CanalSerial canal, ConfiguracionSerial cfg, CancellationToken ct)
+    {
+        var comando = cfg.Protocolo == "magellan" ? "S11\r" : cfg.ComandoPeso;
         while (!ct.IsCancellationRequested)
         {
-            _canalBascula?.Enviar(comando);
-            try { await Task.Delay(_cfg.Bascula.IntervaloMs, ct); } catch { break; }
+            canal.Enviar(comando);
+            try { await Task.Delay(cfg.IntervaloMs, ct); } catch { break; }
         }
     }
 
@@ -179,7 +246,8 @@ public sealed class Dispositivos
 
     internal void InterpretarEscaner(string trama)
     {
-        var codigo = new string(trama.Where(c => c >= ' ' && c <= '~').ToArray()).Trim();
+        // Se quita el bit de paridad: así también se lee bien un escáner de 7 bits configurado a 8N1.
+        var codigo = new string(trama.Select(c => (char)(c & 0x7F)).Where(c => c >= ' ' && c <= '~').ToArray()).Trim();
         // Magellan a un solo cable antepone "S08" al código; el resto de letras del lector
         // (identificador de simbología) las quita el punto de venta si hace falta.
         if (codigo.StartsWith("S08", StringComparison.Ordinal)) codigo = codigo[3..];
@@ -204,44 +272,79 @@ public sealed class Dispositivos
 
     // ---------- Báscula ----------
 
-    private static readonly Regex Numero = new(@"(\d+(?:[.,]\d+)?)", RegexOptions.Compiled);
-
     internal void InterpretarBascula(string trama, bool unSoloCable)
     {
+        var cfg = _cfg.Bascula;
         var t = trama.Trim('\x02', ' ', '\x03');
-        if (_cfg.Bascula.Protocolo == "magellan")
+        if (cfg.Protocolo == "magellan" && t.StartsWith("S08", StringComparison.Ordinal))
         {
-            if (t.StartsWith("S08", StringComparison.Ordinal)) { if (unSoloCable) InterpretarEscaner(t); return; }
+            if (unSoloCable) InterpretarEscaner(t);
+            return;
+        }
+        if (LeerTrama(t, cfg.Protocolo) is not { } l) return;
+        Guardar(l.Valor is { } v ? EnKg(v, l.Unidad ?? cfg.Unidad) : null, t, l.Estado);
+    }
+
+    /// <summary>Peso leído de una trama, en la unidad de la báscula (Valor null = sin peso válido).</summary>
+    public readonly record struct LecturaPeso(decimal? Valor, string Estado, string? Unidad);
+
+    private static readonly Regex NumeroConSigno = new(@"(-?)\s*(\d+(?:[.,]\d+)?)", RegexOptions.Compiled);
+    private static readonly Regex UnidadTexto = new(@"(?<![a-z])(kg|lbs?|g)(?![a-z])", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex Inestable = new(@"^(S\s+[DI]\b|US\b|US,|SD\b)", RegexOptions.Compiled);
+    private static readonly Regex Sobrecarga = new(@"^S\s*\+|\bOL\b", RegexOptions.Compiled);
+    private static readonly Regex BajoCero = new(@"^S\s*-", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Interpreta una trama de báscula. Formatos reconocidos:
+    /// NCR/Toledo/CAS/Torrey ("&lt;02&gt;001.25", "  1.234 kg", "?A" en movimiento),
+    /// Mettler SICS ("S S     0.256 kg", "S D" en movimiento, "S +"/"S -" fuera de rango),
+    /// CAS continuo ("ST,GS,+001.234kg", "US,…" en movimiento) y Magellan SCMP ("S11…", "S14x").
+    /// La unidad (kg, lb, g) se toma de la trama si viene; si no, se usa la configurada.
+    /// Devuelve null si la trama no parece de báscula.
+    /// </summary>
+    public static LecturaPeso? LeerTrama(string trama, string protocolo)
+    {
+        var t = new string(trama.Select(c => (char)(c & 0x7F)).ToArray()).Trim('\x02', '\x03', '\r', '\n', ' ');
+        if (t.Length == 0) return null;
+        if (protocolo == "magellan")
+        {
             if (t.StartsWith("S14", StringComparison.Ordinal))
             {
                 // S140 = no listo, S141 = en movimiento, S142 = sobrecarga, S143 = bajo cero, S144 = cero
                 var estado = t.Length > 3 ? t[3] : '?';
-                if (estado == '4') Guardar(0m, t, "cero");
-                else Guardar(null, t, estado switch { '1' => "en movimiento", '2' => "sobrecarga", '3' => "bajo cero", _ => "no lista" });
-                return;
+                return estado == '4'
+                    ? new LecturaPeso(0m, "cero", null)
+                    : new LecturaPeso(null, estado switch { '1' => "en movimiento", '2' => "sobrecarga", '3' => "bajo cero", _ => "no lista" }, null);
             }
             if (t.StartsWith("S11", StringComparison.Ordinal))
             {
                 var digitos = new string(t[3..].TakeWhile(char.IsDigit).ToArray());
-                if (digitos.Length == 0) { Guardar(null, t, "sin peso"); return; }
+                if (digitos.Length == 0) return new LecturaPeso(null, "sin peso", null);
                 // 5 dígitos = milésimas, 4 dígitos = centésimas (de la unidad configurada)
-                var valor = decimal.Parse(digitos, CultureInfo.InvariantCulture) / (digitos.Length >= 5 ? 1000m : 100m);
-                Guardar(EnKg(valor), t, "estable");
+                return new LecturaPeso(decimal.Parse(digitos, CultureInfo.InvariantCulture) / (digitos.Length >= 5 ? 1000m : 100m), "estable", null);
             }
-            return;
+            return null;
         }
 
-        // NCR / continuo: el peso viene como texto ("01.23", "  1.234 kg"). Un "?" indica
-        // movimiento o error (protocolo NCR/Mettler 8217).
-        if (t.Contains('?')) { Guardar(null, t, "en movimiento o sin dato"); return; }
-        var m = Numero.Match(t);
-        if (!m.Success) return;
-        var v = decimal.Parse(m.Groups[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
-        Guardar(EnKg(v), t, "estable");
+        // Texto: el peso viene como número ("01.23", "  1.234 kg"). Un "?" indica movimiento o
+        // error (NCR / Mettler 8217).
+        var mu = UnidadTexto.Match(t);
+        var unidad = mu.Success ? mu.Groups[1].Value.ToLowerInvariant() switch { "kg" => "kg", "g" => "g", _ => "lb" } : null;
+        var unidadFinal = unidad == "g" ? "kg" : unidad;
+        if (t.Contains('?')) return new LecturaPeso(null, "en movimiento o sin dato", unidadFinal);
+        if (Inestable.IsMatch(t)) return new LecturaPeso(null, "en movimiento", unidadFinal);
+        if (Sobrecarga.IsMatch(t)) return new LecturaPeso(null, "sobrecarga", unidadFinal);
+        if (BajoCero.IsMatch(t)) return new LecturaPeso(null, "bajo cero", unidadFinal);
+        var m = NumeroConSigno.Match(t);
+        if (!m.Success) return null;
+        var v = decimal.Parse(m.Groups[2].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
+        if (m.Groups[1].Value == "-" && v != 0) return new LecturaPeso(null, "bajo cero", unidadFinal);
+        if (unidad == "g") v /= 1000m;
+        return new LecturaPeso(v, "estable", unidadFinal);
     }
 
-    private decimal EnKg(decimal valor) =>
-        Math.Round(_cfg.Bascula.Unidad == "lb" ? valor * 0.45359237m : valor, 3);
+    private static decimal EnKg(decimal valor, string unidad) =>
+        Math.Round(unidad == "lb" ? valor * 0.45359237m : valor, 3);
 
     private void Guardar(decimal? pesoKg, string crudo, string estado)
     {
@@ -270,8 +373,9 @@ public sealed class Dispositivos
     public object Diagnostico() => new
     {
         ok = true,
+        pausado = Pausado,
         puertosDisponibles = SerialPort.GetPortNames().OrderBy(p => p).ToArray(),
-        escaner = _cfg.Escaner.Activo ? (_canalEscaner?.Diagnostico() ?? new { mismoPuertoQueBascula = true }) : null,
+        escaner = _cfg.Escaner.Activo && !Pausado ? (_canalEscaner?.Diagnostico() ?? new { mismoPuertoQueBascula = true }) : null,
         bascula = _cfg.Bascula.Activo ? _canalBascula?.Diagnostico() : null,
     };
 

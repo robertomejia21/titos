@@ -206,13 +206,35 @@ administrador:
 netsh http add urlacl url=http://127.0.0.1:8091/ user=%USERNAME%
 ```
 
-## 12. Báscula y escáner por puerto COM (PSC/Datalogic Magellan)
+## 12. Báscula y escáner por puerto COM
 
 Desde la versión 1.1.0 el puente también lee el **escáner** y la **báscula** conectados por puerto serie y se los entrega
 al punto de venta en `http://localhost:8090/escaner` y `http://localhost:8090/peso` (el punto de venta ya los consulta solo).
 
 Con un **Magellan 8200 a dos cables** (lo normal): el conector *POS Terminal* del equipo lleva los códigos y el conector
 *Scale Host* lleva el peso, cada uno a su COM de la PC.
+
+### Detectarlos automáticamente (recomendado, desde 1.2.0)
+
+Con el puente abierto, en la PC de caja abra **`http://localhost:8091/configurar`** (o un acceso directo a
+`C:\PuenteCaja\PuenteCaja.exe --configurar`: si el puente ya corre, solo abre la página).
+
+- **Escáner**: "Detectar automáticamente" y escanee cualquier código cada 3 segundos. Se escuchan todos los puertos a la
+  vez, rotando velocidades (9600, 19200, 38400, 115200, 4800, 2400); se lee a 8N1 y se quita el bit de paridad, así que
+  sirve para escáneres de 7 u 8 bits.
+- **Báscula**: con un producto en el plato, "Detectar automáticamente". En cada puerto (en paralelo) se prueban
+  velocidades/paridades comunes, primero escuchando (básculas continuas) y luego con los comandos de peso
+  `W` (NCR, Toledo, CAS, Magellan, Datalogic), `P` (Torrey y similares), `S11` (Magellan un cable), `S` (Mettler SICS)
+  e `IP` (Ohaus). Cada hallazgo se confirma con una segunda respuesta. Tarda hasta 2 minutos.
+- "Guardar y usar" escribe solo la sección `dispositivos` de `puente-caja.json` (deja copia en `puente-caja.json.respaldo`,
+  conserva lo de Banorte) y abre los puertos al momento, sin reiniciar el puente.
+- La página también tiene una prueba para lectores USB tipo teclado (esos no usan COM) y una configuración manual.
+- Mientras se busca, los puertos se liberan y el punto de venta no recibe peso ni códigos por COM.
+- Los puertos Bluetooth se omiten. Solo la propia página puede cambiar la configuración (otro origen recibe 403).
+
+La báscula entiende tramas NCR (`<STX>001.25`, `?A` en movimiento), Mettler SICS (`S S 0.256 kg`, `S D`), CAS continuo
+(`ST,GS,+001.234kg`, `US,…`) y Magellan SCMP (`S11…`, `S14x`). Si la trama trae unidad (`kg`, `lb`, `g`) se usa esa; si no,
+la configurada.
 
 ### Configuración (`puente-caja.json`)
 
@@ -230,12 +252,12 @@ Con un **Magellan 8200 a dos cables** (lo normal): el conector *POS Terminal* de
 | `puertoHttp` | Puerto extra donde el punto de venta busca `/peso` y `/escaner`. Si está ocupado (otro programa de báscula), el puente avisa y arranca igual. |
 | `puertoCom` | `COM1`, `COM2`… (Administrador de dispositivos → Puertos COM y LPT). |
 | `baudios`, `bitsDatos`, `paridad`, `bitsParada`, `controlFlujo` | Deben coincidir con la programación del equipo (`paridad`: none/odd/even; `controlFlujo`: none/rtscts). |
-| `protocolo` (báscula) | `ncr`: el puente envía `comandoPeso` ("W") y la báscula responde el peso. `magellan`: un solo cable, se pide con `S11`. `continuo`: la báscula manda el peso sola. |
+| `protocolo` (báscula) | `ncr`: el puente envía `comandoPeso` (`"W"`, `"P"`, `"S\r\n"`, `"IP\r\n"`…) y la báscula responde el peso. `magellan`: un solo cable, se pide con `S11`. `continuo`: la báscula manda el peso sola. |
 | `unidad` | `kg` o `lb` (el punto de venta trabaja en kilos; si la báscula pesa en libras se convierte). |
 
 Si el escáner y la báscula comparten COM (un solo cable), ponga el mismo `puertoCom` en ambos y `"protocolo": "magellan"` en la báscula.
 
-### Averiguar la configuración en la caja
+### Averiguar la configuración a mano (si la detección no lo encuentra)
 
 1. Cierre el puente (el puerto COM solo lo puede usar un programa a la vez).
 2. Escáner: `PuenteCaja.exe --escuchar COM1 9600 7 odd 1` y escanee algo. Si salen letras raras pruebe `9600 8 none 1`.
@@ -248,3 +270,4 @@ Si el escáner y la báscula comparten COM (un solo cable), ponga el mismo `puer
 - `http://localhost:8090/peso` → `{"ok":true,"peso":1.235,"unidad":"kg",...}`
 - `http://localhost:8090/escaner` → `{"ok":true,"codigo":"7501234567890","ts":...}` tras escanear algo.
 - `http://localhost:8091/dispositivos` → puertos COM de la PC, si cada uno abrió y las últimas tramas recibidas tal cual.
+- `http://localhost:8091/configurar` muestra todo eso de forma visual: estado de cada equipo, peso en vivo y último código.

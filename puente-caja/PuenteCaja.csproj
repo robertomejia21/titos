@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>PuenteCaja</RootNamespace>
     <AssemblyName>PuenteCaja</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>Puente de caja Titos</Product>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -20,6 +20,11 @@
   <ItemGroup>
     <!-- Lectura de la báscula y el escáner por puerto COM -->
     <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Página http://localhost:8091/configurar (detección de báscula y escáner) -->
+    <EmbeddedResource Include="configurar.html" LogicalName="PuenteCaja.configurar.html" />
   </ItemGroup>
 
   <ItemGroup>
