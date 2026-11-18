@@ -15,9 +15,12 @@ public static class Program
             Console.WriteLine("""
                 Puente de caja Titos
                 Uso: PuenteCaja [--config ruta\puente-caja.json] [--puerto N] [--probar]
+                       PuenteCaja --configurar
                        PuenteCaja --escuchar COM2 [baudios] [bits] [paridad] [parada] [comando]
                   --config   Archivo de configuración (por omisión: puente-caja.json junto al exe o en la carpeta actual)
                   --puerto   Sobrescribe el puerto HTTP de la configuración (útil para pruebas)
+                  --configurar Abre en el navegador la página para detectar báscula y escáner
+                             (si el puente ya está abierto, solo abre la página)
                   --probar   Autoprueba con el simulador (VENTA, VERIFICACION, CANCELACION) y termina
                   --escuchar Muestra lo que llega por un puerto COM (báscula/escáner). Ej.:
                              PuenteCaja --escuchar COM2 9600 7 odd 1 W
@@ -44,6 +47,14 @@ public static class Program
         {
             Escribir($"Error de configuración: {ex.Message}", ConsoleColor.Red);
             return 1;
+        }
+
+        var urlConfigurar = $"http://localhost:{cfg.Puerto}/configurar";
+        var abrirConfigurar = args.Contains("--configurar");
+        if (abrirConfigurar && await PuenteYaAbiertoAsync(cfg.Puerto))
+        {
+            AbrirNavegador(urlConfigurar);
+            return 0;
         }
 
         var carpetaConfig = cfg.RutaArchivo is null ? null : Path.GetDirectoryName(cfg.RutaArchivo);
@@ -75,9 +86,31 @@ public static class Program
             cts.Cancel();
         };
 
-        await servidor.AtenderAsync(cts.Token);
+        var atender = servidor.AtenderAsync(cts.Token);
+        if (abrirConfigurar) AbrirNavegador(urlConfigurar);
+        await atender;
         Escribir("Puente detenido.", ConsoleColor.Cyan);
         return 0;
+    }
+
+    private static async Task<bool> PuenteYaAbiertoAsync(int puerto)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+            var texto = await http.GetStringAsync($"http://localhost:{puerto}/estado");
+            return texto.Contains("\"version\"", StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void AbrirNavegador(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) { Escribir($"Abra en el navegador: {url} ({ex.Message})", ConsoleColor.Yellow); }
     }
 
     private static string? Argumento(string[] args, string nombre)
@@ -108,6 +141,7 @@ public static class Program
         var d = cfg.Dispositivos;
         Console.WriteLine($"  Escáner (COM):      {(d.Escaner.Activo ? $"{d.Escaner.PuertoCom} {CanalSerial.Descripcion(d.Escaner)}" : "no activado")}");
         Console.WriteLine($"  Báscula (COM):      {(d.Bascula.Activo ? $"{d.Bascula.PuertoCom} {CanalSerial.Descripcion(d.Bascula)} · protocolo {d.Bascula.Protocolo} · {d.Bascula.Unidad}" : "no activada")}");
+        Escribir($"  Configurar báscula y escáner: http://localhost:{cfg.Puerto}/configurar", ConsoleColor.Cyan);
         if (b.Modo == "PRD")
             Escribir("  ¡ATENCIÓN! Modo PRD (producción): las ventas aprobadas son cobros REALES.", ConsoleColor.Red);
         foreach (var a in avisos) Escribir("  Aviso: " + a, ConsoleColor.Yellow);
@@ -203,6 +237,75 @@ public static class AutoPrueba
         Verificar(mag.Peso().status == 502, "Magellan: S141 (en movimiento) → sin peso");
         mag.InterpretarBascula("S08F7501234567890", true);
         Verificar(Json.Serializar(mag.Escaner().cuerpo).Contains("\"F7501234567890\""), "Magellan un cable: S08 + código → código (sin S08)");
+
+        // Otras marcas: la unidad de la trama manda sobre la configurada.
+        var gen = new Dispositivos(new ConfiguracionDispositivos
+        {
+            Bascula = new ConfiguracionSerial { Activo = true, PuertoCom = "COM2", Protocolo = "ncr", Unidad = "kg" },
+        });
+        (string trama, decimal? kg, string desc)[] casos =
+        {
+            ("\x02" + "000.00", 0m, "NCR en cero"),
+            ("S S     0.256 kg", 0.256m, "Mettler SICS estable"),
+            ("S D     0.250 kg", null, "Mettler SICS en movimiento"),
+            ("ST,GS,+001.234kg", 1.234m, "CAS continuo estable"),
+            ("US,GS,+001.234kg", null, "CAS continuo en movimiento"),
+            ("  2.50 lb", 1.134m, "\"lb\" en la trama aunque la config diga kg"),
+            ("   250 g", 0.25m, "gramos"),
+            ("-0.015", null, "negativo → bajo cero"),
+            ("S +", null, "SICS sobrecarga"),
+        };
+        foreach (var (trama, kg, desc) in casos)
+        {
+            gen.InterpretarBascula(trama, false);
+            var (status, cuerpo) = gen.Peso();
+            var leido = status == 200 ? System.Text.Json.Nodes.JsonNode.Parse(Json.Serializar(cuerpo))?["peso"]?.GetValue<decimal>() : null;
+            Verificar(kg is null ? status == 502 : leido == kg, $"Báscula {desc}: \"{CanalSerial.Visible(trama)}\" → {(kg is null ? "sin peso" : $"{kg} kg")}");
+        }
+
+        // Detector: un código se reconoce aunque el escáner use 7 bits con cualquier paridad.
+        ServicioTransacciones.Registrar("Autoprueba del detector", ConsoleColor.Cyan);
+        static byte[] ConParidad(string texto, string paridad) => texto.Select(c =>
+        {
+            var b = (byte)c;
+            var unos = System.Numerics.BitOperations.PopCount(b);
+            var alto = paridad switch { "even" => unos % 2 == 1, "odd" => unos % 2 == 0, "mark" => true, _ => false };
+            return (byte)(alto ? b | 0x80 : b);
+        }).ToArray();
+        foreach (var paridad in new[] { "none", "even", "odd", "mark" })
+            Verificar(Detector.AnalizarCodigo(ConParidad("A844911009246\r", paridad)) == "A844911009246", $"Detector escáner: código con paridad {paridad}");
+        Verificar(Detector.AnalizarCodigo(new byte[] { 0x12, 0xF3, 0x80, 0x55, 0xAA, 0x31, 0x0D }) is null, "Detector escáner: ignora basura (velocidad equivocada)");
+        Verificar(Detector.AnalizarCodigo(ConParidad("  1.234 kg\r", "none")) is null, "Detector escáner: ignora el peso de una báscula continua");
+        Verificar(Detector.PareceBascula("\x02" + "000.47", "W", "ncr"), "Detector báscula: respuesta NCR");
+        Verificar(!Detector.PareceBascula("W", "W", "ncr"), "Detector báscula: ignora el eco del comando");
+        Verificar(!Detector.PareceBascula("00\x7F.47", "W", "ncr"), "Detector báscula: ignora errores de paridad");
+        Verificar(Detector.PareceBascula("S110250", "S11\r", "magellan"), "Detector báscula: respuesta Magellan S11");
+        Verificar(Detector.PareceBascula("  0.000 kg", "", "continuo"), "Detector báscula: trama continua");
+        Verificar(!Detector.PareceBascula("7501234567890", "", "continuo"), "Detector báscula: un código de barras no es peso");
+
+        // Guardar desde /configurar: solo cambia "dispositivos" y conserva lo demás.
+        var temporal = Path.Combine(Path.GetTempPath(), $"puente-prueba-{sello}.json");
+        try
+        {
+            File.WriteAllText(temporal, "// comentario\n{ \"puerto\": 8091, \"banorte\": { \"usuario\": \"u1\", \"modo\": \"PRD\" }, \"Dispositivos\": { \"puertoHttp\": 1 } }");
+            var nueva = new ConfiguracionDispositivos
+            {
+                Escaner = new ConfiguracionSerial { Activo = true, PuertoCom = "COM9", BitsDatos = 8, Paridad = "none" },
+                Bascula = new ConfiguracionSerial { Activo = true, PuertoCom = "COM1", Protocolo = "ncr", ComandoPeso = "S\r\n", Unidad = "lb" },
+            };
+            nueva.Validar(8091);
+            Configurador.GuardarEnArchivo(temporal, nueva);
+            var errores = new List<string>();
+            var leida = Configuracion.Cargar(temporal, errores);
+            Verificar(leida.Banorte.Usuario == "u1" && leida.Banorte.Modo == "PRD" && leida.Dispositivos.Escaner.PuertoCom == "COM9"
+                      && leida.Dispositivos.Bascula.ComandoPeso == "S\r\n" && leida.Dispositivos.Bascula.Unidad == "lb" && leida.Dispositivos.PuertoHttp == 8090
+                      && File.Exists(temporal + ".respaldo"),
+                "Guardar configuración: conserva Banorte, escribe dispositivos y deja respaldo");
+        }
+        finally
+        {
+            foreach (var f in new[] { temporal, temporal + ".respaldo" }) try { File.Delete(f); } catch { }
+        }
 
         if (fallas == 0) ServicioTransacciones.Registrar("Autoprueba superada.", ConsoleColor.Green);
         else ServicioTransacciones.Registrar($"Autoprueba con {fallas} falla(s).", ConsoleColor.Red);

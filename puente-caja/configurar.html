@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báscula y escáner · Puente de caja</title>
+<style>
+  :root {
+    --fondo: #f4f6f3; --tarjeta: #fff; --texto: #1d2a22; --suave: #5f6d64; --borde: #dfe5e0;
+    --verde: #1f7a4a; --verde-claro: #e3f3e9; --ambar: #9a6200; --ambar-claro: #fff3d6;
+    --rojo: #b42318; --rojo-claro: #fde8e6; --gris-claro: #eef1ee; --azul: #1d5fa8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0; }
+  h2 { font-size: 18px; margin: 0; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
+  p { margin: 6px 0; }
+  small, .suave { color: var(--suave); }
+  code { background: var(--gris-claro); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 8px; margin-bottom: 18px; }
+  .rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 18px; }
+  .cabeza { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pastilla { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
+  .pastilla::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .ok { background: var(--verde-claro); color: var(--verde); }
+  .aviso { background: var(--ambar-claro); color: var(--ambar); }
+  .mal { background: var(--rojo-claro); color: var(--rojo); }
+  .nada { background: var(--gris-claro); color: var(--suave); }
+  .vivo { margin: 14px 0; padding: 14px; border-radius: 10px; background: var(--gris-claro); text-align: center; min-height: 86px; }
+  .peso { font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .codigo { font-size: 22px; font-weight: 600; font-family: Consolas, monospace; word-break: break-all; }
+  button { font: inherit; font-weight: 600; border-radius: 9px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--borde); background: #fff; color: var(--texto); }
+  button.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
+  button.peligro { color: var(--rojo); }
+  button:disabled { opacity: .45; cursor: default; }
+  .botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .panel { margin-top: 14px; border: 2px solid var(--azul); border-radius: 12px; padding: 14px; background: #f5f9ff; }
+  .panel.exito { border-color: var(--verde); background: #f3fbf6; }
+  .panel.fallo { border-color: var(--ambar); background: #fffaf0; }
+  .instruccion { font-size: 17px; font-weight: 600; }
+  .barra { height: 6px; background: #dbe6f5; border-radius: 3px; overflow: hidden; margin: 10px 0; }
+  .barra > div { height: 100%; background: var(--azul); transition: width .9s linear; }
+  ul.puertos { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; }
+  ul.puertos li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--borde); }
+  ul.consejos { margin: 8px 0; padding-left: 20px; }
+  .unidades { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .unidades label { border: 1px solid var(--borde); border-radius: 9px; padding: 8px 12px; background: #fff; cursor: pointer; }
+  .unidades input { margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--borde); }
+  th { color: var(--suave); font-weight: 600; font-size: 13px; }
+  .seccion { margin-top: 16px; }
+  #mensaje { position: sticky; top: 8px; z-index: 5; margin-bottom: 12px; }
+  .nota { padding: 10px 14px; border-radius: 10px; font-weight: 600; }
+  input[type=text], select { font: inherit; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; width: 100%; }
+  .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .campos label { font-size: 13px; color: var(--suave); display: grid; gap: 3px; }
+  details > summary { cursor: pointer; font-weight: 600; }
+  .tabla-scroll { overflow-x: auto; }
+  pre.tramas { background: var(--gris-claro); padding: 8px; border-radius: 8px; font-size: 12px; max-height: 160px; overflow: auto; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Báscula y escáner</h1>
+      <p class="suave" id="subtitulo">Puente de caja Titos</p>
+    </div>
+    <small id="version"></small>
+  </header>
+
+  <div id="mensaje" hidden></div>
+  <div id="sinPuente" class="nota mal" hidden>No hay conexión con el puente de caja. ¿Se cerró la ventana de PuenteCaja?</div>
+  <div id="avisoPuerto" class="nota aviso" hidden></div>
+
+  <div class="rejilla">
+    <section class="tarjeta" id="t-escaner"></section>
+    <section class="tarjeta" id="t-bascula"></section>
+  </div>
+
+  <section class="tarjeta seccion">
+    <h2>¿El lector es USB y escribe como teclado?</h2>
+    <p class="suave">Muchos lectores USB no usan puerto COM: escriben el código como si fuera un teclado y ya funcionan en el punto de venta sin configurar nada. Haz clic en el cuadro y escanea un código para comprobarlo.</p>
+    <input type="text" id="teclado" placeholder="Haz clic aquí y escanea…" autocomplete="off">
+    <p id="tecladoResultado" class="suave"></p>
+  </section>
+
+  <section class="tarjeta seccion">
+    <h2>Puertos COM de esta PC</h2>
+    <div class="tabla-scroll"><table>
+      <thead><tr><th>Puerto</th><th>Dispositivo</th><th>Uso</th></tr></thead>
+      <tbody id="puertos"></tbody>
+    </table></div>
+    <p class="suave" style="margin-top:8px">Si no aparece el puerto de tu equipo, revisa el cable y el driver (Administrador de dispositivos → Puertos COM y LPT).</p>
+  </section>
+
+  <section class="tarjeta seccion">
+    <details id="manual">
+      <summary>Configuración manual (avanzado)</summary>
+      <p class="suave">Para cuando la detección automática no encuentra el equipo y conoces su configuración (viene en el manual o en el menú de la báscula).</p>
+      <h3>Escáner</h3>
+      <div class="campos" id="m-escaner"></div>
+      <h3>Báscula</h3>
+      <div class="campos" id="m-bascula"></div>
+      <div class="botones"><button class="primario" data-accion="guardar-manual">Guardar configuración manual</button></div>
+    </details>
+  </section>
+
+  <p class="suave" id="pie" style="margin-top:18px"></p>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+let est = null;
+let unidadElegida = null;
+let confirmarDesactivar = null;
+let ocupado = false;
+
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const desc = (c) => `${c.baudios} ${c.bitsDatos}${(c.paridad || "n")[0].toUpperCase()}${c.bitsParada}`;
+const visible = (t) => String(t ?? "").replace(/\r/g, "\\r").replace(/\n/g, "\\n").replace(/\x05/g, "\\x05");
+const real = (t) => String(t ?? "").replace(/\\r/g, "\r").replace(/\\n/g, "\n").replace(/\\x05/g, "\x05");
+
+function nombreProtocolo(b) {
+  if (b.protocolo === "magellan") return "Magellan un cable (S11)";
+  if (b.protocolo === "continuo") return "continuo (manda el peso sola)";
+  const c = (est?.comandos || []).find((x) => x.protocolo === "ncr" && x.comando === b.comandoPeso);
+  return c ? c.nombre : `comando ${visible(b.comandoPeso)}`;
+}
+
+async function api(ruta, cuerpo) {
+  const opciones = cuerpo === undefined
+    ? { cache: "no-store" }
+    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) };
+  const r = await fetch(ruta, opciones);
+  let j = null;
+  try { j = await r.json(); } catch {}
+  if (!r.ok) throw new Error(j?.error || `Error ${r.status}`);
+  return j;
+}
+
+function aviso(texto, tipo = "ok") {
+  const m = $("#mensaje");
+  m.className = `nota ${tipo}`;
+  m.textContent = texto;
+  m.hidden = false;
+  clearTimeout(aviso.t);
+  aviso.t = setTimeout(() => (m.hidden = true), tipo === "ok" ? 6000 : 12000);
+}
+
+async function refrescar() {
+  try {
+    est = await api("/configurar/estado");
+    $("#sinPuente").hidden = true;
+    pintar();
+  } catch {
+    $("#sinPuente").hidden = false;
+  }
+}
+
+function reemplazar(el, html) {
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+}
+
+function pintar() {
+  $("#subtitulo").textContent = `Puente de caja Titos · equipo ${est.equipo}`;
+  $("#version").textContent = `v${est.version}`;
+  $("#pie").innerHTML = `La configuración se guarda en <code>${esc(est.archivo)}</code> (con copia del archivo anterior en <code>.respaldo</code>). ` +
+    `El punto de venta lee el peso en <code>http://localhost:${est.puertoDispositivos}/peso</code> y los códigos en <code>/escaner</code>.`;
+  const ap = $("#avisoPuerto");
+  const hayAlguno = est.dispositivos.escaner.activo || est.dispositivos.bascula.activo;
+  ap.hidden = !(hayAlguno && !est.escuchandoPuertoDispositivos);
+  ap.textContent = `El punto de venta busca la báscula y el escáner en el puerto ${est.puertoDispositivos}, pero el puente no lo pudo abrir. ¿Hay otro programa de báscula abierto? Ciérralo y reinicia PuenteCaja.`;
+  reemplazar($("#t-escaner"), tarjeta("escaner"));
+  reemplazar($("#t-bascula"), tarjeta("bascula"));
+  pintarPuertos();
+}
+
+function estadoEquipo(tipo) {
+  const cfg = est.dispositivos[tipo];
+  const diag = est.diagnostico[tipo];
+  const lectura = est[tipo];
+  if (est.pausado) return ["aviso", "En pausa mientras se busca"];
+  if (!cfg.activo) return ["nada", "No configurado"];
+  if (tipo === "escaner" && !diag) return ["ok", "Por el cable de la báscula"];
+  if (diag?.error) return ["mal", diag.error];
+  if (!diag?.abierto) return ["aviso", "Abriendo puerto…"];
+  if (tipo === "bascula" && !lectura.ok) return ["aviso", lectura.error || "Sin peso"];
+  return ["ok", "Funcionando"];
+}
+
+function tarjeta(tipo) {
+  const cfg = est.dispositivos[tipo];
+  const det = est.deteccion;
+  const buscando = det?.estado === "buscando";
+  const [clase, texto] = estadoEquipo(tipo);
+  const titulo = tipo === "escaner" ? "Escáner de códigos" : "Báscula";
+  let detalle = "Sin configurar todavía.";
+  if (cfg.activo) {
+    detalle = `${esc(cfg.puertoCom)} · ${esc(desc(cfg))}`;
+    if (tipo === "bascula") detalle += ` · ${esc(nombreProtocolo(cfg))} · pesa en ${cfg.unidad === "lb" ? "libras" : "kilos"}`;
+  }
+  let vivo = "";
+  if (cfg.activo && !est.pausado) {
+    if (est.diagnostico[tipo]?.error) {
+      vivo = `<p><b>Sin conexión</b></p><small>Revisa el cable o usa "Volver a detectar"</small>`;
+    } else if (tipo === "bascula") {
+      vivo = est.bascula.ok
+        ? `<div class="peso">${Number(est.bascula.peso).toFixed(3)} <small>kg</small></div><small>Así lo verá el punto de venta</small>`
+        : `<p><b>${esc(est.bascula.error || "Sin peso")}</b></p><small>Pon algo en la báscula para probar</small>`;
+    } else {
+      const e = est.escaner;
+      vivo = e.ok
+        ? `<div class="codigo">${esc(e.codigo)}</div><small>Último código · hace ${Math.max(0, Math.round(Date.now() / 1000 - e.ts))} s</small>`
+        : `<p><b>Escanea algo para probar</b></p><small>El código aparecerá aquí</small>`;
+    }
+    vivo = `<div class="vivo">${vivo}</div>`;
+  }
+  const tramas = est.diagnostico[tipo]?.ultimasTramas?.length
+    ? `<details><summary class="suave" style="font-weight:400">Ver lo último que llegó por el puerto</summary><pre class="tramas">${esc(est.diagnostico[tipo].ultimasTramas.map((t) => `${t.hora}  ${t.texto}`).join("\n"))}</pre></details>`
+    : "";
+  const desactivar = confirmarDesactivar === tipo
+    ? `<button class="peligro" data-accion="desactivar" data-tipo="${tipo}">Sí, desactivar</button><button data-accion="no-desactivar">No</button>`
+    : `<button class="peligro" data-accion="pre-desactivar" data-tipo="${tipo}" ${buscando ? "disabled" : ""}>Desactivar</button>`;
+  return `
+    <div class="cabeza"><h2>${titulo}</h2><span class="pastilla ${clase}">${esc(texto)}</span></div>
+    <p class="suave">${detalle}</p>
+    ${vivo}
+    ${tramas}
+    ${det?.tipo === tipo ? panel(det) : `
+      <div class="botones">
+        <button class="primario" data-accion="detectar" data-tipo="${tipo}" ${buscando || ocupado ? "disabled" : ""}>${cfg.activo ? "Volver a detectar" : "Detectar automáticamente"}</button>
+        ${cfg.activo ? desactivar : ""}
+      </div>`}`;
+}
+
+function listaPuertos(det) {
+  return `<ul class="puertos">${det.puertos.map((p) => `<li><b>${esc(p.puerto)}</b><span class="suave">${esc(p.estado)}</span></li>`).join("")}</ul>`;
+}
+
+function panel(det) {
+  const esEscaner = det.tipo === "escaner";
+  if (det.estado === "buscando") {
+    const pct = Math.min(100, (det.segundos / det.segundosMaximos) * 100);
+    return `<div class="panel">
+      <p class="instruccion">${esEscaner
+        ? "Escanea cualquier código de barras ahora."
+        : "Buscando la báscula… pon un producto encima y no lo muevas."}</p>
+      <p class="suave">${esEscaner
+        ? "Si no se detecta en unos segundos, vuelve a escanear: se prueban distintas velocidades. Repite cada 3 segundos."
+        : "Se prueban velocidades y comandos de varias marcas (Magellan, Toledo, Torrey, CAS, Mettler, Ohaus…). Puede tardar hasta 2 minutos."}</p>
+      <div class="barra"><div style="width:${pct}%"></div></div>
+      <p><small>${esc(det.mensaje)} · ${det.segundos} s</small></p>
+      ${listaPuertos(det)}
+      <div class="botones"><button data-accion="cancelar">Cancelar</button></div>
+      <p class="suave" style="margin-top:8px"><small>Mientras se busca, el punto de venta no recibe peso ni códigos por COM.</small></p>
+    </div>`;
+  }
+  if (det.estado === "encontrado") {
+    const r = det.resultado;
+    let extra = "";
+    if (!esEscaner) {
+      const sugerida = det.unidadEnTrama || r.unidad;
+      if (!unidadElegida) unidadElegida = sugerida === "lb" ? "lb" : "kg";
+      const valor = det.valor != null ? `<p>La báscula marcó <b>${esc(det.valor)}</b>${det.unidadEnTrama ? ` ${esc(det.unidadEnTrama)}` : ""}. Revisa que coincida con su pantalla.</p>` : "";
+      extra = `${valor}
+        <p><b>¿En qué unidad pesa la báscula?</b> ${det.unidadEnTrama ? `<small class="suave">(la báscula dice ${esc(det.unidadEnTrama)})</small>` : `<small class="suave">(mira su pantalla)</small>`}</p>
+        <div class="unidades">
+          <label><input type="radio" name="unidad" value="kg" ${unidadElegida === "kg" ? "checked" : ""}>Kilos (kg)</label>
+          <label><input type="radio" name="unidad" value="lb" ${unidadElegida === "lb" ? "checked" : ""}>Libras (lb)</label>
+        </div>`;
+    }
+    return `<div class="panel exito">
+      <p class="instruccion">✓ ${esEscaner ? "Escáner encontrado" : "Báscula encontrada"} en ${esc(r.puertoCom)}</p>
+      <p class="suave">${esc(det.descripcion)}${esEscaner ? "" : ` · ${esc(nombreProtocolo(r))}`}</p>
+      <p>${esEscaner ? "Código leído:" : "Respuesta:"} <code>${esc(det.muestra)}</code></p>
+      ${det.aviso ? `<p class="suave">${esc(det.aviso)}</p>` : ""}
+      ${extra}
+      <div class="botones">
+        <button class="primario" data-accion="guardar-hallazgo" ${ocupado ? "disabled" : ""}>Guardar y usar</button>
+        <button data-accion="cancelar">Descartar</button>
+      </div>
+    </div>`;
+  }
+  const consejos = esEscaner
+    ? `<li>Si el lector es USB, pruébalo en el cuadro <b>"¿El lector es USB y escribe como teclado?"</b> de abajo: si ahí escribe el código, ya funciona en el punto de venta.</li>
+       <li>En un Magellan, el escáner va en el conector <b>POS Terminal</b>.</li>
+       <li>Revisa que el cable esté bien conectado y que el puerto aparezca en la tabla de abajo.</li>
+       <li>Si un puerto dice "ocupado por otro programa", cierra ese programa y vuelve a intentar.</li>`
+    : `<li>Revisa que la báscula esté encendida y con el cable conectado (en un Magellan: conector <b>Scale Host</b>).</li>
+       <li>Si un puerto dice "ocupado por otro programa", cierra ese programa (por ejemplo, el programa de la báscula anterior) y vuelve a intentar.</li>
+       <li>Si conoces su configuración (manual o menú de la báscula), llénala en <b>Configuración manual</b>.</li>`;
+  return `<div class="panel fallo">
+    <p class="instruccion">${esc(det.mensaje)}</p>
+    ${det.estado === "no-encontrado" ? `<ul class="consejos">${consejos}</ul>` : ""}
+    ${listaPuertos(det)}
+    <div class="botones">
+      <button class="primario" data-accion="detectar" data-tipo="${det.tipo}">Volver a intentar</button>
+      <button data-accion="cancelar">Cerrar</button>
+    </div>
+  </div>`;
+}
+
+function pintarPuertos() {
+  const d = est.dispositivos;
+  const filas = est.puertos.map((p) => {
+    const usos = [];
+    if (d.escaner.activo && d.escaner.puertoCom === p.nombre) usos.push("Escáner");
+    if (d.bascula.activo && d.bascula.puertoCom === p.nombre) usos.push("Báscula");
+    return `<tr><td><b>${esc(p.nombre)}</b></td><td>${esc(p.descripcion || "—")}${p.omitido ? ' <small class="suave">(Bluetooth, se omite)</small>' : ""}</td><td>${usos.join(" y ") || '<span class="suave">—</span>'}</td></tr>`;
+  });
+  reemplazar($("#puertos"), filas.join("") || '<tr><td colspan="3" class="suave">Esta PC no tiene puertos COM.</td></tr>');
+}
+
+// ---------------------------------------------------------------- Acciones
+
+function copia() { return JSON.parse(JSON.stringify(est.dispositivos)); }
+
+async function guardar(dispositivos, textoOk) {
+  ocupado = true;
+  try {
+    const r = await api("/configurar/guardar", dispositivos);
+    aviso(r.aviso ? `${textoOk} Aviso: ${r.aviso}` : textoOk, r.aviso ? "aviso" : "ok");
+    unidadElegida = null;
+    $("#manual").dataset.cargado = "";
+  } catch (e) {
+    aviso(e.message, "mal");
+  } finally {
+    ocupado = false;
+    await refrescar();
+  }
+}
+
+document.addEventListener("change", (e) => {
+  if (e.target.name === "unidad") unidadElegida = e.target.value;
+});
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-accion]");
+  if (!b || b.disabled) return;
+  const tipo = b.dataset.tipo;
+  try {
+    switch (b.dataset.accion) {
+      case "detectar":
+        unidadElegida = null;
+        confirmarDesactivar = null;
+        await api("/configurar/detectar", { tipo });
+        break;
+      case "cancelar":
+        await api("/configurar/cancelar", {});
+        break;
+      case "guardar-hallazgo": {
+        const det = est.deteccion;
+        const d = copia();
+        const r = { ...det.resultado };
+        if (det.tipo === "bascula") r.unidad = unidadElegida || r.unidad;
+        d[det.tipo] = r;
+        await guardar(d, `${det.tipo === "escaner" ? "Escáner guardado" : "Báscula guardada"} en ${r.puertoCom}. Ya funciona en el punto de venta.`);
+        break;
+      }
+      case "pre-desactivar":
+        confirmarDesactivar = tipo;
+        break;
+      case "no-desactivar":
+        confirmarDesactivar = null;
+        break;
+      case "desactivar": {
+        confirmarDesactivar = null;
+        const d = copia();
+        d[tipo].activo = false;
+        await guardar(d, `${tipo === "escaner" ? "Escáner desactivado" : "Báscula desactivada"}.`);
+        break;
+      }
+      case "guardar-manual":
+        await guardar(leerManual(), "Configuración manual guardada.");
+        break;
+    }
+  } catch (err) {
+    aviso(err.message, "mal");
+  }
+  await refrescar();
+});
+
+// ---------------------------------------------------------------- Lector tipo teclado
+
+(function () {
+  const input = $("#teclado");
+  let tiempos = [];
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const texto = input.value.trim();
+      const intervalos = tiempos.slice(1).map((t, i) => t - tiempos[i]);
+      const promedio = intervalos.length ? intervalos.reduce((a, b) => a + b, 0) / intervalos.length : 999;
+      const r = $("#tecladoResultado");
+      if (texto.length >= 4 && promedio < 60) {
+        r.innerHTML = `✓ <b>Lector tipo teclado funcionando</b> (leyó <code>${esc(texto)}</code>). No necesita configurarse aquí: en el punto de venta basta con escanear en el buscador.`;
+        r.className = "";
+      } else if (texto) {
+        r.textContent = "Eso parece escrito a mano. Escanea un código con el lector.";
+        r.className = "suave";
+      }
+      input.value = "";
+      tiempos = [];
+      return;
+    }
+    if (e.key.length === 1) tiempos.push(performance.now());
+  });
+})();
+
+// ---------------------------------------------------------------- Configuración manual
+
+const BAUDIOS = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
+function opciones(lista, actual) {
+  return lista.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(actual) ? "selected" : ""}>${esc(t)}</option>`).join("");
+}
+function camposSerie(id, c) {
+  const puertos = [...new Set([...(est?.puertos || []).map((p) => p.nombre), c.puertoCom].filter(Boolean))];
+  return `
+    <label>Activo<select id="${id}-activo">${opciones([["true", "Sí"], ["false", "No"]], c.activo)}</select></label>
+    <label>Puerto<select id="${id}-puerto">${opciones(puertos.map((p) => [p, p]), c.puertoCom)}</select></label>
+    <label>Baudios<select id="${id}-baudios">${opciones(BAUDIOS.map((b) => [b, b]), c.baudios)}</select></label>
+    <label>Bits de datos<select id="${id}-bits">${opciones([[7, 7], [8, 8]], c.bitsDatos)}</select></label>
+    <label>Paridad<select id="${id}-paridad">${opciones([["none", "Ninguna"], ["even", "Par (even)"], ["odd", "Impar (odd)"]], c.paridad)}</select></label>
+    <label>Bits de parada<select id="${id}-parada">${opciones([[1, 1], [2, 2]], c.bitsParada)}</select></label>`;
+}
+function llenarManual() {
+  const d = est.dispositivos;
+  $("#m-escaner").innerHTML = camposSerie("me", d.escaner);
+  const presets = [["continuo|", "Continuo (manda el peso sola)"], ["magellan|", "Magellan un cable (S11)"],
+    ...est.comandos.filter((c) => c.protocolo === "ncr").map((c) => [`ncr|${visible(c.comando)}`, c.nombre]), ["ncr|*", "Otro comando…"]];
+  const actual = d.bascula.protocolo === "ncr"
+    ? (est.comandos.some((c) => c.protocolo === "ncr" && c.comando === d.bascula.comandoPeso) ? `ncr|${visible(d.bascula.comandoPeso)}` : "ncr|*")
+    : `${d.bascula.protocolo}|`;
+  $("#m-bascula").innerHTML = camposSerie("mb", d.bascula) + `
+    <label>Protocolo / comando<select id="mb-protocolo">${opciones(presets, actual)}</select></label>
+    <label>Comando (si es "Otro")<input type="text" id="mb-comando" value="${esc(visible(d.bascula.comandoPeso))}" placeholder="W, P, S\\r\\n…"></label>
+    <label>Unidad<select id="mb-unidad">${opciones([["kg", "Kilos (kg)"], ["lb", "Libras (lb)"]], d.bascula.unidad)}</select></label>`;
+  $("#manual").dataset.cargado = "1";
+}
+function leerSerie(id, base) {
+  return { ...base,
+    activo: $(`#${id}-activo`).value === "true",
+    puertoCom: $(`#${id}-puerto`).value,
+    baudios: Number($(`#${id}-baudios`).value),
+    bitsDatos: Number($(`#${id}-bits`).value),
+    paridad: $(`#${id}-paridad`).value,
+    bitsParada: Number($(`#${id}-parada`).value) };
+}
+function leerManual() {
+  const d = copia();
+  d.escaner = leerSerie("me", d.escaner);
+  d.bascula = leerSerie("mb", d.bascula);
+  const [protocolo, comando] = $("#mb-protocolo").value.split("|");
+  d.bascula.protocolo = protocolo;
+  if (protocolo === "ncr") d.bascula.comandoPeso = real(comando === "*" ? $("#mb-comando").value : comando) || "W";
+  d.bascula.unidad = $("#mb-unidad").value;
+  return d;
+}
+$("#manual").addEventListener("toggle", () => {
+  if ($("#manual").open && est && !$("#manual").dataset.cargado) llenarManual();
+});
+
+refrescar();
+setInterval(refrescar, 1000);
+</script>
+</body>
+</html>

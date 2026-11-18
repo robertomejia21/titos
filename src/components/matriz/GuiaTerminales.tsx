@@ -411,6 +411,26 @@ export function GuiaTerminales() {
         </Pasos>
       </Seccion>
 
+      <Seccion titulo="Báscula y escáner de la caja">
+        <Pasos>
+          <li>
+            Con el puente abierto, en la PC de caja entra a{" "}
+            <Codigo>http://localhost:8091/configurar</Codigo>. También se abre con un acceso directo a{" "}
+            <Codigo>C:\PuenteCaja\PuenteCaja.exe --configurar</Codigo>.
+          </li>
+          <li>
+            <b>Escáner:</b> presiona “Detectar automáticamente” y escanea cualquier código hasta que aparezca. Si el
+            lector es USB tipo teclado, pruébalo en el cuadro de esa página: si escribe ahí, no hay que configurar nada.
+          </li>
+          <li>
+            <b>Báscula:</b> pon un producto encima, presiona “Detectar automáticamente” y espera (hasta 2 minutos). Elige
+            si pesa en kilos o libras y guarda. Reconoce Magellan, Toledo, Torrey, CAS, Mettler, Ohaus y básculas
+            continuas.
+          </li>
+          <li>Al guardar queda funcionando en el punto de venta sin reiniciar nada.</li>
+        </Pasos>
+      </Seccion>
+
       <Seccion titulo="Si algo falla">
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
           {[
