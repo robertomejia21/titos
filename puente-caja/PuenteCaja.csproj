@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>PuenteCaja</RootNamespace>
     <AssemblyName>PuenteCaja</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>Puente de caja Titos</Product>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

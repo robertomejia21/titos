@@ -141,6 +141,8 @@ public static class Program
         var d = cfg.Dispositivos;
         Console.WriteLine($"  Escáner (COM):      {(d.Escaner.Activo ? $"{d.Escaner.PuertoCom} {CanalSerial.Descripcion(d.Escaner)}" : "no activado")}");
         Console.WriteLine($"  Báscula (COM):      {(d.Bascula.Activo ? $"{d.Bascula.PuertoCom} {CanalSerial.Descripcion(d.Bascula)} · protocolo {d.Bascula.Protocolo} · {d.Bascula.Unidad}" : "no activada")}");
+        if (d.Escaner.Activo || d.Bascula.Activo)
+            Console.WriteLine($"  Puertos COM:        {(d.Compartir ? $"compartidos (se abren al usarlos y se sueltan tras {d.LiberarTrasSegundos} s sin uso)" : "siempre abiertos")}");
         Escribir($"  Configurar báscula y escáner: http://localhost:{cfg.Puerto}/configurar", ConsoleColor.Cyan);
         if (b.Modo == "PRD")
             Escribir("  ¡ATENCIÓN! Modo PRD (producción): las ventas aprobadas son cobros REALES.", ConsoleColor.Red);
@@ -261,6 +263,25 @@ public static class AutoPrueba
             var (status, cuerpo) = gen.Peso();
             var leido = status == 200 ? System.Text.Json.Nodes.JsonNode.Parse(Json.Serializar(cuerpo))?["peso"]?.GetValue<decimal>() : null;
             Verificar(kg is null ? status == 502 : leido == kg, $"Báscula {desc}: \"{CanalSerial.Visible(trama)}\" → {(kg is null ? "sin peso" : $"{kg} kg")}");
+        }
+
+        // Modo compartido: el puerto se abre al consultar /peso y se suelta tras unos segundos sin consultas.
+        // Se usa un COM que no existe: basta con ver que intenta abrirlo y luego lo suelta.
+        var compartido = new Dispositivos(new ConfiguracionDispositivos
+        {
+            LiberarTrasSegundos = 3,
+            Bascula = new ConfiguracionSerial { Activo = true, PuertoCom = "COM239", Protocolo = "ncr" },
+        });
+        using (var ctsCompartido = new CancellationTokenSource())
+        {
+            compartido.Iniciar(ctsCompartido.Token);
+            Verificar(!compartido.EnUso, "Compartido: al arrancar no ocupa el puerto COM");
+            compartido.Peso();
+            await Task.Delay(500);
+            Verificar(compartido.EnUso, "Compartido: al consultar /peso abre el puerto");
+            await Task.Delay(4500);
+            Verificar(!compartido.EnUso, "Compartido: sin consultas suelta el puerto");
+            ctsCompartido.Cancel();
         }
 
         // Detector: un código se reconoce aunque el escáner use 7 bits con cualquier paridad.

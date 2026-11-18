@@ -152,14 +152,75 @@ public sealed class Dispositivos
     /// <summary>true mientras la página de configuración busca equipos (los puertos quedan libres).</summary>
     public bool Pausado { get; private set; }
 
+    // Modo compartido: los puertos se abren al consultar /peso o /escaner y se sueltan al dejar de hacerlo.
+    private bool _iniciado;
+    private volatile bool _corriendo;
+    private int _abriendo;
+    private long _ultimoUsoTicks;
+
+    /// <summary>true si los puertos COM están abiertos (o intentando abrirse) en este momento.</summary>
+    public bool EnUso => _corriendo;
+
     public void Iniciar(CancellationToken ct)
     {
         _ctApp = ct;
-        Arrancar();
+        _iniciado = true;
+        if (!_cfg.Compartir) Arrancar();
+        _ = VigilarAsync(ct);
+    }
+
+    /// <summary>Marca que alguien está usando la báscula o el escáner; en modo compartido abre los puertos si estaban sueltos.</summary>
+    private void Usar()
+    {
+        Interlocked.Exchange(ref _ultimoUsoTicks, DateTime.UtcNow.Ticks);
+        if (!_iniciado || !_cfg.Compartir || _corriendo || Pausado || !HayAlguno) return;
+        if (Interlocked.Exchange(ref _abriendo, 1) == 1) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _cambio.WaitAsync(_ctApp);
+                try
+                {
+                    if (!_corriendo && !Pausado && _cfg.Compartir && HayAlguno)
+                    {
+                        ServicioTransacciones.Registrar("Dispositivos: se abren los puertos (el punto de venta los está usando)", ConsoleColor.Gray);
+                        Arrancar();
+                    }
+                }
+                finally { _cambio.Release(); }
+            }
+            catch { /* cerrando el puente */ }
+            finally { Interlocked.Exchange(ref _abriendo, 0); }
+        });
+    }
+
+    /// <summary>En modo compartido, suelta los puertos cuando nadie los ha consultado en un rato.</summary>
+    private async Task VigilarAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try { await Task.Delay(1000, ct); } catch { break; }
+            if (!_cfg.Compartir || !_corriendo || Pausado) continue;
+            var inactivo = DateTime.UtcNow - new DateTime(Interlocked.Read(ref _ultimoUsoTicks), DateTimeKind.Utc);
+            if (inactivo.TotalSeconds < _cfg.LiberarTrasSegundos) continue;
+            try { await _cambio.WaitAsync(ct); } catch { break; }
+            try
+            {
+                var sigue = DateTime.UtcNow - new DateTime(Interlocked.Read(ref _ultimoUsoTicks), DateTimeKind.Utc);
+                if (_corriendo && !Pausado && _cfg.Compartir && sigue.TotalSeconds >= _cfg.LiberarTrasSegundos)
+                {
+                    await DetenerInternoAsync();
+                    ServicioTransacciones.Registrar($"Dispositivos: puertos liberados ({_cfg.LiberarTrasSegundos} s sin uso); otro sistema ya puede usarlos", ConsoleColor.Gray);
+                }
+            }
+            finally { _cambio.Release(); }
+        }
     }
 
     private void Arrancar()
     {
+        _corriendo = HayAlguno;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(_ctApp);
         var ct = _cts.Token;
         var unSoloCable = _cfg.Escaner.Activo && _cfg.Bascula.Activo
@@ -194,6 +255,7 @@ public sealed class Dispositivos
         _canalEscaner?.Dispose();
         _canalBascula = null;
         _canalEscaner = null;
+        _corriendo = false;
     }
 
     /// <summary>Cierra los puertos COM (para que la detección pueda usarlos) sin cerrar el puente.</summary>
@@ -227,7 +289,9 @@ public sealed class Dispositivos
                     _pesoHora = default;
                 }
             }
-            Arrancar();
+            // En modo compartido no se abren aquí: se abren solos en cuanto alguien consulte /peso o /escaner.
+            if (_cfg.Compartir) Pausado = false;
+            else Arrancar();
         }
         finally { _cambio.Release(); }
     }
@@ -263,6 +327,7 @@ public sealed class Dispositivos
     public (int status, object cuerpo) Escaner()
     {
         if (!_cfg.Escaner.Activo) return (502, new { ok = false, error = "El escáner por COM no está activado en puente-caja.json" });
+        Usar();
         lock (_candado)
         {
             if (_codigo is null) return (502, new { ok = false, error = "Todavía no se ha escaneado nada" });
@@ -360,10 +425,11 @@ public sealed class Dispositivos
     public (int status, object cuerpo) Peso()
     {
         if (!_cfg.Bascula.Activo) return (502, new { ok = false, error = "La báscula por COM no está activada en puente-caja.json" });
+        Usar();
         lock (_candado)
         {
             var fresco = (DateTime.UtcNow - _pesoHora).TotalMilliseconds < Math.Max(2000, _cfg.Bascula.IntervaloMs * 4);
-            if (!fresco) return (502, new { ok = false, error = _canalBascula?.Error ?? "La báscula no responde" });
+            if (!fresco) return (502, new { ok = false, error = _canalBascula?.Error ?? (_iniciado && !_corriendo ? "Abriendo la báscula…" : "La báscula no responde") });
             if (_peso is null) return (502, new { ok = false, error = $"Báscula {_pesoEstado}", crudo = _pesoCrudo });
             // `peso` va en kilos: es lo que usa el punto de venta.
             return (200, new { ok = true, peso = _peso, unidad = "kg", estado = _pesoEstado, crudo = _pesoCrudo });
@@ -374,9 +440,23 @@ public sealed class Dispositivos
     {
         ok = true,
         pausado = Pausado,
+        compartido = _cfg.Compartir,
+        liberarTrasSegundos = _cfg.LiberarTrasSegundos,
+        enUso = _corriendo,
         puertosDisponibles = SerialPort.GetPortNames().OrderBy(p => p).ToArray(),
-        escaner = _cfg.Escaner.Activo && !Pausado ? (_canalEscaner?.Diagnostico() ?? new { mismoPuertoQueBascula = true }) : null,
-        bascula = _cfg.Bascula.Activo ? _canalBascula?.Diagnostico() : null,
+        escaner = !_cfg.Escaner.Activo || Pausado ? null
+            : _canalEscaner?.Diagnostico() ?? (MismoCable ? (object)new { mismoPuertoQueBascula = true } : Suelto(_cfg.Escaner)),
+        bascula = !_cfg.Bascula.Activo ? null : _canalBascula?.Diagnostico() ?? (Pausado ? null : Suelto(_cfg.Bascula)),
+    };
+
+    private bool MismoCable => _cfg.Escaner.Activo && _cfg.Bascula.Activo
+        && _cfg.Escaner.PuertoCom.Equals(_cfg.Bascula.PuertoCom, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Diagnóstico de un puerto que el modo compartido dejó libre para otro sistema.</summary>
+    private static object Suelto(ConfiguracionSerial c) => new
+    {
+        puerto = c.PuertoCom, config = CanalSerial.Descripcion(c), protocolo = c.Protocolo,
+        abierto = false, liberado = true, error = (string?)null, ultimasTramas = Array.Empty<object>(),
     };
 
     /// <summary>

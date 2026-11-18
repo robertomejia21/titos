@@ -138,6 +138,13 @@ public sealed class ConfiguracionDispositivos
 {
     /// <summary>Puerto HTTP adicional donde el punto de venta busca /peso y /escaner (8090 por omisión).</summary>
     public int PuertoHttp { get; set; } = 8090;
+    /// <summary>
+    /// true (por omisión): los puertos COM solo se abren mientras el punto de venta (o /configurar) consulta
+    /// /peso o /escaner, y se sueltan tras <see cref="LiberarTrasSegundos"/> sin consultas. Así otro sistema
+    /// de caja puede usar la báscula y el escáner el resto del tiempo. false: se quedan abiertos siempre.
+    /// </summary>
+    public bool Compartir { get; set; } = true;
+    public int LiberarTrasSegundos { get; set; } = 10;
     public ConfiguracionSerial Escaner { get; set; } = new();
     public ConfiguracionSerial Bascula { get; set; } = new() { Protocolo = "ncr" };
 
@@ -147,6 +154,7 @@ public sealed class ConfiguracionDispositivos
         Bascula ??= new ConfiguracionSerial { Protocolo = "ncr" };
         if (PuertoHttp is < 0 or > 65535) throw new InvalidOperationException($"dispositivos.puertoHttp {PuertoHttp} no es válido.");
         if (PuertoHttp == puertoPrincipal) PuertoHttp = 0; // ya se atiende en el puerto principal
+        if (LiberarTrasSegundos is < 3 or > 3600) throw new InvalidOperationException("dispositivos.liberarTrasSegundos debe estar entre 3 y 3600.");
         Escaner.Validar("escaner", new[] { "lineas" });
         Bascula.Validar("bascula", new[] { "ncr", "magellan", "continuo" });
         if (Escaner.Activo && Bascula.Activo && Escaner.PuertoCom.Equals(Bascula.PuertoCom, StringComparison.OrdinalIgnoreCase)

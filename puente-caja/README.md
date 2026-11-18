@@ -232,6 +232,21 @@ Con el puente abierto, en la PC de caja abra **`http://localhost:8091/configurar
 - Mientras se busca, los puertos se liberan y el punto de venta no recibe peso ni códigos por COM.
 - Los puertos Bluetooth se omiten. Solo la propia página puede cambiar la configuración (otro origen recibe 403).
 
+### Modo compartido (convivir con el sistema anterior)
+
+Un puerto COM solo lo puede tener abierto un programa a la vez. Por omisión (`"compartir": true`) el puente **no** se
+queda con la báscula ni con el escáner: abre los puertos en cuanto el punto de venta (o `/configurar`) consulta
+`/peso` o `/escaner`, y los suelta `liberarTrasSegundos` (10) después de la última consulta. El punto de venta consulta
+el escáner cada 0.6 s solo mientras la pantalla de venta está visible, así que:
+
+1. Cierre el sistema anterior (suele tener el puerto tomado mientras está abierto).
+2. Abra la pantalla de venta del sistema nuevo y pruebe peso y códigos.
+3. Cierre esa pestaña; unos segundos después la ventana del puente dice "puertos liberados".
+4. Vuelva a abrir el sistema anterior.
+
+Si el sistema anterior tiene el puerto, el nuevo muestra "ocupado por otro programa" en vez de quitárselo. Cuando ya no
+se use el sistema anterior puede poner `"compartir": false` para que los puertos queden siempre abiertos.
+
 La báscula entiende tramas NCR (`<STX>001.25`, `?A` en movimiento), Mettler SICS (`S S 0.256 kg`, `S D`), CAS continuo
 (`ST,GS,+001.234kg`, `US,…`) y Magellan SCMP (`S11…`, `S14x`). Si la trama trae unidad (`kg`, `lb`, `g`) se usa esa; si no,
 la configurada.
@@ -241,6 +256,8 @@ la configurada.
 ```json
 "dispositivos": {
   "puertoHttp": 8090,
+  "compartir": true,
+  "liberarTrasSegundos": 10,
   "escaner": { "activo": true, "puertoCom": "COM1", "baudios": 9600, "bitsDatos": 7, "paridad": "odd", "bitsParada": 1, "protocolo": "lineas" },
   "bascula": { "activo": true, "puertoCom": "COM2", "baudios": 9600, "bitsDatos": 7, "paridad": "odd", "bitsParada": 1,
                "protocolo": "ncr", "comandoPeso": "W", "unidad": "kg", "intervaloMs": 300 }
@@ -250,6 +267,7 @@ la configurada.
 | Campo | Qué es |
 |---|---|
 | `puertoHttp` | Puerto extra donde el punto de venta busca `/peso` y `/escaner`. Si está ocupado (otro programa de báscula), el puente avisa y arranca igual. |
+| `compartir`, `liberarTrasSegundos` | Modo compartido (ver arriba). `false` = los puertos quedan abiertos todo el tiempo. |
 | `puertoCom` | `COM1`, `COM2`… (Administrador de dispositivos → Puertos COM y LPT). |
 | `baudios`, `bitsDatos`, `paridad`, `bitsParada`, `controlFlujo` | Deben coincidir con la programación del equipo (`paridad`: none/odd/even; `controlFlujo`: none/rtscts). |
 | `protocolo` (báscula) | `ncr`: el puente envía `comandoPeso` (`"W"`, `"P"`, `"S\r\n"`, `"IP\r\n"`…) y la báscula responde el peso. `magellan`: un solo cable, se pide con `S11`. `continuo`: la báscula manda el peso sola. |
