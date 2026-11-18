@@ -31,6 +31,7 @@ import { ProductoCombobox } from "@/components/ProductoCombobox";
 import { MotivoPosSelector } from "@/components/MotivoPosSelector";
 import { CapturaPeso } from "@/components/sucursal/CapturaPeso";
 import { useEscaner } from "@/components/sucursal/useEscaner";
+import { useLectorTeclado } from "@/components/sucursal/useLectorTeclado";
 import { codigoSinLetraDeLector } from "@/lib/escaner";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
@@ -649,7 +650,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     if (!pesaje && !ventaCompletada && !modalRetiro && !modalCorte && !modalArqueo && !modalPrecio && !modalCobro && !cancelacion) {
       inputRef.current?.focus();
     }
-  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalArqueo, modalPrecio, modalCobro, cancelacion, carrito]);
+    // Por el número de renglones y no por el carrito completo: si no, al teclear la cantidad de un
+    // renglón el cursor se regresaba a la búsqueda con cada tecla.
+  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalArqueo, modalPrecio, modalCobro, cancelacion, carrito.length]);
 
   const cargarResumenCorte = useCallback(async () => {
     if (!navigator.onLine) {
@@ -1213,6 +1216,13 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   useEscaner((leido) => {
     if (document.querySelector("[data-modal]")) return;
     procesarValor(leido, "puente");
+  });
+
+  // Lector USB tipo teclado: lo que escanea siempre termina en la casilla de búsqueda, aunque el
+  // cursor se haya quedado en otro lado (la tabla, un botón, la cantidad de un renglón…).
+  useLectorTeclado(inputRef, (leido) => {
+    setCodigo(leido);
+    procesarValor(leido, "teclado");
   });
 
   function confirmarPesaje() {
