@@ -171,7 +171,10 @@ function pintar() {
   $("#subtitulo").textContent = `Puente de caja Titos · equipo ${est.equipo}`;
   $("#version").textContent = `v${est.version}`;
   $("#pie").innerHTML = `La configuración se guarda en <code>${esc(est.archivo)}</code> (con copia del archivo anterior en <code>.respaldo</code>). ` +
-    `El punto de venta lee el peso en <code>http://localhost:${est.puertoDispositivos}/peso</code> y los códigos en <code>/escaner</code>.`;
+    `El punto de venta lee el peso en <code>http://localhost:${est.puertoDispositivos}/peso</code> y los códigos en <code>/escaner</code>.` +
+    (est.diagnostico.compartido
+      ? ` <b>Modo compartido:</b> el puente solo ocupa los puertos mientras el punto de venta o esta página están abiertos, y los suelta ${est.diagnostico.liberarTrasSegundos} s después, para que el sistema anterior pueda usar la báscula y el escáner.`
+      : "");
   const ap = $("#avisoPuerto");
   const hayAlguno = est.dispositivos.escaner.activo || est.dispositivos.bascula.activo;
   ap.hidden = !(hayAlguno && !est.escuchandoPuertoDispositivos);
@@ -189,6 +192,7 @@ function estadoEquipo(tipo) {
   if (!cfg.activo) return ["nada", "No configurado"];
   if (tipo === "escaner" && !diag) return ["ok", "Por el cable de la báscula"];
   if (diag?.error) return ["mal", diag.error];
+  if (diag?.liberado) return ["aviso", "Libre para otro sistema (se abre al usarlo)"];
   if (!diag?.abierto) return ["aviso", "Abriendo puerto…"];
   if (tipo === "bascula" && !lectura.ok) return ["aviso", lectura.error || "Sin peso"];
   return ["ok", "Funcionando"];
