@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { PUENTE_CAJA_URL } from "@/lib/puenteCaja";
 import { Button, Card, FormField, FormGrid, Input, Select } from "@/components/ui";
 import { BAUDIOS, EQUIPO_VACIO, PRUEBAS_EQUIPO, pesoEnKg, type EquipoCajaConfig } from "@/lib/equiposCaja";
 import { leerPuertoDiagnostico, type SerialApi } from "@/lib/serialDiagnostico";
@@ -92,6 +93,13 @@ export function EquiposCajaManager() {
   return <div className="space-y-5">
     <TarjetaEquipo titulo="Preparación de la caja" abierta>
       <p className="mt-2 text-sm text-black/70">Hoy puedes capturar el peso del visor y registrar un pago aprobado en la terminal. La lectura automática de la báscula y el envío del importe a Banorte requieren identificar y probar los equipos en la tienda.</p>
+      <div className="mt-4 rounded-xl border border-titos-green-500/30 bg-titos-green-50 p-4">
+        <p className="font-medium text-titos-green-900">Detectar báscula y escáner de esta caja</p>
+        <p className="mt-1 text-sm text-black/70">Abre el asistente del puente de caja: busca solo el puerto de la báscula y del escáner y deja la configuración guardada. Ábrelo desde la PC de caja, con el puente de caja abierto (versión 1.2.0 o más nueva).</p>
+        <a href={`${PUENTE_CAJA_URL}/configurar`} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-titos-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-titos-green-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-titos-green-700">
+          Abrir detección de báscula y escáner<ExternalLink aria-hidden="true" className="h-4 w-4" />
+        </a>
+      </div>
       {cargando ? <div className="mt-3 max-w-lg"><SkeletonTabla filas={3} columnas={2} etiqueta="Cargando sucursal…" /></div> : datos && <div className="mt-4 max-w-lg">
         <FormField label="Sucursal"><Select aria-label="Sucursal de los equipos" disabled={guardando || leyendo || datos.sucursales.length < 2} value={datos.sucursalId} onChange={e => {
           if (dirty && !window.confirm("Hay cambios sin guardar. ¿Cambiar de sucursal y descartarlos?")) return;
