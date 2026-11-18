@@ -11,7 +11,12 @@ namespace PuenteCaja;
 /// </summary>
 public sealed class ServidorHttp
 {
-    public const string Version = "1.2.0";
+    /// <summary>Sale de &lt;Version&gt; en PuenteCaja.csproj (sin el "+commit" que agrega el compilador).</summary>
+    public static readonly string Version =
+        (System.Reflection.Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .FirstOrDefault() as System.Reflection.AssemblyInformationalVersionAttribute)?.InformationalVersion.Split('+')[0]
+        ?? "?";
     private const int TamanoMaximoCuerpo = 16 * 1024;
 
     private readonly Configuracion _cfg;
