@@ -3,7 +3,7 @@ import InventarioSucursal from "@/models/InventarioSucursal";
 import Sucursal from "@/models/Sucursal";
 import { cerrarAlertasResurtidas } from "@/lib/alertasInventario";
 import type { SessionPayload } from "@/lib/auth";
-import { numeroCajaDe } from "@/lib/numeroCaja";
+import { numeroCajaDeComputadora } from "@/lib/cajaComputadora";
 
 export const NOMBRE_MOSTRADOR_MATRIZ = "Matriz (mostrador)";
 
@@ -29,27 +29,35 @@ export async function obtenerMostradorMatriz() {
 export type ContextoPuntoVenta = {
   sucursalId: string;
   esMatriz: boolean;
-  /** Caja (computadora) desde la que se opera; ver lib/numeroCaja. */
-  numeroCaja: number;
+  /**
+   * Caja (computadora) desde la que se opera; ver lib/numeroCaja. Null cuando
+   * la computadora no tiene caja asignada o la llamada no trae `req`.
+   */
+  numeroCaja: number | null;
 };
 
 /**
- * `req` hace falta en todo lo que toca la caja abierta: de ahí sale el número
- * de caja del equipo. Sin él se asume la Caja 1.
+ * `req` hace falta en todo lo que toca la caja abierta: de su cookie sale la
+ * computadora y, de ahí, su número de caja.
  */
 export async function contextoPuntoVenta(
   session: SessionPayload,
-  req?: Parameters<typeof numeroCajaDe>[0]
+  req?: Parameters<typeof numeroCajaDeComputadora>[0]
 ): Promise<ContextoPuntoVenta | null> {
-  const numeroCaja = numeroCajaDe(req);
+  let sucursalId: string;
+  let esMatriz: boolean;
   if (session.role === "matriz") {
     const mostrador = await obtenerMostradorMatriz();
-    return { sucursalId: String(mostrador._id), esMatriz: true, numeroCaja };
+    sucursalId = String(mostrador._id);
+    esMatriz = true;
+  } else if (session.role === "sucursal" && session.sucursalId) {
+    sucursalId = String(session.sucursalId);
+    esMatriz = false;
+  } else {
+    return null;
   }
-  if (session.role === "sucursal" && session.sucursalId) {
-    return { sucursalId: String(session.sucursalId), esMatriz: false, numeroCaja };
-  }
-  return null;
+  const numeroCaja = req ? await numeroCajaDeComputadora(req, sucursalId) : null;
+  return { sucursalId, esMatriz, numeroCaja };
 }
 
 /**

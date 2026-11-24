@@ -1,5 +1,5 @@
 import Promocion from "@/models/Promocion";
-import { filtroCajaAbierta } from "@/lib/numeroCaja";
+import { condicionNumeroCaja, filtroCajaAbierta } from "@/lib/numeroCaja";
 import { fechaEnZona } from "@/lib/zonasHorarias";
 import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
 import { NextRequest, NextResponse } from "next/server";
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
     cobroBanorteId = cobro._id;
   }
   if (pagoTarjeta) {
-    const equipo = await EquipoCaja.findOne({ sucursalId: ctx.sucursalId }).select("configuracion.exigirAutorizacion").lean();
+    const equipo = await EquipoCaja.findOne({ sucursalId: ctx.sucursalId, numeroCaja: condicionNumeroCaja(ctx.numeroCaja ?? 1) }).select("configuracion.exigirAutorizacion").lean();
     if (equipo?.configuracion?.exigirAutorizacion && !pagoTarjeta.autorizacion && !pagoTarjeta.banorte) return badRequest("Captura la autorización del comprobante aprobado en la terminal. Titos no realiza el cargo bancario.");
     const terminalesActivas = await TerminalPago.find({ sucursalId: ctx.sucursalId, activo: true })
       .select("alias")

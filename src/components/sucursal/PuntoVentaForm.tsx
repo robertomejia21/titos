@@ -43,7 +43,6 @@ import { estadoPuente, type EstadoPuente } from "@/lib/puenteCaja";
 import type { DatosBanortePago } from "@/lib/banorte";
 import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { RetiroLimiteModal, type EstadoEfectivoCaja } from "@/components/sucursal/RetiroLimiteModal";
-import { guardarNumeroCajaEquipo, leerNumeroCajaEquipo } from "@/lib/numeroCaja";
 import { imprimirTicketRetiro as imprimirComprobanteRetiro, type RetiroTicket } from "@/lib/ticketRetiro";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
@@ -147,6 +146,7 @@ const REGLAS_DOLARES_DEFAULT: ReglasDolares = {
 const TIPO_CAMBIO_CACHE_KEY = "titos-pos-tipo-cambio";
 const TERMINALES_CACHE_KEY = "titos-pos-terminales";
 const REGLAS_DOLARES_CACHE_KEY = "titos-pos-reglas-dolares";
+const NUMERO_CAJA_CACHE_KEY = "titos-pos-numero-caja";
 
 /** Lee un valor cacheado del punto de venta; sirve para arrancar sin conexión. */
 function leerCacheJson<T>(clave: string, fallback: T): T {
@@ -373,6 +373,9 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [avanceTerminal, setAvanceTerminal] = useState<Avance | null>(null);
   const [puente, setPuente] = useState<EstadoPuente | "sin_conexion" | null>(null);
   const [exigirAutorizacion, setExigirAutorizacion] = useState<boolean | null>(null);
+  // Terminal asignada a la caja de esta computadora (Equipos de caja): se
+  // preselecciona al cobrar con tarjeta.
+  const terminalCaja = useRef("");
   // Crédito, débito o American Express: el banco liquida cada uno por separado,
   // así que el cajero lo marca al cobrar. No se deduce del plástico porque el
   // BIN dice la marca, no si la tarjeta es de crédito o de débito.
@@ -405,7 +408,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     const abort = new AbortController();
     fetch("/api/equipos-caja", { signal: abort.signal })
       .then(async r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(d => setExigirAutorizacion(d.equipo?.configuracion?.exigirAutorizacion === true))
+      .then(d => {
+        setExigirAutorizacion(d.equipo?.configuracion?.exigirAutorizacion === true);
+        const propia = String(d.equipo?.configuracion?.terminalId ?? "");
+        terminalCaja.current = propia;
+        if (propia) setTerminalId((actual) => actual || propia);
+      })
       .catch(() => { /* El servidor exige la regla vigente al guardar la venta. */ });
     return () => abort.abort();
   }, [modalCobro]);
@@ -428,6 +436,12 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   // operar, para que dos computadoras no terminen en la misma caja sin saberlo.
   const [numeroCaja, setNumeroCaja] = useState<number | null | undefined>(undefined);
   const [eligiendoCaja, setEligiendoCaja] = useState(false);
+  const [cajasSucursal, setCajasSucursal] = useState<{ numeroCaja: number; asignada: boolean; esEstaComputadora: boolean }[]>([]);
+  // Caja ocupada por otra computadora que se quiere tomar: pide NIP del gerente.
+  const [reemplazoCaja, setReemplazoCaja] = useState<number | null>(null);
+  const [nipReemplazo, setNipReemplazo] = useState("");
+  const [errorNumeroCaja, setErrorNumeroCaja] = useState<string | null>(null);
+  const [asignandoCaja, setAsignandoCaja] = useState(false);
   const [efectivoInicialInput, setEfectivoInicialInput] = useState("1000");
   const aperturaOperacion = useRef<string | null>(null);
   const [efectivoInicialUsdInput, setEfectivoInicialUsdInput] = useState("");
@@ -652,8 +666,26 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       })
       .catch(() => setSesion(leerSesionCache<SesionCaja>()))
       .finally(() => {
-        setNumeroCaja(leerNumeroCajaEquipo());
         if (leerCola().length > 0) sincronizarCola();
+      });
+
+    // Qué caja es esta computadora. Sin red se sigue con lo último conocido:
+    // para operar sin conexión la computadora ya tenía que tener su caja.
+    fetch("/api/caja/equipo")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("http-error"))))
+      .then((d: { numeroCaja: number | null; cajas: { numeroCaja: number; asignada: boolean; esEstaComputadora: boolean }[] }) => {
+        setCajasSucursal(d.cajas ?? []);
+        setNumeroCaja(d.numeroCaja ?? null);
+        try {
+          localStorage.setItem(NUMERO_CAJA_CACHE_KEY, d.numeroCaja ? String(d.numeroCaja) : "");
+        } catch {}
+      })
+      .catch(() => {
+        let guardado: number | null = null;
+        try {
+          guardado = Number(localStorage.getItem(NUMERO_CAJA_CACHE_KEY)) || null;
+        } catch {}
+        setNumeroCaja(guardado);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe ejecutarse al montar
   }, []);
@@ -1153,6 +1185,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setError(null);
     if (metodo !== "efectivo") setEfectivoRecibido("");
     if (metodo !== "efectivo_usd") setDolaresRecibidos("");
+    if (metodo === "tarjeta" && !terminalId && terminalCaja.current) setTerminalId(terminalCaja.current);
     if (metodo !== "tarjeta") {
       setTerminalId("");
       setTarjetaTipo("");
@@ -1483,7 +1516,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     setMetodoRapido("efectivo");
     setEfectivoRecibido("");
     setDolaresRecibidos("");
-    setTerminalId(terminales.length === 1 ? terminales[0]._id : "");
+    setTerminalId(
+      terminalCaja.current && terminales.some((t) => t._id === terminalCaja.current)
+        ? terminalCaja.current
+        : terminales.length === 1 ? terminales[0]._id : ""
+    );
     setTarjetaTipo("");
     setAutorizacion("");
     setModalCobro(true);
@@ -1807,24 +1844,57 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     }
   }
 
-  /** Marca esta computadora como la caja `n` y carga la sesión de esa caja. */
-  async function elegirNumeroCaja(n: number) {
-    guardarNumeroCajaEquipo(n);
-    setNumeroCaja(n);
-    setEligiendoCaja(false);
-    setErrorCaja(null);
-    setSesion(undefined);
+  /**
+   * Marca esta computadora como la caja `n` (lo valida el servidor: una caja es
+   * una sola computadora) y carga la sesión de esa caja. Si la caja ya es de
+   * otra computadora, pide el NIP del gerente para reemplazarla.
+   */
+  async function elegirNumeroCaja(n: number, nip?: string) {
+    if (asignandoCaja) return;
+    setErrorNumeroCaja(null);
+    setAsignandoCaja(true);
     try {
-      const res = await fetch("/api/caja/actual");
-      if (!res.ok) throw new Error("http-error");
-      const data = await res.json();
-      setSesion(data);
-      guardarSesionCache(data);
+      const res = await fetch("/api/caja/equipo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numeroCaja: n, ...(nip ? { nipSupervisor: nip } : {}) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.ocupada && res.status === 409 && !nip && /otra computadora/.test(data.error ?? "")) {
+          setReemplazoCaja(n);
+          setNipReemplazo("");
+        }
+        setErrorNumeroCaja(data.error || "No se pudo asignar la caja");
+        return;
+      }
+      setReemplazoCaja(null);
+      setNipReemplazo("");
+      setNumeroCaja(n);
+      setCajasSucursal((cajas) => [
+        ...cajas.filter((c) => c.numeroCaja !== n).map((c) => ({ ...c, esEstaComputadora: false })),
+        { numeroCaja: n, asignada: true, esEstaComputadora: true },
+      ]);
+      try {
+        localStorage.setItem(NUMERO_CAJA_CACHE_KEY, String(n));
+      } catch {}
+      setEligiendoCaja(false);
+      setErrorCaja(null);
+      setSesion(undefined);
+      try {
+        const r = await fetch("/api/caja/actual");
+        if (!r.ok) throw new Error("http-error");
+        const actual = await r.json();
+        setSesion(actual);
+        guardarSesionCache(actual);
+      } catch {
+        setSesion(null);
+        guardarSesionCache(null);
+      }
     } catch {
-      // Sin red no se sabe si esa caja ya está abierta; se ofrece abrirla y el
-      // servidor decide al sincronizar.
-      setSesion(null);
-      guardarSesionCache(null);
+      setErrorNumeroCaja("Sin conexión no se puede asignar la caja: el servidor revisa que ninguna otra computadora la tenga.");
+    } finally {
+      setAsignandoCaja(false);
     }
   }
 
@@ -2004,30 +2074,68 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }
 
   if (numeroCaja === null || eligiendoCaja) {
+    const ocupadaPorOtra = (n: number) => cajasSucursal.some((c) => c.numeroCaja === n && c.asignada && !c.esEstaComputadora);
     return (
       <div className="space-y-4">
         <Card className="mx-auto max-w-md">
           <h2 className="mb-1 font-semibold text-titos-green-900">¿Qué caja es esta computadora?</h2>
           <p className="mb-4 text-sm text-black/50">
-            Cada caja abre con su propio fondo y lleva su efectivo, retiros y corte por separado. Se elige una sola vez
-            por computadora; si dos computadoras eligen el mismo número, comparten la caja.
+            Cada caja es una computadora con su báscula, escáner y terminal, y lleva su propio fondo, efectivo, retiros y
+            corte. Se elige una sola vez; una caja no puede ser de dos computadoras.
           </p>
           <div className="grid grid-cols-4 gap-2">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => elegirNumeroCaja(n)}
-                className={`rounded-xl border px-3 py-3 text-lg font-semibold transition-colors ${
-                  numeroCaja === n
-                    ? "border-titos-green-600 bg-titos-green-600 text-white"
-                    : "border-black/10 bg-white text-titos-green-900 hover:bg-titos-green-100"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => {
+              const ocupada = ocupadaPorOtra(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  disabled={asignandoCaja}
+                  onClick={() => (ocupada ? (setReemplazoCaja(n), setNipReemplazo(""), setErrorNumeroCaja(null)) : elegirNumeroCaja(n))}
+                  className={`rounded-xl border px-3 py-2 text-lg font-semibold transition-colors disabled:opacity-60 ${
+                    numeroCaja === n
+                      ? "border-titos-green-600 bg-titos-green-600 text-white"
+                      : ocupada
+                      ? "border-black/10 bg-black/5 text-black/40"
+                      : "border-black/10 bg-white text-titos-green-900 hover:bg-titos-green-100"
+                  }`}
+                >
+                  {n}
+                  {ocupada ? <span className="block text-[10px] font-medium">ocupada</span> : null}
+                </button>
+              );
+            })}
           </div>
+          {reemplazoCaja ? (
+            <div className="mt-4 rounded-xl bg-amber-50 p-3">
+              <p className="mb-2 text-sm text-amber-900">
+                La Caja {reemplazoCaja} ya es otra computadora. Si esta computadora la reemplaza, el gerente de tienda
+                autoriza con su NIP y la otra deja de ser la Caja {reemplazoCaja}.
+              </p>
+              <Input
+                icon={ShieldAlert}
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                value={nipReemplazo}
+                onChange={(e) => setNipReemplazo(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="NIP del gerente"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && nipReemplazo.length === 6) elegirNumeroCaja(reemplazoCaja, nipReemplazo);
+                }}
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setReemplazoCaja(null)}>
+                  Cancelar
+                </Button>
+                <Button disabled={nipReemplazo.length !== 6 || asignandoCaja} onClick={() => elegirNumeroCaja(reemplazoCaja, nipReemplazo)}>
+                  Reemplazar
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {errorNumeroCaja ? <p className="mt-3 text-sm text-red-600">{errorNumeroCaja}</p> : null}
           {eligiendoCaja && numeroCaja ? (
             <Button variant="ghost" onClick={() => setEligiendoCaja(false)} className="mt-4 w-full justify-center">
               Seguir como Caja {numeroCaja}
