@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "El fondo lo define administración. Revisa el importe actualizado y vuelve a abrir la caja.", fondoCajaMxn: efectivoInicial }, { status: 409 });
   }
 
+  if (ctx.numeroCaja === null) return badRequest("Esta computadora no tiene caja asignada. Elige su número de caja en el punto de venta.");
+
   const existente = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   if (existente) return conflict(`La Caja ${ctx.numeroCaja} ya está abierta`);
 

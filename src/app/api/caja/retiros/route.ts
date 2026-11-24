@@ -8,7 +8,7 @@ import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { verifyPassword } from "@/lib/auth";
 import { buscarSupervisorPorNip } from "@/lib/supervisores";
 import { calcularResumenSesion, calcularEfectivoEsperado, calcularEfectivoEsperadoUsd } from "@/lib/caja";
-import { filtroCajaAbierta, numeroCajaDe } from "@/lib/numeroCaja";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { contextoPuntoVenta, sucursalConsultada } from "@/lib/puntoVenta";
 
 /** Log de retiros de la sucursal, del más reciente al más viejo. */
@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
   const soloSesionActual = url.searchParams.get("sesionActual") === "1";
   if (corte) filtro.corte = corte;
   if (soloSesionActual) {
-    const sesion = await CajaSesion.findOne(filtroCajaAbierta({ sucursalId, numeroCaja: numeroCajaDe(req) })).select("_id").lean();
+    // La caja de ESTA computadora; si matriz consulta otra sucursal, no hay.
+    const ctx = await contextoPuntoVenta(session, req);
+    const numeroCaja = ctx && ctx.sucursalId === String(sucursalId) ? ctx.numeroCaja : null;
+    const sesion = await CajaSesion.findOne(filtroCajaAbierta({ sucursalId, numeroCaja })).select("_id").lean();
     if (!sesion) return NextResponse.json([]);
     filtro.cajaSesionId = sesion._id;
   }

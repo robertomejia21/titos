@@ -12,8 +12,10 @@ import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { DiagnosticoTerminal } from "@/components/BanorteTerminal";
 import { SkeletonTabla } from "@/components/Skeleton";
 
+type CajaResumen = { numeroCaja: number; nombreCaja: string; asignada: boolean; esEstaComputadora: boolean; asignadaEn: string | null; ultimaVez: string | null };
 type Datos = {
   sucursalId: string; sucursales: { _id: string; nombre: string }[];
+  numeroCaja: number; cajas: CajaResumen[];
   terminales: { _id: string; alias: string; banco: string }[];
   equipo: { configuracion: EquipoCajaConfig; actualizadoPor: string; updatedAt: string } | null;
   puedeEditar: boolean;
@@ -36,6 +38,8 @@ export function EquiposCajaManager() {
   const zona = useZonaHoraria();
   const [datos, setDatos] = useState<Datos | null>(null);
   const [sucursal, setSucursal] = useState("");
+  const [caja, setCaja] = useState<number | null>(null);
+  const [liberando, setLiberando] = useState(false);
   const [form, setForm] = useState<EquipoCajaConfig>(EQUIPO_VACIO);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -53,13 +57,16 @@ export function EquiposCajaManager() {
 
   useEffect(() => {
     const abort = new AbortController();
-    fetch(`/api/equipos-caja${sucursal ? `?sucursalId=${encodeURIComponent(sucursal)}` : ""}`, { signal: abort.signal })
+    const params = new URLSearchParams();
+    if (sucursal) params.set("sucursalId", sucursal);
+    if (caja) params.set("numeroCaja", String(caja));
+    fetch(`/api/equipos-caja${params.size ? `?${params}` : ""}`, { signal: abort.signal })
       .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error || "No se pudo cargar la configuración"); return d as Datos; })
       .then(d => { setDatos(d); setForm(d.equipo?.configuracion ?? EQUIPO_VACIO); setError(""); setAviso(""); setConfirmado(false); })
       .catch(e => { if (!abort.signal.aborted) { setDatos(null); setError(e.message); } })
       .finally(() => { if (!abort.signal.aborted) setCargando(false); });
     return () => { abort.abort(); abortRef.current?.abort(); };
-  }, [sucursal]);
+  }, [sucursal, caja]);
 
   const set = <K extends keyof EquipoCajaConfig>(key: K, value: EquipoCajaConfig[K]) => {
     setForm(f => ({ ...f, [key]: value })); setAviso(""); setConfirmado(false);
@@ -68,10 +75,20 @@ export function EquiposCajaManager() {
     if (!datos) return;
     setGuardando(true); setError(""); setAviso("");
     try {
-      const r = await fetch("/api/equipos-caja", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sucursalId: datos.sucursalId, configuracion: form }) });
+      const r = await fetch("/api/equipos-caja", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sucursalId: datos.sucursalId, numeroCaja: datos.numeroCaja, configuracion: form }) });
       const equipo = await r.json(); if (!r.ok) throw new Error(equipo.error || "No se pudo guardar");
       setDatos({ ...datos, equipo }); setForm(equipo.configuracion); setAviso("Configuración guardada. Esto no activa una conexión automática.");
     } catch (e) { setError((e as Error).message); } finally { setGuardando(false); }
+  }
+  async function liberar() {
+    if (!datos) return;
+    setLiberando(true); setError(""); setAviso("");
+    try {
+      const r = await fetch("/api/equipos-caja", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sucursalId: datos.sucursalId, numeroCaja: datos.numeroCaja, accion: "liberar" }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "No se pudo liberar la caja");
+      setDatos({ ...datos, cajas: datos.cajas.map(c => c.numeroCaja === datos.numeroCaja ? { ...c, asignada: false, esEstaComputadora: false } : c) });
+      setAviso(`La Caja ${datos.numeroCaja} quedó sin computadora. La nueva computadora ya puede elegir ese número en el punto de venta.`);
+    } catch (e) { setError((e as Error).message); } finally { setLiberando(false); }
   }
   async function diagnosticar() {
     const serial = (navigator as Navigator & { serial?: SerialApi }).serial;
@@ -103,9 +120,29 @@ export function EquiposCajaManager() {
       {cargando ? <div className="mt-3 max-w-lg"><SkeletonTabla filas={3} columnas={2} etiqueta="Cargando sucursal…" /></div> : datos && <div className="mt-4 max-w-lg">
         <FormField label="Sucursal"><Select aria-label="Sucursal de los equipos" disabled={guardando || leyendo || datos.sucursales.length < 2} value={datos.sucursalId} onChange={e => {
           if (dirty && !window.confirm("Hay cambios sin guardar. ¿Cambiar de sucursal y descartarlos?")) return;
-          setCargando(true); setSucursal(e.target.value);
+          setCargando(true); setCaja(null); setSucursal(e.target.value);
         }}>{datos.sucursales.map(s => <option key={s._id} value={s._id}>{s.nombre}</option>)}</Select></FormField>
-        <p className="mt-2 text-xs text-black/65">Se guarda una configuración de referencia por sucursal. El permiso para abrir un puerto se elige en cada computadora.</p>
+        {(() => {
+          const numeros = Array.from(new Set([...datos.cajas.map(c => c.numeroCaja), datos.numeroCaja])).sort((a, b) => a - b);
+          const siguiente = Math.max(0, ...numeros) + 1;
+          const actual = datos.cajas.find(c => c.numeroCaja === datos.numeroCaja);
+          return <>
+            <FormField label="Caja" className="mt-3"><Select aria-label="Caja" disabled={guardando || leyendo || liberando} value={datos.numeroCaja} onChange={e => {
+              if (dirty && !window.confirm("Hay cambios sin guardar. ¿Cambiar de caja y descartarlos?")) return;
+              setCargando(true); setCaja(Number(e.target.value));
+            }}>
+              {numeros.map(n => { const c = datos.cajas.find(x => x.numeroCaja === n); return <option key={n} value={n}>Caja {n}{c?.nombreCaja ? ` · ${c.nombreCaja}` : ""}{c?.asignada ? "" : " · sin computadora"}</option>; })}
+              {siguiente <= 30 && <option value={siguiente}>Agregar Caja {siguiente}</option>}
+            </Select></FormField>
+            <p className="mt-2 text-sm text-black/70">
+              {actual?.asignada
+                ? <>Computadora asignada{actual.esEstaComputadora ? " (esta computadora)" : ""}{actual.ultimaVez ? ` · última vez ${new Date(actual.ultimaVez).toLocaleString("es-MX")}` : ""}.</>
+                : <>Sin computadora asignada. Se asigna desde el punto de venta de la computadora de esa caja.</>}
+            </p>
+            {actual?.asignada && datos.puedeEditar && <Button variant="ghost" className="mt-2" disabled={liberando} onClick={liberar}>{liberando ? "Liberando…" : "Liberar computadora (se reemplazó o se descompuso)"}</Button>}
+          </>;
+        })()}
+        <p className="mt-2 text-xs text-black/65">Cada caja es una computadora con su báscula, escáner y terminal; aquí se guarda la ficha de cada una. El permiso para abrir un puerto se elige en cada computadora.</p>
       </div>}
     </TarjetaEquipo>
     {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800">{error}</p>}
@@ -122,7 +159,7 @@ export function EquiposCajaManager() {
           <FormGrid><FormField label="Terminal bancaria registrada"><Select aria-label="Terminal bancaria registrada" value={form.terminalId} onChange={e => set("terminalId", e.target.value)}><option value="">Seleccionar terminal</option>{datos.terminales.map(t => <option key={t._id} value={t._id}>{t.alias} · {t.banco}</option>)}</Select></FormField>
           <FormField label="Modelo de terminal bancaria"><Input aria-label="Modelo de terminal bancaria" value={form.modeloTerminal} maxLength={100} onChange={e => set("modeloTerminal", e.target.value)} placeholder="Copiar de la etiqueta de la terminal" /></FormField></FormGrid>
           <FormField label="Gestión con Banorte (no habilita cobros automáticos)"><Select aria-label="Gestión con Banorte (no habilita cobros automáticos)" value={form.banorteIntegracion} onChange={e => set("banorteIntegracion", e.target.value)}><option value="sin_solicitar">Falta solicitar integración con caja</option><option value="solicitada">Solicitada a Banorte</option><option value="documentacion_recibida">Documentación recibida; falta integración y pruebas</option></Select></FormField>
-          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={form.exigirAutorizacion} onChange={e => set("exigirAutorizacion", e.target.checked)} />Exigir folio o autorización del comprobante al registrar pagos con tarjeta en esta sucursal</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={form.exigirAutorizacion} onChange={e => set("exigirAutorizacion", e.target.checked)} />Exigir folio o autorización del comprobante al registrar pagos con tarjeta en esta caja</label>
           <FormField label="Notas del técnico (sin contraseñas ni datos de tarjetas)"><textarea aria-label="Notas del técnico (sin contraseñas ni datos de tarjetas)" className={campo} rows={3} maxLength={1200} value={form.notas} onChange={e => set("notas", e.target.value)} /></FormField>
           <details><summary className="cursor-pointer py-3 font-medium">Parámetros seriales · solo para el técnico</summary><p className="mb-3 text-sm">Copia los parámetros de la configuración existente o del manual del modelo. Las opciones iniciales no confirman la configuración del equipo.</p>
             <FormGrid><FormField label="Velocidad"><Select aria-label="Velocidad" value={form.baudRate} onChange={e => set("baudRate", Number(e.target.value))}><option value={0}>Por confirmar</option>{BAUDIOS.map(b => <option key={b} value={b}>{b}</option>)}</Select></FormField><FormField label="Bits de datos"><Select aria-label="Bits de datos" value={form.dataBits} onChange={e => set("dataBits", Number(e.target.value) as 7 | 8)}><option value={7}>7</option><option value={8}>8</option></Select></FormField>
