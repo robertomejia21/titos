@@ -44,6 +44,7 @@ export function RetiroLimiteModal({
   sucursalNombre,
   zonaHoraria,
   cajero,
+  numeroCaja,
   enLinea,
   onPosponer,
   onTerminado,
@@ -52,6 +53,7 @@ export function RetiroLimiteModal({
   sucursalNombre: string;
   zonaHoraria: string;
   cajero: string;
+  numeroCaja: number;
   enLinea: boolean;
   onPosponer: () => void;
   /** Se cerró la ventana después de registrar el retiro. */
@@ -80,7 +82,7 @@ export function RetiroLimiteModal({
   const quedariaExcedente = quedaria - estado.fondo;
 
   function imprimir(retiro: RetiroTicket, ventana?: Window | null) {
-    const ok = imprimirTicketRetiro(retiro, { sucursalNombre, zonaHoraria, cajero }, ventana);
+    const ok = imprimirTicketRetiro(retiro, { sucursalNombre, zonaHoraria, cajero, numeroCaja }, ventana);
     setAvisoImpresion(
       ok ? "" : "El retiro quedó registrado, pero no se pudo abrir la impresión. Usa Reimprimir y permite las ventanas emergentes."
     );
@@ -182,7 +184,7 @@ export function RetiroLimiteModal({
   }
 
   return (
-    <Modal open onClose={onPosponer} title="Retiro de efectivo requerido" icon={ShieldAlert}>
+    <Modal open onClose={onPosponer} title={`Retiro de efectivo requerido · Caja ${numeroCaja}`} icon={ShieldAlert}>
       <p className="mb-3 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900">
         La caja tiene {formatMoney(estado.excedente)} además del fondo de {formatMoney(estado.fondo)}, más del límite de{" "}
         {formatMoney(estado.limite)}. Llama al gerente de tienda para hacer un retiro parcial.

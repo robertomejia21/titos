@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { connectDB } from "@/lib/db";
 import Devolucion from "@/models/Devolucion";
 import Venta from "@/models/Venta";
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   const venta = await Venta.findById(ventaId);
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
 
   // El reembolso en efectivo solo puede salir de una caja abierta. Si el corte
   // del día ya se cerró, la devolución queda pendiente de pago.
-  const sesionCaja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+  const sesionCaja = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   const sePagaAhora = montoEfectivo <= EPSILON || !!sesionCaja;
   const corteDelDia = todayCorte(await zonaHorariaDeSucursal(ctx.sucursalId));
 

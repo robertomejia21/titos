@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { connectDB } from "@/lib/db";
 import Cliente from "@/models/Cliente";
 import CuentaPorCobrar from "@/models/CuentaPorCobrar";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   const cliente = await Cliente.findById(id);
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // para que aparezca en el corte.
   let cajaSesionId: unknown = null;
   if (metodoPago === "efectivo") {
-    const sesionCaja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+    const sesionCaja = await CajaSesion.findOne(filtroCajaAbierta(ctx));
     if (!sesionCaja) return badRequest("Debes abrir la caja antes de recibir un abono en efectivo");
     cajaSesionId = sesionCaja._id;
   }

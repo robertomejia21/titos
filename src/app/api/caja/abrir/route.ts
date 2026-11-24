@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import CajaSesion from "@/models/CajaSesion";
 import { requireSession, unauthorized, forbidden, badRequest, conflict } from "@/lib/apiAuth";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   // Reintento de una apertura que el servidor ya había guardado (se cayó la red
@@ -36,12 +37,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "El fondo lo define administración. Revisa el importe actualizado y vuelve a abrir la caja.", fondoCajaMxn: efectivoInicial }, { status: 409 });
   }
 
-  const existente = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
-  if (existente) return conflict("Ya tienes una caja abierta");
+  const existente = await CajaSesion.findOne(filtroCajaAbierta(ctx));
+  if (existente) return conflict(`La Caja ${ctx.numeroCaja} ya está abierta`);
 
   try {
     const sesion = await CajaSesion.create({
       sucursalId: ctx.sucursalId,
+      numeroCaja: ctx.numeroCaja,
       ...(clienteOperacionId ? { clienteOperacionId } : {}),
       usuarioAperturaId: session.userId,
       fechaApertura: new Date(),

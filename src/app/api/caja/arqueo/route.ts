@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { requireSession, unauthorized, forbidden, puede, badRequest } from "@/lib/apiAuth";
 import { buscarSupervisorPorNip } from "@/lib/supervisores";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
 import { calcularResumenSesion, calcularEfectivoEsperado, calcularEfectivoEsperadoUsd } from "@/lib/caja";
 import CajaSesion from "@/models/CajaSesion";
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!body || !["consultar", "guardar"].includes(body.accion)) return badRequest("Acción inválida");
   try {
     await connectDB();
-    const ctx = await contextoPuntoVenta(usuario);
+    const ctx = await contextoPuntoVenta(usuario, req);
     if (!ctx) return forbidden();
     if (body.accion === "consultar") {
       const intento = await IntentoArqueo.findOneAndUpdate({ _id: `${usuario.userId}:${Math.floor(Date.now() / 60_000)}` }, { $inc: { cantidad: 1 }, $setOnInsert: { expiraEn: new Date(Date.now() + 120_000) } }, { upsert: true, returnDocument: "after" });
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
       if (!supervisor) return responder({ error: "No se pudo identificar a un supervisor autorizado. Revisa que su NIP personal sea correcto, esté activo y no esté repetido." }, 403);
       const token = randomBytes(32).toString("hex");
       const registro = await mongoose.connection.transaction(async (session) => {
-        const caja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" }).session(session);
+        const caja = await CajaSesion.findOne(filtroCajaAbierta(ctx)).session(session);
         if (!caja) throw new ErrorArqueo("No hay una caja abierta", 409);
         const resumen = await calcularResumenSesion(String(caja._id), session);
         const [arqueo] = await Arqueo.create([{

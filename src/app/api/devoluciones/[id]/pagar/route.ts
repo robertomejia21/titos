@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { connectDB } from "@/lib/db";
 import Devolucion from "@/models/Devolucion";
 import CajaSesion from "@/models/CajaSesion";
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   const devolucion = await Devolucion.findById(id);
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   if (devolucion.estado !== "pendiente") return badRequest("Esta devolución ya no está pendiente de pago");
 
-  const sesionCaja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+  const sesionCaja = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   if (!sesionCaja) return badRequest("Debes abrir la caja para poder pagar la devolución");
 
   devolucion.estado = "pagada";

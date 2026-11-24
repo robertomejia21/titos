@@ -3,6 +3,7 @@ import InventarioSucursal from "@/models/InventarioSucursal";
 import Sucursal from "@/models/Sucursal";
 import { cerrarAlertasResurtidas } from "@/lib/alertasInventario";
 import type { SessionPayload } from "@/lib/auth";
+import { numeroCajaDe } from "@/lib/numeroCaja";
 
 export const NOMBRE_MOSTRADOR_MATRIZ = "Matriz (mostrador)";
 
@@ -25,15 +26,28 @@ export async function obtenerMostradorMatriz() {
  * mostrador si quien vende es matriz. La diferencia entre uno y otro es de
  * dónde sale el inventario, por eso viaja el flag.
  */
-export type ContextoPuntoVenta = { sucursalId: string; esMatriz: boolean };
+export type ContextoPuntoVenta = {
+  sucursalId: string;
+  esMatriz: boolean;
+  /** Caja (computadora) desde la que se opera; ver lib/numeroCaja. */
+  numeroCaja: number;
+};
 
-export async function contextoPuntoVenta(session: SessionPayload): Promise<ContextoPuntoVenta | null> {
+/**
+ * `req` hace falta en todo lo que toca la caja abierta: de ahí sale el número
+ * de caja del equipo. Sin él se asume la Caja 1.
+ */
+export async function contextoPuntoVenta(
+  session: SessionPayload,
+  req?: Parameters<typeof numeroCajaDe>[0]
+): Promise<ContextoPuntoVenta | null> {
+  const numeroCaja = numeroCajaDe(req);
   if (session.role === "matriz") {
     const mostrador = await obtenerMostradorMatriz();
-    return { sucursalId: String(mostrador._id), esMatriz: true };
+    return { sucursalId: String(mostrador._id), esMatriz: true, numeroCaja };
   }
   if (session.role === "sucursal" && session.sucursalId) {
-    return { sucursalId: String(session.sucursalId), esMatriz: false };
+    return { sucursalId: String(session.sucursalId), esMatriz: false, numeroCaja };
   }
   return null;
 }

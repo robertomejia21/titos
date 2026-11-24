@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const clienteOperacionId = url.searchParams.get("clienteOperacionId");
   if (clienteOperacionId) {
-    const ctx = await contextoPuntoVenta(session);
+    const ctx = await contextoPuntoVenta(session, req);
     if (!ctx) return forbidden();
     const transacciones = await TransaccionBanorte.find({ sucursalId: ctx.sucursalId, clienteOperacionId, comando: "VENTA" })
       .sort({ createdAt: -1 })
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   if (!body) return badRequest("Cuerpo inválido");
 
   await connectDB();
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   try {

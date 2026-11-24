@@ -45,7 +45,7 @@ function etiquetaDenominacion(d: number) {
 function cuerpo(
   retiro: RetiroTicket,
   copia: Copia,
-  { sucursalNombre, zonaHoraria, cajero }: { sucursalNombre: string; zonaHoraria: string; cajero: string }
+  { sucursalNombre, zonaHoraria, cajero, numeroCaja }: { sucursalNombre: string; zonaHoraria: string; cajero: string; numeroCaja: number | null }
 ) {
   const fecha = new Date(retiro.fecha);
   const moneda = retiro.moneda;
@@ -86,6 +86,7 @@ function cuerpo(
       <div class="copia">COPIA ${copia}</div>
       <div class="sep"></div>
       ${fila("Folio", escaparHTML(retiro.folio))}
+      ${numeroCaja ? fila("Caja", String(numeroCaja)) : ""}
       ${fila("Fecha", `${formatFechaLarga(fecha, zonaHoraria)} ${formatHora(fecha, zonaHoraria)}`)}
       ${entrega ? fila("Cajero", escaparHTML(entrega)) : ""}
       ${recibe ? fila("Autorizó", escaparHTML(recibe)) : ""}
@@ -115,15 +116,15 @@ function cuerpo(
 
 export function ticketRetiroHTML(
   retiro: RetiroTicket,
-  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string }
+  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string; numeroCaja?: number | null }
 ) {
-  const o = { sucursalNombre: opciones.sucursalNombre ?? "", zonaHoraria: opciones.zonaHoraria, cajero: opciones.cajero ?? "" };
+  const o = { sucursalNombre: opciones.sucursalNombre ?? "", zonaHoraria: opciones.zonaHoraria, cajero: opciones.cajero ?? "", numeroCaja: opciones.numeroCaja ?? null };
   return [cuerpo(retiro, "CAJA", o), cuerpo(retiro, "GERENTE", o)].join("");
 }
 
 export function imprimirTicketRetiro(
   retiro: RetiroTicket,
-  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string },
+  opciones: { sucursalNombre?: string; zonaHoraria: string; cajero?: string; numeroCaja?: number | null },
   ventanaPreparada?: Window | null
 ) {
   return imprimirTicket(`Retiro ${retiro.folio}`, ticketRetiroHTML(retiro, opciones), ventanaPreparada);
