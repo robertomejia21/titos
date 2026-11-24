@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import CajaSesion from "@/models/CajaSesion";
-import MovimientoCaja, { MONEDAS_CAJA } from "@/models/MovimientoCaja";
+import MovimientoCaja, { DENOMINACIONES_MXN, MONEDAS_CAJA, ORIGENES_RETIRO, type OrigenRetiro } from "@/models/MovimientoCaja";
 import UserModel from "@/models/User";
 import { requireSession, unauthorized, forbidden, badRequest, generateFolio, todayCorte, puede, sinPermiso } from "@/lib/apiAuth";
 import { zonaHorariaDeSucursal } from "@/lib/credito";
@@ -39,9 +39,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await requireSession(req);
   if (!session) return unauthorized();
-  if (!puede(session, "caja.retirar")) return sinPermiso("caja.retirar");
 
   const body = await req.json().catch(() => null);
+  const origen = String(body?.origen ?? "manual") as OrigenRetiro;
+  if (!ORIGENES_RETIRO.includes(origen)) return badRequest("Origen de retiro inválido");
+
+  // El retiro por límite de efectivo lo pide el propio sistema en cualquier
+  // caja, aunque el cajero no tenga el permiso de retirar: quien autoriza y se
+  // lleva el dinero es el gerente con su NIP, que se exige más abajo.
+  const permitido = puede(session, "caja.retirar") || (origen === "limite" && puede(session, "pos.vender"));
+  if (!permitido) return sinPermiso("caja.retirar");
+
   const monto = Number(body?.monto);
   const motivo = String(body?.motivo ?? "").trim();
   const moneda = String(body?.moneda ?? "MXN");
@@ -55,8 +63,34 @@ export async function POST(req: NextRequest) {
   if (!Number.isFinite(monto) || monto <= 0) return badRequest("Captura un monto válido a retirar");
   if (!motivo) return badRequest("Captura el motivo del retiro");
   if (!MONEDAS_CAJA.includes(moneda as (typeof MONEDAS_CAJA)[number])) return badRequest("Moneda inválida");
-  if (!password && !nipSupervisor) {
+  if (origen === "limite") {
+    if (moneda !== "MXN") return badRequest("El retiro por límite de efectivo es en pesos");
+    if (!nipSupervisor) return badRequest("El retiro por límite de efectivo lo autoriza el gerente con su NIP");
+  } else if (!password && !nipSupervisor) {
     return badRequest("Confirma tu clave de acceso o captura el NIP del encargado de turno");
+  }
+
+  // Desglose opcional de billetes y monedas entregados. Si viene, tiene que
+  // cuadrar con el monto: es lo que el gerente firma que recibió.
+  let desglose: { denominacion: number; cantidad: number }[] = [];
+  if (Array.isArray(body?.desglose) && body.desglose.length > 0) {
+    if (moneda !== "MXN") return badRequest("El desglose de billetes solo aplica a pesos");
+    for (const renglon of body.desglose as unknown[]) {
+      const denominacion = Number((renglon as { denominacion?: unknown })?.denominacion);
+      const cantidad = Number((renglon as { cantidad?: unknown })?.cantidad);
+      if (!DENOMINACIONES_MXN.includes(denominacion as (typeof DENOMINACIONES_MXN)[number])) {
+        return badRequest("Denominación inválida en el desglose");
+      }
+      if (!Number.isInteger(cantidad) || cantidad < 0 || cantidad > 100000) {
+        return badRequest("Cantidad inválida en el desglose");
+      }
+      if (cantidad > 0) desglose.push({ denominacion, cantidad });
+    }
+    desglose = desglose.sort((a, b) => b.denominacion - a.denominacion);
+    const sumaDesglose = desglose.reduce((s, r) => s + r.denominacion * r.cantidad, 0);
+    if (Math.abs(sumaDesglose - monto) > 0.005) {
+      return badRequest(`El desglose suma ${sumaDesglose.toFixed(2)} y el monto es ${monto.toFixed(2)}: deben coincidir`);
+    }
   }
 
   const clienteOperacionId = body?.clienteOperacionId ? String(body.clienteOperacionId) : null;
@@ -114,6 +148,10 @@ export async function POST(req: NextRequest) {
       moneda,
       monto,
       motivo,
+      origen,
+      efectivoAntes: disponible,
+      efectivoDespues: Number((disponible - monto).toFixed(2)),
+      desglose,
       usuarioId: session.userId,
       usuarioNombre: usuario.nombre,
       autorizadoPorId: autorizadoPor?.id ?? null,

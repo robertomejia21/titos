@@ -166,6 +166,7 @@ export function ConfiguracionManager() {
   const [horaCorte, setHoraCorte] = useState("16:00");
   const [tipoCambio, setTipoCambio] = useState("17");
   const [fondoCajaMxn, setFondoCajaMxn] = useState("1000");
+  const [limiteEfectivoCajaMxn, setLimiteEfectivoCajaMxn] = useState("2000");
   const [reglasOperacion, setReglasOperacion] = useState<ReglasOperacion>({...REGLAS_OPERACION});
   const [folioCorregir,setFolioCorregir] = useState("");
   const [diaCorregir,setDiaCorregir] = useState("");
@@ -230,6 +231,7 @@ export function ConfiguracionManager() {
     setHoraCorte(data.horaCorte ?? "16:00");
     setTipoCambio(String(data.tipoCambio ?? 17));
     setFondoCajaMxn(String(data.fondoCajaMxn ?? 1000));
+    setLimiteEfectivoCajaMxn(String(data.limiteEfectivoCajaMxn ?? 2000));
     setReglasOperacion({...REGLAS_OPERACION, ...data.reglasOperacion});
     setTipoCambioActualizadoEn(data.tipoCambioActualizadoEn ?? null);
     setTipoCambioActualizadoPor(data.tipoCambioActualizadoPor ?? "");
@@ -583,6 +585,10 @@ export function ConfiguracionManager() {
                         <Input aria-label="Fondo de apertura de caja" type="number" min="0" max="1000000" step="0.01" value={fondoCajaMxn} onChange={(e) => setFondoCajaMxn(e.target.value)} />
                         <p className="mt-1 text-sm text-black/70">Mismo fondo para todas las cajas. Se aplica a nuevas aperturas; las cajas abiertas conservan su fondo. Solo administración puede cambiarlo.</p>
                       </FormField>
+                      <FormField label="Límite de efectivo antes de retiro (MXN, aparte del fondo)">
+                        <Input aria-label="Límite de efectivo antes de retiro" type="number" min="0" max="1000000" step="0.01" value={limiteEfectivoCajaMxn} onChange={(e) => setLimiteEfectivoCajaMxn(e.target.value)} />
+                        <p className="mt-1 text-sm text-black/70">Cuando el efectivo en pesos de una caja pasa del fondo más este límite, el punto de venta abre solo la ventana de retiro parcial para que el gerente de tienda lo autorice con su NIP. 0 lo desactiva.</p>
+                      </FormField>
                       <FormField label="Tipo de cambio (pesos por dólar)">
                         <Input id="tipo-cambio"
                           icon={DollarSign}
@@ -611,7 +617,7 @@ export function ConfiguracionManager() {
                       guardandoSeccion={guardandoSeccion}
                       avisoSeccion={avisoSeccion}
                       onGuardar={() =>
-                        guardarSeccion("caja", { tipoCambio: Number(tipoCambio), fondoCajaMxn: Number(fondoCajaMxn) })
+                        guardarSeccion("caja", { tipoCambio: Number(tipoCambio), fondoCajaMxn: Number(fondoCajaMxn), limiteEfectivoCajaMxn: Number(limiteEfectivoCajaMxn) })
                       }
                     />
                   </>
