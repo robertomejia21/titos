@@ -1,4 +1,5 @@
 import TransaccionBanorte from "@/models/TransaccionBanorte";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import TerminalPago from "@/models/TerminalPago";
 import CajaSesion from "@/models/CajaSesion";
 import type { SessionPayload } from "@/lib/auth";
@@ -79,7 +80,7 @@ export async function reservarTransaccion(session: SessionPayload, ctx: Contexto
   if (!permisos.some((p) => puede(session, p))) throw new ErrorBanorte("No tienes permiso para esta operación", 403);
 
   const terminal = await terminalIntegradaDe(ctx, body.terminalId);
-  const caja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" }).select("_id").lean<{ _id: unknown }>();
+  const caja = await CajaSesion.findOne(filtroCajaAbierta(ctx)).select("_id").lean<{ _id: unknown }>();
   if (comando === "VENTA" && !caja) throw new ErrorBanorte("Debes abrir la caja antes de cobrar");
 
   let monto = 0;

@@ -68,6 +68,9 @@ async function integracion() {
   const { GET: efectivo } = await import("../src/app/api/caja/actual/efectivo/route");
   const { POST: retirar } = await import("../src/app/api/caja/retiros/route");
   const { PATCH: configurar } = await import("../src/app/api/configuracion/route");
+  const { GET: cajaActual } = await import("../src/app/api/caja/actual/route");
+  const { POST: cerrarCaja } = await import("../src/app/api/caja/cerrar/route");
+  const CajaSesion = (await import("../src/models/CajaSesion")).default;
 
   try {
     await connectDB();
@@ -82,8 +85,13 @@ async function integracion() {
     const payload = (u: typeof admin) => ({ userId: String(u._id), nombre: u.nombre, email: u.email, role: u.role, sucursalId: u.sucursalId ? String(u.sucursalId) : null });
     const tAdmin = await signSession(payload(admin));
     const tCajero = await signSession(payload(cajero));
-    const req = (url: string, method = "GET", body?: unknown, auth = tCajero) =>
-      new NextRequest(`http://localhost${url}`, { method, headers: { cookie: `titos_session=${auth}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    // `caja`: número de caja de la computadora (cookie). Sin él, Caja 1.
+    const req = (url: string, method = "GET", body?: unknown, auth = tCajero, caja?: number) =>
+      new NextRequest(`http://localhost${url}`, {
+        method,
+        headers: { cookie: `titos_session=${auth}${caja ? `; titos_caja=${caja}` : ""}`, "Content-Type": "application/json" },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
 
     // Configuración: el límite se valida y se guarda.
     assert.equal((await configurar(req("/api/configuracion", "PATCH", { limiteEfectivoCajaMxn: -5 }, tAdmin))).status, 400);
@@ -140,6 +148,48 @@ async function integracion() {
     estado = await (await efectivo(req("/api/caja/actual/efectivo"))).json();
     assert.equal(estado.efectivoEnCaja, 1000);
     assert.equal(estado.requiereRetiro, false, "Después del retiro ya no se pide");
+
+    // ---------- Varias cajas en la misma sucursal ----------
+    // La Caja 2 abre con su propio fondo aunque la Caja 1 siga abierta.
+    const abrir2 = await abrirCaja(req("/api/caja/abrir", "POST", { efectivoInicial: 1000, clienteOperacionId: "apertura-caja-2" }, tCajero, 2));
+    assert.equal(abrir2.status, 201, await abrir2.clone().text());
+    const caja2 = await abrir2.json();
+    assert.equal(caja2.numeroCaja, 2);
+    const repetida = await abrirCaja(req("/api/caja/abrir", "POST", { efectivoInicial: 1000, clienteOperacionId: "apertura-caja-2-bis" }, tCajero, 2));
+    assert.equal(repetida.status, 409, "La misma caja no abre dos veces");
+    const caja1 = await (await cajaActual(req("/api/caja/actual"))).json();
+    assert.notEqual(String(caja1._id), String(caja2._id));
+    assert.equal(String((await (await cajaActual(req("/api/caja/actual", "GET", undefined, tCajero, 1))).json())._id), String(caja1._id));
+
+    // Una venta en la Caja 2 solo dispara el aviso de la Caja 2.
+    const venta2 = await vender(req("/api/ventas", "POST", { clienteOperacionId: "venta-caja-2", items: [{ productoId: String(prod._id), cantidad: 1 }], pagos: [{ metodoPago: "efectivo", monto: 2500 }], montoRecibido: 2500 }, tCajero, 2));
+    assert.equal(venta2.status, 201, await venta2.clone().text());
+    assert.equal(String((await venta2.json()).cajaSesionId), String(caja2._id));
+    const e2 = await (await efectivo(req("/api/caja/actual/efectivo", "GET", undefined, tCajero, 2))).json();
+    assert.equal(e2.efectivoEnCaja, 3500);
+    assert.equal(e2.requiereRetiro, true);
+    const e1 = await (await efectivo(req("/api/caja/actual/efectivo"))).json();
+    assert.equal(e1.efectivoEnCaja, 1000, "La Caja 1 no ve el efectivo de la Caja 2");
+    assert.equal(e1.requiereRetiro, false);
+
+    const ret2 = await retirar(req("/api/caja/retiros", "POST", { clienteOperacionId: "ret-caja-2", origen: "limite", moneda: "MXN", monto: 2500, motivo: "Retiro parcial por límite de efectivo", nipSupervisor: "246810" }, tCajero, 2));
+    assert.equal(ret2.status, 201, await ret2.clone().text());
+    assert.equal(String((await ret2.json()).cajaSesionId), String(caja2._id));
+
+    // Cerrar la Caja 2 no toca la Caja 1.
+    const cierre2 = await cerrarCaja(req("/api/caja/cerrar", "POST", { efectivoContado: 1000, efectivoContadoUsd: 0 }, tCajero, 2));
+    assert.equal(cierre2.status, 200, await cierre2.clone().text());
+    assert.equal((await CajaSesion.findById(caja2._id).lean<{ estado: string }>())!.estado, "cerrada");
+    assert.equal((await CajaSesion.findById(caja1._id).lean<{ estado: string }>())!.estado, "abierta");
+
+    // Una sesión abierta antes del cambio (sin número) cuenta como Caja 1.
+    const otra = await Sucursal.create({ nombre: "Sucursal vieja", clave: "VIE" });
+    const cajeroOtra = await User.create({ nombre: "Cajero Viejo", email: "vie@lim.local", role: "sucursal", sucursalId: otra._id, rolId: cajeroRol._id, passwordHash: await hashPassword("x-pruebas-1") });
+    const tOtra = await signSession(payload(cajeroOtra));
+    const { insertedId } = await CajaSesion.collection.insertOne({ sucursalId: otra._id, estado: "abierta", usuarioAperturaId: cajeroOtra._id, fechaApertura: new Date(), efectivoInicial: 1000 });
+    assert.equal(String((await (await cajaActual(req("/api/caja/actual", "GET", undefined, tOtra))).json())._id), String(insertedId));
+    assert.equal(String((await (await cajaActual(req("/api/caja/actual", "GET", undefined, tOtra, 1))).json())._id), String(insertedId));
+    assert.equal(await (await cajaActual(req("/api/caja/actual", "GET", undefined, tOtra, 3))).json(), null);
   } finally {
     await mongoose.disconnect();
     await mongo.stop();

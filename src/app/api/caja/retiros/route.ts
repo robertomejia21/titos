@@ -8,6 +8,7 @@ import { zonaHorariaDeSucursal } from "@/lib/credito";
 import { verifyPassword } from "@/lib/auth";
 import { buscarSupervisorPorNip } from "@/lib/supervisores";
 import { calcularResumenSesion, calcularEfectivoEsperado, calcularEfectivoEsperadoUsd } from "@/lib/caja";
+import { filtroCajaAbierta, numeroCajaDe } from "@/lib/numeroCaja";
 import { contextoPuntoVenta, sucursalConsultada } from "@/lib/puntoVenta";
 
 /** Log de retiros de la sucursal, del más reciente al más viejo. */
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   const soloSesionActual = url.searchParams.get("sesionActual") === "1";
   if (corte) filtro.corte = corte;
   if (soloSesionActual) {
-    const sesion = await CajaSesion.findOne({ sucursalId, estado: "abierta" }).select("_id").lean();
+    const sesion = await CajaSesion.findOne(filtroCajaAbierta({ sucursalId, numeroCaja: numeroCajaDe(req) })).select("_id").lean();
     if (!sesion) return NextResponse.json([]);
     filtro.cajaSesionId = sesion._id;
   }
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
     if (yaRegistrado) return NextResponse.json(yaRegistrado);
   }
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   // El folio siempre queda ligado a quién sacó el dinero (el usuario de la
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
     if (!claveValida) return badRequest("Clave incorrecta");
   }
 
-  const sesion = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+  const sesion = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   if (!sesion) return badRequest("Debes abrir la caja antes de retirar efectivo");
 
   // No se puede retirar más de lo que hay en el cajón correspondiente.

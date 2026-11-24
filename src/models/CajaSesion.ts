@@ -5,6 +5,10 @@ export const ESTADOS_CAJA = ["abierta", "cerrada"] as const;
 const CajaSesionSchema = new Schema(
   {
     sucursalId: { type: Schema.Types.ObjectId, ref: "Sucursal", required: true },
+    // Caja (computadora) de la sucursal: cada una abre con su fondo y lleva su
+    // propio efectivo, retiros y corte. Las sesiones anteriores a que hubiera
+    // varias cajas no lo traen y cuentan como Caja 1 (ver lib/numeroCaja).
+    numeroCaja: { type: Number, default: 1, min: 1 },
     // Ver `clienteOperacionId` en Venta: identifica el intento de apertura para
     // que un reintento tras una caída de red devuelva la misma sesión.
     clienteOperacionId: { type: String },
@@ -87,7 +91,7 @@ CajaSesionSchema.index(
   { clienteOperacionId: 1 },
   { unique: true, partialFilterExpression: { clienteOperacionId: { $type: "string" } } }
 );
-CajaSesionSchema.index({ sucursalId: 1, estado: 1 });
+CajaSesionSchema.index({ sucursalId: 1, estado: 1, numeroCaja: 1 });
 
 export type CajaSesion = InferSchemaType<typeof CajaSesionSchema> & { _id: string };
 

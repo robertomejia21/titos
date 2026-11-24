@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import CajaSesion from "@/models/CajaSesion";
 import { requireSession, unauthorized, forbidden, badRequest } from "@/lib/apiAuth";
 import { calcularResumenSesion, calcularEfectivoEsperado, calcularEfectivoEsperadoUsd } from "@/lib/caja";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
 
 export async function POST(req: NextRequest) {
@@ -23,10 +24,10 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
-  const sesion = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+  const sesion = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   if (!sesion) return badRequest("No tienes una caja abierta");
 
   const resumen = await calcularResumenSesion(String(sesion._id));

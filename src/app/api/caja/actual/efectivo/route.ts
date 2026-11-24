@@ -4,6 +4,7 @@ import CajaSesion from "@/models/CajaSesion";
 import { requireSession, unauthorized, forbidden } from "@/lib/apiAuth";
 import { calcularResumenSesion, calcularEfectivoEsperado, estadoLimiteEfectivo } from "@/lib/caja";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { contextoPuntoVenta } from "@/lib/puntoVenta";
 
 /**
@@ -20,10 +21,10 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
-  const sesion = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" })
+  const sesion = await CajaSesion.findOne(filtroCajaAbierta(ctx))
     .select("_id efectivoInicial")
     .lean<{ _id: unknown; efectivoInicial: number } | null>();
   if (!sesion) return NextResponse.json({ abierta: false });

@@ -24,6 +24,7 @@ export type Corte = {
   sucursalId: { _id: string; nombre: string; zonaHoraria?: string } | string;
   usuarioAperturaId?: { nombre?: string } | null;
   usuarioCierreId?: { nombre?: string } | null;
+  numeroCaja?: number;
   fechaApertura: string;
   fechaCierre: string;
   efectivoInicial: number;
@@ -285,6 +286,10 @@ export function CortesManager() {
                   {abierto ? (
                     <div className="grid grid-cols-1 gap-4 pb-4 lg:grid-cols-2">
                       <div className="space-y-1 rounded-xl bg-black/2 p-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-black/50">Caja</span>
+                          <span className="font-medium">Caja {corte.numeroCaja ?? 1}</span>
+                        </div>
                         <div className="flex justify-between">
                           <span className="text-black/50">Abrió / cerró</span>
                           <span className="font-medium">

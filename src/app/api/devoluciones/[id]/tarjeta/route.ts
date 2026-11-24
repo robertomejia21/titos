@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { connectDB } from "@/lib/db";
 import Devolucion from "@/models/Devolucion";
 import CajaSesion from "@/models/CajaSesion";
@@ -23,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!body) return badRequest("Cuerpo inválido");
 
   await connectDB();
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   const devolucion = await Devolucion.findById(id).catch(() => null);
@@ -62,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     devolucion.tarjeta.estado = "convertida_efectivo";
     // El efectivo solo sale de una caja abierta: si no hay, queda pendiente
     // de pago como cualquier devolución.
-    const sesionCaja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+    const sesionCaja = await CajaSesion.findOne(filtroCajaAbierta(ctx));
     if (sesionCaja) {
       devolucion.estado = "pagada";
       devolucion.cajaSesionId = sesionCaja._id;

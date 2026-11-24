@@ -1,4 +1,5 @@
 import CancelacionPos, { type TIPOS_CANCELACION } from "@/models/CancelacionPos";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import CajaSesion from "@/models/CajaSesion";
 import Sucursal from "@/models/Sucursal";
 import { generateFolio, todayCorte } from "@/lib/apiAuth";
@@ -63,7 +64,7 @@ export async function registrarCancelacion({
 }) {
   const [sucursal, sesionCaja, zonaHoraria] = await Promise.all([
     Sucursal.findById(ctx.sucursalId).select("nombre").lean(),
-    CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" }).select("_id").lean(),
+    CajaSesion.findOne(filtroCajaAbierta(ctx)).select("_id").lean(),
     zonaHorariaDeSucursal(ctx.sucursalId),
   ]);
 

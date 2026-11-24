@@ -43,6 +43,7 @@ import { estadoPuente, type EstadoPuente } from "@/lib/puenteCaja";
 import type { DatosBanortePago } from "@/lib/banorte";
 import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
 import { RetiroLimiteModal, type EstadoEfectivoCaja } from "@/components/sucursal/RetiroLimiteModal";
+import { guardarNumeroCajaEquipo, leerNumeroCajaEquipo } from "@/lib/numeroCaja";
 import { imprimirTicketRetiro as imprimirComprobanteRetiro, type RetiroTicket } from "@/lib/ticketRetiro";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
@@ -224,6 +225,7 @@ type RetiroResp = RetiroTicket & {
 
 type SesionCaja = {
   _id: string;
+  numeroCaja?: number;
   efectivoInicial: number;
   efectivoInicialUsd?: number;
   fechaApertura: string;
@@ -421,6 +423,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
 
   // --- Caja: apertura, retiro de efectivo y corte ---
   const [sesion, setSesion] = useState<SesionCaja | null | undefined>(undefined);
+  // Número de caja de ESTA computadora (cookie del equipo). undefined mientras
+  // no se ha leído; null si nunca se eligió: entonces se pregunta antes de
+  // operar, para que dos computadoras no terminen en la misma caja sin saberlo.
+  const [numeroCaja, setNumeroCaja] = useState<number | null | undefined>(undefined);
+  const [eligiendoCaja, setEligiendoCaja] = useState(false);
   const [efectivoInicialInput, setEfectivoInicialInput] = useState("1000");
   const aperturaOperacion = useRef<string | null>(null);
   const [efectivoInicialUsdInput, setEfectivoInicialUsdInput] = useState("");
@@ -645,6 +652,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       })
       .catch(() => setSesion(leerSesionCache<SesionCaja>()))
       .finally(() => {
+        setNumeroCaja(leerNumeroCajaEquipo());
         if (leerCola().length > 0) sincronizarCola();
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe ejecutarse al montar
@@ -1799,6 +1807,27 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     }
   }
 
+  /** Marca esta computadora como la caja `n` y carga la sesión de esa caja. */
+  async function elegirNumeroCaja(n: number) {
+    guardarNumeroCajaEquipo(n);
+    setNumeroCaja(n);
+    setEligiendoCaja(false);
+    setErrorCaja(null);
+    setSesion(undefined);
+    try {
+      const res = await fetch("/api/caja/actual");
+      if (!res.ok) throw new Error("http-error");
+      const data = await res.json();
+      setSesion(data);
+      guardarSesionCache(data);
+    } catch {
+      // Sin red no se sabe si esa caja ya está abierta; se ofrece abrirla y el
+      // servidor decide al sincronizar.
+      setSesion(null);
+      guardarSesionCache(null);
+    }
+  }
+
   function abrirModalRetiro() {
     setRetiroMonto("");
     setRetiroMotivo("");
@@ -1868,7 +1897,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }
 
   function imprimirTicketRetiro(retiro: RetiroResp) {
-    imprimirComprobanteRetiro(retiro, { sucursalNombre, zonaHoraria, cajero: nombreCajero(sesion ?? null) ?? "" });
+    imprimirComprobanteRetiro(retiro, { sucursalNombre, zonaHoraria, cajero: nombreCajero(sesion ?? null) ?? "", numeroCaja: sesion?.numeroCaja ?? numeroCaja ?? 1 });
   }
 
   async function confirmarCorte() {
@@ -1970,8 +1999,43 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     </span>
   ) : null;
 
-  if (sesion === undefined) {
+  if (sesion === undefined || numeroCaja === undefined) {
     return <SkeletonTabla filas={6} columnas={3} etiqueta="Cargando punto de venta…" />;
+  }
+
+  if (numeroCaja === null || eligiendoCaja) {
+    return (
+      <div className="space-y-4">
+        <Card className="mx-auto max-w-md">
+          <h2 className="mb-1 font-semibold text-titos-green-900">¿Qué caja es esta computadora?</h2>
+          <p className="mb-4 text-sm text-black/50">
+            Cada caja abre con su propio fondo y lleva su efectivo, retiros y corte por separado. Se elige una sola vez
+            por computadora; si dos computadoras eligen el mismo número, comparten la caja.
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => elegirNumeroCaja(n)}
+                className={`rounded-xl border px-3 py-3 text-lg font-semibold transition-colors ${
+                  numeroCaja === n
+                    ? "border-titos-green-600 bg-titos-green-600 text-white"
+                    : "border-black/10 bg-white text-titos-green-900 hover:bg-titos-green-100"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          {eligiendoCaja && numeroCaja ? (
+            <Button variant="ghost" onClick={() => setEligiendoCaja(false)} className="mt-4 w-full justify-center">
+              Seguir como Caja {numeroCaja}
+            </Button>
+          ) : null}
+        </Card>
+      </div>
+    );
   }
 
   if (sesion === null) {
@@ -1980,9 +2044,15 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
         {bannerSync}
         <Card className="mx-auto max-w-md">
           <div className="mb-1 flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-titos-green-900">Abrir caja</h2>
+            <h2 className="font-semibold text-titos-green-900">Abrir Caja {numeroCaja}</h2>
             {badgeConexion}
           </div>
+          <p className="mb-2 text-sm text-black/60">
+            Esta computadora es la <strong>Caja {numeroCaja}</strong>.{" "}
+            <button type="button" onClick={() => setEligiendoCaja(true)} className="font-semibold text-titos-green-700 hover:underline">
+              Cambiar
+            </button>
+          </p>
           <p className="mb-4 text-sm text-black/50">
             El fondo en pesos es el mismo para todas las cajas y lo define administración. La apertura necesita conexión para confirmar el importe vigente.
           </p>
@@ -2089,7 +2159,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           <div className="flex items-center gap-2 pr-1 text-xs text-black/50">
             {badgeConexion}
             <span>
-              Caja abierta {sesion.offline ? "(sin sincronizar)" : ""} · {formatMoney(sesion.efectivoInicial)} · desde
+              <strong className="text-black/70">Caja {sesion.numeroCaja ?? numeroCaja}</strong> abierta {sesion.offline ? "(sin sincronizar)" : ""} · {formatMoney(sesion.efectivoInicial)} · desde
               las {formatHora(sesion.fechaApertura, zonaHoraria)}
               {nombreCajero(sesion) ? ` · ${nombreCajero(sesion)}` : ""}
             </span>
@@ -3252,6 +3322,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
           sucursalNombre={sucursalNombre}
           zonaHoraria={zonaHoraria}
           cajero={nombreCajero(sesion ?? null) ?? ""}
+          numeroCaja={sesion?.numeroCaja ?? numeroCaja ?? 1}
           enLinea={isOnline}
           onPosponer={() => setModalLimite(false)}
           onTerminado={() => {

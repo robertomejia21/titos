@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
   const autorizacion = await verificarNipSupervisor(nip, ctx.sucursalId);

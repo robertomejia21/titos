@@ -1,4 +1,5 @@
 import Promocion from "@/models/Promocion";
+import { filtroCajaAbierta } from "@/lib/numeroCaja";
 import { fechaEnZona } from "@/lib/zonasHorarias";
 import { calcularPromociones, type ReglaPromocion } from "@/lib/motorPromociones";
 import { NextRequest, NextResponse } from "next/server";
@@ -170,10 +171,10 @@ export async function POST(req: NextRequest) {
 
   // La matriz vende de mostrador con su propia caja y descontando la existencia
   // del CEDIS; una sucursal descuenta su inventario.
-  const ctx = await contextoPuntoVenta(session);
+  const ctx = await contextoPuntoVenta(session, req);
   if (!ctx) return forbidden();
 
-  const sesionCaja = await CajaSesion.findOne({ sucursalId: ctx.sucursalId, estado: "abierta" });
+  const sesionCaja = await CajaSesion.findOne(filtroCajaAbierta(ctx));
   if (!sesionCaja) return badRequest("Debes abrir la caja antes de registrar ventas");
 
   // --- Pagos en dólares ---
