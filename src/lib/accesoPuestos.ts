@@ -64,7 +64,9 @@ export function accesoApiPuesto(s: SessionPayload, pathname: string, method: str
   // solo se deja pasar a quien opera el punto de venta o administra terminales.
   if (recurso === "banorte") return tiene("pos.vender", "pos.cancelar", "devoluciones.registrar", "catalogos.administrar", "configuracion.editar");
   if (recurso === "devoluciones") return tiene("devoluciones.registrar");
-  if (recurso === "caja") return parte[2] === "retiros" ? tiene("caja.retirar") : tiene("pos.vender");
+  // El POST de retiros también lo puede hacer quien solo cobra: es el retiro por
+  // límite de efectivo, que autoriza el gerente con su NIP (lo valida la ruta).
+  if (recurso === "caja") return parte[2] === "retiros" ? tiene("caja.retirar") || (method === "POST" && tiene("pos.vender")) : tiene("pos.vender");
   if (recurso === "motivos-pos") return get ? tiene("pos.vender") : tiene("configuracion.editar");
   if (recurso === "ventas2") return tiene("notasventa.administrar");
   if (recurso === "alertas-inventario") return tiene("inventario.administrar");

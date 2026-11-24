@@ -186,3 +186,19 @@ export function calcularEfectivoEsperadoUsd(
 ) {
   return redondear(efectivoInicialUsd + (resumen.totalVentasDolaresUsd ?? 0) - resumen.totalRetirosUsd);
 }
+
+/**
+ * Estado del cajón de pesos contra el límite de efectivo.
+ *
+ * El límite se mide SOBRE el fondo: con fondo de 1,000 y límite de 2,000, el
+ * retiro se exige cuando hay más de 3,000. El monto sugerido es lo que hay
+ * encima del fondo, redondeado hacia abajo a cientos para que salga en
+ * billetes y el cajón se quede con su fondo más el morralla.
+ */
+export function estadoLimiteEfectivo(efectivoEnCaja: number, fondo: number, limite: number) {
+  const excedente = redondear(Math.max(0, efectivoEnCaja - fondo));
+  const activo = limite > 0;
+  const requiereRetiro = activo && excedente - limite > 0.005;
+  const sugerido = Math.floor(excedente / 100) * 100;
+  return { excedente, limite, activo, requiereRetiro, sugerido };
+}

@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       tipoCambio: config.tipoCambio ?? 17,
       fondoCajaMxn: config.fondoCajaMxn ?? 1000,
+      limiteEfectivoCajaMxn: config.limiteEfectivoCajaMxn ?? 2000,
       reglasOperacion: config.reglasOperacion ?? REGLAS_OPERACION,
       // Se manda cuándo se actualizó para que el punto de venta pueda avisar
       // que el tipo de cambio ya tiene días sin moverse.
@@ -73,6 +74,11 @@ export async function PATCH(req: NextRequest) {
     const fondo = body.fondoCajaMxn;
     if (typeof fondo !== "number" || !Number.isFinite(fondo) || fondo < 0 || fondo > 1000000 || Math.abs(fondo * 100 - Math.round(fondo * 100)) > 0.00001) return badRequest("El fondo debe ser de 0 a 1,000,000 de pesos, con hasta dos decimales.");
     update.fondoCajaMxn = fondo;
+  }
+  if ("limiteEfectivoCajaMxn" in body) {
+    const limite = body.limiteEfectivoCajaMxn;
+    if (typeof limite !== "number" || !Number.isFinite(limite) || limite < 0 || limite > 1000000 || Math.abs(limite * 100 - Math.round(limite * 100)) > 0.00001) return badRequest("El límite de efectivo debe ser de 0 a 1,000,000 de pesos, con hasta dos decimales (0 lo desactiva).");
+    update.limiteEfectivoCajaMxn = limite;
   }
   if ("diasLaborales" in body) {
     if (!Array.isArray(body.diasLaborales) || body.diasLaborales.some((d: unknown) => !DIAS_SEMANA.includes(d as typeof DIAS_SEMANA[number]))) {

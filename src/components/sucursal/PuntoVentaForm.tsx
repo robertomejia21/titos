@@ -36,15 +36,17 @@ import { codigoSinLetraDeLector } from "@/lib/escaner";
 import { estadoCredito, formatFecha, type ClienteConCredito } from "@/lib/creditoCliente";
 import { motivoRechazoDolares, topeDolaresEnPesos, type ReglasDolares } from "@/lib/dolares";
 import { ETIQUETA_TIPO_TARJETA, TIPOS_TARJETA, type TipoTarjeta } from "@/lib/tarjetas";
-import { imprimirHTML, abrirVentanaTicket, cerrarVentanaTicket } from "@/lib/print";
+import { abrirVentanaTicket, cerrarVentanaTicket } from "@/lib/print";
 import { imprimirTicketVenta } from "@/lib/ticketVenta";
 import { cobroPrevioDeVenta, operarTerminal, type Avance, type TransaccionServidor } from "@/lib/cobroBanorte";
 import { estadoPuente, type EstadoPuente } from "@/lib/puenteCaja";
 import type { DatosBanortePago } from "@/lib/banorte";
 import { ArqueoModal } from "@/components/sucursal/ArqueoModal";
+import { RetiroLimiteModal, type EstadoEfectivoCaja } from "@/components/sucursal/RetiroLimiteModal";
+import { imprimirTicketRetiro as imprimirComprobanteRetiro, type RetiroTicket } from "@/lib/ticketRetiro";
 import { useZonaHoraria } from "@/components/ZonaHorariaProvider";
 import { RelojZona } from "@/components/RelojZona";
-import { fechaEnZona, formatFechaHora, formatHora, formatFechaLarga } from "@/lib/zonasHorarias";
+import { fechaEnZona, formatFechaHora, formatHora } from "@/lib/zonasHorarias";
 import { SkeletonTabla } from "@/components/Skeleton";
 import {
   leerProductosCache,
@@ -214,11 +216,8 @@ type CancelacionPendiente = {
 
 type MonedaCaja = "MXN" | "USD";
 
-type RetiroResp = {
-  folio: string;
-  monto: number;
+type RetiroResp = RetiroTicket & {
   moneda: MonedaCaja;
-  motivo: string;
   usuarioNombre: string;
   fecha: string;
 };
@@ -440,6 +439,11 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   const [retirando, setRetirando] = useState(false);
   const [errorRetiro, setErrorRetiro] = useState<string | null>(null);
   const [ultimoRetiro, setUltimoRetiro] = useState<RetiroResp | null>(null);
+  // Límite de efectivo: cuando el cajón de pesos pasa de fondo + límite, se abre
+  // sola la ventana de retiro parcial para el gerente. `estadoEfectivo` también
+  // alimenta el aviso fijo de la barra mientras siga pendiente.
+  const [estadoEfectivo, setEstadoEfectivo] = useState<EstadoEfectivoCaja | null>(null);
+  const [modalLimite, setModalLimite] = useState(false);
 
   const [modalCorte, setModalCorte] = useState(false);
   const [modalArqueo, setModalArqueo] = useState(false);
@@ -647,12 +651,49 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }, []);
 
   useEffect(() => {
-    if (!pesaje && !ventaCompletada && !modalRetiro && !modalCorte && !modalArqueo && !modalPrecio && !modalCobro && !cancelacion) {
+    if (!pesaje && !ventaCompletada && !modalRetiro && !modalCorte && !modalArqueo && !modalPrecio && !modalCobro && !cancelacion && !modalLimite) {
       inputRef.current?.focus();
     }
     // Por el número de renglones y no por el carrito completo: si no, al teclear la cantidad de un
     // renglón el cursor se regresaba a la búsqueda con cada tecla.
-  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalArqueo, modalPrecio, modalCobro, cancelacion, carrito.length]);
+  }, [pesaje, ventaCompletada, modalRetiro, modalCorte, modalArqueo, modalPrecio, modalCobro, cancelacion, modalLimite, carrito.length]);
+
+  /**
+   * Pregunta al servidor cuánto efectivo hay en el cajón y, si ya pasó del
+   * límite, abre la ventana de retiro parcial. Sin conexión no hace nada: el
+   * retiro necesita validar el NIP del gerente en el servidor de todos modos.
+   */
+  const revisarLimiteEfectivo = useCallback(async (abrir = true) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    try {
+      const res = await fetch("/api/caja/actual/efectivo");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.abierta) {
+        setEstadoEfectivo(null);
+        return;
+      }
+      setEstadoEfectivo(data as EstadoEfectivoCaja);
+      if (abrir && data.requiereRetiro) setModalLimite(true);
+    } catch {
+      // Sin red: se vuelve a revisar en el siguiente cobro o en la siguiente vuelta.
+    }
+  }, []);
+
+  // Al abrir la caja (o al entrar con una ya abierta) y cada 5 minutos: la
+  // cobranza de clientes también mete efectivo y no pasa por el cobro.
+  const sesionId = sesion?._id ?? null;
+  useEffect(() => {
+    if (!sesionId) return;
+    const primera = window.setTimeout(() => revisarLimiteEfectivo(), 0);
+    const intervalo = window.setInterval(() => revisarLimiteEfectivo(), 5 * 60 * 1000);
+    return () => {
+      window.clearTimeout(primera);
+      window.clearInterval(intervalo);
+    };
+  }, [sesionId, revisarLimiteEfectivo]);
+  // Con la caja cerrada no hay aviso aunque quede el último estado consultado.
+  const avisoEfectivo = sesionId ? estadoEfectivo : null;
 
   const cargarResumenCorte = useCallback(async () => {
     if (!navigator.onLine) {
@@ -680,7 +721,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       // Con una ventana abierta los atajos se apagan: abrir el retiro encima
       // del cobro dejaría dos operaciones a medias.
       const hayModal =
-        !!pesaje || !!ventaCompletada || modalRetiro || modalCorte || modalArqueo || modalPrecio || modalCobro || !!cancelacion || modalAtajos;
+        !!pesaje || !!ventaCompletada || modalRetiro || modalCorte || modalArqueo || modalPrecio || modalCobro || !!cancelacion || modalAtajos || modalLimite;
 
       const abrirPrecio = () => {
         setPrecioCodigo("");
@@ -772,6 +813,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
     modalCobro,
     cancelacion,
     modalAtajos,
+    modalLimite,
   ]);
 
   const itemsParaPrecio = useMemo(() => carrito.map((l) => {
@@ -1641,6 +1683,8 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       setModalCobro(false);
       setVentaCompletada(venta);
       imprimirTicket(venta, ventanaTicket);
+      // La ventana del límite espera a que se cierre la de venta completada.
+      revisarLimiteEfectivo();
       const eraCredito = nCredito > 0;
       limpiarCarritoYPago();
       if (eraCredito) recargarClientes();
@@ -1815,6 +1859,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       setRetiroClave("");
       setRetiroNip("");
       setUltimoRetiro(retiro);
+      revisarLimiteEfectivo(false);
     } catch {
       setErrorRetiro("Se perdió la conexión. El retiro no se registró, inténtalo de nuevo.");
     } finally {
@@ -1823,32 +1868,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
   }
 
   function imprimirTicketRetiro(retiro: RetiroResp) {
-    const simbolo = retiro.moneda === "USD" ? "USD" : "MXN";
-    const monto = retiro.moneda === "USD" ? formatDolares(retiro.monto) : formatMoney(retiro.monto);
-    imprimirHTML(
-      `Retiro ${retiro.folio}`,
-      `
-        <h1>Comprobante de retiro de efectivo</h1>
-        <p class="subtitulo">Folio ${retiro.folio}</p>
-        <table>
-          <tbody>
-            <tr><th>Sucursal</th><td>${sucursalNombre || "—"}</td></tr>
-            <tr><th>Fecha y hora</th><td>${formatFechaLarga(retiro.fecha, zonaHoraria)} · ${formatHora(
-              retiro.fecha,
-              zonaHoraria
-            )}</td></tr>
-            <tr><th>Autorizó</th><td>${retiro.usuarioNombre || "—"}</td></tr>
-            <tr><th>Moneda</th><td>${simbolo}</td></tr>
-            <tr><th>Monto</th><td><strong>${monto} ${simbolo}</strong></td></tr>
-            <tr><th>Motivo</th><td>${retiro.motivo}</td></tr>
-          </tbody>
-        </table>
-        <p class="subtitulo" style="margin-top:32px">
-          Firma de quien recibe: ______________________________
-        </p>
-      `,
-      zonaHoraria
-    );
+    imprimirComprobanteRetiro(retiro, { sucursalNombre, zonaHoraria, cajero: nombreCajero(sesion ?? null) ?? "" });
   }
 
   async function confirmarCorte() {
@@ -2022,6 +2042,18 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
             >
               Consultar precio <span className="text-xs text-black/35">(F2)</span>
             </button>
+            {avisoEfectivo?.requiereRetiro ? (
+              <button
+                onClick={() => {
+                  revisarLimiteEfectivo();
+                  setModalLimite(true);
+                }}
+                className="animate-pulse rounded bg-amber-500 px-2.5 py-1 text-sm font-semibold text-white hover:bg-amber-600"
+                title="La caja pasó el límite de efectivo"
+              >
+                Retiro requerido · {formatMoney(avisoEfectivo.excedente)}
+              </button>
+            ) : null}
             <button
               onClick={() => {
                 abrirModalRetiro();
@@ -3084,7 +3116,7 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
                 </div>
                 <div className="flex justify-between">
                   <span className="text-black/50">Autorizó</span>
-                  <span className="font-medium">{ultimoRetiro.usuarioNombre || "—"}</span>
+                  <span className="font-medium">{ultimoRetiro.autorizadoPorNombre || ultimoRetiro.usuarioNombre || "—"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-black/50">Fecha y hora</span>
@@ -3203,6 +3235,31 @@ export function PuntoVentaForm({ sucursalNombre = "" }: { sucursalNombre?: strin
       ) : null}
 
       {modalArqueo ? <ArqueoModal onClose={() => setModalArqueo(false)} /> : null}
+
+      {/* Solo cuando no hay otra operación a medias: tras un cobro, espera a que
+          se cierre la ventana de venta completada. */}
+      {modalLimite &&
+      avisoEfectivo &&
+      !ventaCompletada &&
+      !modalCobro &&
+      !pesaje &&
+      !cancelacion &&
+      !modalRetiro &&
+      !modalCorte &&
+      !modalArqueo ? (
+        <RetiroLimiteModal
+          estado={avisoEfectivo}
+          sucursalNombre={sucursalNombre}
+          zonaHoraria={zonaHoraria}
+          cajero={nombreCajero(sesion ?? null) ?? ""}
+          enLinea={isOnline}
+          onPosponer={() => setModalLimite(false)}
+          onTerminado={() => {
+            setModalLimite(false);
+            revisarLimiteEfectivo(false);
+          }}
+        />
+      ) : null}
       {modalCorte ? (
         <Modal open onClose={cerrarModalCorte} title="Nuevo corte de caja" icon={ClipboardCheck} size="lg">
           {corteCerrado ? (

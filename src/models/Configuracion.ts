@@ -56,6 +56,11 @@ const ConfiguracionSchema = new Schema(
     horaCorte: { type: String, default: "16:00" },
     tipoCambio: { type: Number, default: 17 },
     fondoCajaMxn: { type: Number, default: 1000, min: 0, max: 1000000 },
+    // Cuánto efectivo en pesos puede juntar una caja ENCIMA de su fondo antes de
+    // que el punto de venta exija un retiro parcial. Con el fondo de 1,000 y este
+    // límite de 2,000, el aviso salta cuando el cajón pasa de 3,000. 0 = sin
+    // límite (no se pide ningún retiro automático).
+    limiteEfectivoCajaMxn: { type: Number, default: 2000, min: 0, max: 1000000 },
     reglasOperacion: {
       costosCompra: {type: String, enum: ["pendiente", "sin_impuestos", "incluidos"], default: "pendiente"},
       baseIvaCompra: {type: String, enum: ["pendiente", "costo", "costo_ieps"], default: "pendiente"},

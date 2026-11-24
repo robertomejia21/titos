@@ -223,7 +223,10 @@ export async function consultarBitacora(filtros: FiltrosBitacora, limite = 200):
         sucursalNombre: "",
         usuarioId: m.usuarioId ? String(m.usuarioId) : null,
         usuarioNombre: m.usuarioNombre ?? "",
-        descripcion: `Retiró efectivo de la caja (${m.moneda})`,
+        descripcion:
+          m.origen === "limite"
+            ? `Retiro parcial por límite de efectivo (${m.moneda})`
+            : `Retiró efectivo de la caja (${m.moneda})`,
         detalle: [m.motivo, m.autorizadoPorNombre ? `autorizó ${m.autorizadoPorNombre}` : ""]
           .filter(Boolean)
           .join(" · "),
