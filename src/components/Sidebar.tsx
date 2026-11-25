@@ -53,7 +53,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import { opcionesBusqueda, type ResultadoBusqueda } from "@/lib/busqueda";
+import { opcionesBusqueda } from "@/lib/busqueda";
 import { permisoDeRuta, tienePermiso } from "@/lib/permisos";
 
 // "exact" es para las rutas que son padre de otras (el punto de venta del
@@ -252,26 +252,9 @@ export function Sidebar({
 
   const [busqueda, setBusqueda] = useState("");
 
-  const [productosEncontrados, setProductosEncontrados] = useState<{consulta: string; items: ResultadoBusqueda[]}>({consulta: "", items: []});
-  const [errorBusqueda, setErrorBusqueda] = useState("");
+  // El buscador del menú solo localiza secciones; los productos se buscan en
+  // sus propias pantallas (Productos, punto de venta).
   const opciones = useMemo(() => opcionesBusqueda(busqueda, role, visible), [busqueda, role, visible]);
-  const productos = useMemo(() => productosEncontrados.consulta === busqueda ? productosEncontrados.items : [], [productosEncontrados, busqueda]);
-  useEffect(() => {
-    if (busqueda.trim().length < 2) return;
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        setErrorBusqueda("");
-        const res = await fetch(`/api/busqueda?q=${encodeURIComponent(busqueda)}`, {signal: controller.signal});
-        if (!res.ok) throw new Error("No se pudieron buscar productos");
-        const data = await res.json();
-        setProductosEncontrados({consulta: busqueda, items: data.productos});
-      } catch (error) {
-        if (!controller.signal.aborted) setErrorBusqueda((error as Error).message);
-      }
-    }, 250);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [busqueda]);
 
   const categoriasVisibles = useMemo(
     () =>
@@ -290,17 +273,16 @@ export function Sidebar({
   );
 
   const buscando = busqueda.trim().length > 0;
-  const buscandoProductos = busqueda.trim().length >= 2 && productosEncontrados.consulta !== busqueda && !errorBusqueda;
   const sinResultados =
-    buscando && !buscandoProductos && opciones.length === 0 && productos.length === 0 && (role === "matriz" ? categoriasVisibles.length === 0 : itemsSucursalVisibles.length === 0);
+    buscando && opciones.length === 0 && (role === "matriz" ? categoriasVisibles.length === 0 : itemsSucursalVisibles.length === 0);
 
   /** Primera entrada de la lista filtrada: es a la que lleva Enter. */
   const primerResultado = useMemo(() => {
     if (!buscando) return null;
     const lista =
       role === "matriz" ? categoriasVisibles.flatMap((c) => c.items) : itemsSucursalVisibles;
-    return opciones[0] ?? productos[0] ?? lista[0] ?? null;
-  }, [buscando, role, categoriasVisibles, itemsSucursalVisibles, opciones, productos]);
+    return opciones[0] ?? lista[0] ?? null;
+  }, [buscando, role, categoriasVisibles, itemsSucursalVisibles, opciones]);
   // El rol de ventas arranca con el menú compacto para maximizar el punto de venta
   const [collapsed, setCollapsed] = useState(soloVentas);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -435,7 +417,7 @@ export function Sidebar({
               <input
                 type="search"
                 value={busqueda}
-                onChange={(e) => {setBusqueda(e.target.value); setErrorBusqueda("");}}
+                onChange={(e) => setBusqueda(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
                     setBusqueda("");
@@ -450,8 +432,8 @@ export function Sidebar({
                     setMobileOpen(false);
                   }
                 }}
-                placeholder="Buscar opciones o productos..."
-                aria-label="Buscar opciones o productos"
+                placeholder="Buscar en el menú..."
+                aria-label="Buscar en el menú"
                 className="w-full rounded-lg border border-black/10 bg-black/2 py-2 pl-8 pr-2.5 text-sm text-titos-green-900 outline-none placeholder:text-black/30 focus:border-titos-green-500 focus:bg-white"
               />
             </div>
@@ -460,13 +442,11 @@ export function Sidebar({
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
           {buscando ? <div aria-live="polite">
-            {[...opciones, ...productos].map((resultado) => <Link key={resultado.href} href={resultado.href}
+            {opciones.map((resultado) => <Link key={resultado.href} href={resultado.href}
               onClick={() => {setBusqueda(""); setMobileOpen(false);}}
               className="block rounded-lg px-3 py-2.5 text-sm text-titos-green-900 hover:bg-titos-green-100 focus-visible:outline-2 focus-visible:outline-titos-green-600">
               <span className="block text-xs text-black/60">{resultado.grupo}</span>{resultado.label}
             </Link>)}
-            {buscandoProductos ? <p className="px-3 text-sm text-black/60">Buscando productos…</p> : null}
-            {errorBusqueda ? <p role="status" className="px-3 text-sm text-red-700">{errorBusqueda}</p> : null}
           </div> : null}
           {sinResultados ? (
             <p className="px-3 py-6 text-center text-sm text-black/40">
